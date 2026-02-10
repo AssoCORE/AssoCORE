@@ -76,7 +76,7 @@ CI/CD pipeline automation for continuous integration and deployment.
 
 ## Infrastructure Architecture
 
-```schema
+```txt
 ┌─────────────────┐
 │  GitHub Actions │ ──► CI/CD Pipeline
 └────────┬────────┘

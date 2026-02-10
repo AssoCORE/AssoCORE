@@ -76,7 +76,7 @@ Built-in security features: JWT authentication, password hashing, input validati
 
 ## System Architecture Overview
 
-```schema
+```txt
 ┌──────────────────────────────────────────────────┐
 │              GitHub Actions                       │
 │         (CI/CD Pipeline)                         │
