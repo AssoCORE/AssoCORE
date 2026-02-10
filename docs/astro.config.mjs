@@ -71,6 +71,10 @@ export default defineConfig({
 					autogenerate: { directory: 'case-studies' },
 				},
 				{
+					label: 'Legal',
+					autogenerate: { directory: 'legal' },
+				},
+				{
 					label: 'Contributing',
 					autogenerate: { directory: 'contributing' },
 				},
