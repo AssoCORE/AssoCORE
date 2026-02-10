@@ -1,6 +1,6 @@
 # AssoCORE — Association Management Platform
 
-###### An <img src="https://newsroom.ionis-group.com/wp-content/uploads/2023/09/epitech-2023-logo-m.png" height=18/> EIP project
+###### An <img src="https://newsroom.ionis-group.com/wp-content/uploads/2023/09/epitech-2023-logo-m.png" height=18/> Innovative project
 
 [Project](#project) • [Vision](#vision) • [Features](#features) • [Architecture](#architecture) • [Usage](#usage) • [Team](#team)
 
