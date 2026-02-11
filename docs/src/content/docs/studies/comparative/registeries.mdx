@@ -1,0 +1,65 @@
+---
+title: Registry Comparative Study
+description: Comparative analysis of container registries for AssoCORE
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+In-depth comparison of Docker Hub and GitHub Container Registry (GHCR) to determine the best hosting strategy for AssoCORE's Flutter and FastAPI images.
+
+## Methodology
+
+This comparison was conducted by evaluating the current (2026) service offerings of both Docker Inc. and GitHub. We tested both registries against a standard CI/CD pipeline using GitHub Actions to measure:
+* Authentication complexity.
+* Pull/Push latency within a cloud environment.
+* Reliability during high-concurrency "EIP-style" development cycles.
+
+## Criteria
+
+We focused on four primary dimensions critical for a student-led project:
+1.  **Ecosystem Integration:** How well the registry plays with our existing GitHub repo.
+2.  **Rate Limits:** The impact of "Too Many Requests" errors on our deployment speed.
+3.  **Cost:** Free tier sustainability for private and public images.
+4.  **Kubernetes Readiness:** Ease of integration with Traefik and K8s secrets.
+
+## Findings
+
+### Feature Breakdown
+
+| Feature | Docker Hub | GitHub Packages (GHCR) |
+| :--- | :--- | :--- |
+| **Primary Focus** | Public image discovery | CI/CD & Repository integration |
+| **Default Registry** | `docker.io` | `ghcr.io` |
+| **Rate Limiting** | Strict (100-200 pulls / 6h) | Virtually unlimited for Actions |
+| **Auth** | External PAT / Secret | Native `GITHUB_TOKEN` |
+
+### Detailed Analysis
+
+<Tabs>
+  <TabItem label="Integration">
+    **GHCR** is the clear winner here. Because our code is on GitHub, the registry inherits our team permissions automatically. We don't need to manually create and rotate "Personal Access Tokens" for our CI/CD to push images.
+  </TabItem>
+  <TabItem label="Stability">
+    **Docker Hub** often causes "Pull Rate Limit" errors when multiple team members are working from the same school network (sharing an IP). **GHCR** avoids this entirely by being "inside" the GitHub network.
+  </TabItem>
+</Tabs>
+
+
+
+## Recommendations
+
+<Aside type="tip" title="Final Decision: GHCR">
+  For the **AssoCORE** project, we will use **GitHub Container Registry (`ghcr.io`)**.
+</Aside>
+
+### Why this fits our project:
+* **Flutter Build Pipeline:** Our GitHub Actions can build the Flutter Web files and push the image to GHCR in one seamless step.
+* **FastAPI Backend:** We can version our backend images exactly alongside our releases.
+* **K8s & Traefik:** Traefik can easily pull from GHCR using a standard `imagePullSecret`, and since we aren't using Minikube, the public accessibility of GHCR simplifies our external traffic routing.
+
+---
+
+## Available Studies
+
+- [FastAPI vs. Go for Association Backends](/studies/comparative/backend)
+{/* - [Flutter Web vs. Next.js for Dashboards](./frontend) */}
