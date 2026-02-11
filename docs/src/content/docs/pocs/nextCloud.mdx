@@ -1,0 +1,141 @@
+---
+title: Nextcloud Integration POC
+description: Proof of Concept for decentralized storage and document management in AssoCORE.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+# Proof of Concepts (POCs)
+
+Explore experimental features, prototypes, and proof of concepts developed for **AssoCORE**.
+
+## What are POCs?
+
+POCs are experimental implementations that validate new ideas, technologies, or approaches before full implementation in AssoCORE. They allow us to fail fast or confirm technical feasibility without risking the stability of the main codebase.
+
+---
+
+## Active POC: Nextcloud Integration
+
+<Card title="Nextcloud Storage Engine" icon="document">
+  **Brief Description:** Implementing a self-hosted cloud storage solution to handle association documents, member files, and shared assets.
+
+  **Status:** <Badge text="Complete" variant="success" size="medium" />
+
+  **Findings:** Successfully validated the Dockerized deployment, Redis caching performance, and the `occ` CLI utility. Ready for Kubernetes migration.
+</Card>
+
+### 1. Ideation
+Associations need a secure, GDPR-compliant way to store sensitive documents. Standard S3 buckets lack the user-friendly interface and document collaboration features (Office editing) that Nextcloud provides natively.
+
+### 2. Prototyping (Deployment Guide)
+
+To validate this approach, we deployed a three-tier stack (App, Database, Cache).
+
+<Steps>
+1.  **Directory Structure Setup**
+    Ensure persistent volumes are ready to avoid data loss during container restarts.
+    ```bash
+    mkdir nextcloud-poc && cd nextcloud-poc
+    mkdir -p data/nextcloud data/db data/redis
+    sudo chown -R 33:33 data/nextcloud # Essential for www-data permissions
+    ```
+
+2.  **Compose Configuration**
+    Create `docker-compose.yml` with optimized MariaDB and Redis environment variables.
+
+    <Aside type="note" title="Security Tip">
+      In this POC, we use environment variables for passwords. For production Kubernetes, these will be replaced by **SealedSecrets**.
+    </Aside>
+
+    ```yaml
+    services:
+      db:
+        image: mariadb:10.11
+        restart: always
+        command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+        volumes:
+          - ./data/db:/var/lib/mysql
+        environment:
+          - MYSQL_ROOT_PASSWORD=root_password
+          - MYSQL_PASSWORD=nextcloud_db_password
+          - MYSQL_DATABASE=nextcloud
+          - MYSQL_USER=nextcloud
+
+      redis:
+        image: redis:alpine
+        restart: always
+
+      app:
+        image: nextcloud:latest
+        ports:
+          - "8080:80"
+        depends_on:
+          - db
+          - redis
+        environment:
+          - MYSQL_PASSWORD=nextcloud_db_password
+          - MYSQL_DATABASE=nextcloud
+          - MYSQL_USER=nextcloud
+          - MYSQL_HOST=db
+          - REDIS_HOST=redis
+        volumes:
+          - ./data/nextcloud:/var/www/html
+    ```
+
+3.  **Initialization**
+    Deploy the stack and monitor the logs for the Apache "Ready" signal.
+    ```bash
+    docker compose up -d
+    docker compose logs -f app
+    ```
+</Steps>
+
+### 3. Validation
+
+We verified the POC against four critical success factors:
+
+<CardGrid>
+  <Card title="Performance" icon="rocket">
+    Verified Redis integration via `config.php` to prevent PHP opcache bottlenecks.
+  </Card>
+  <Card title="Persistence" icon="save">
+    Confirmed that stopping/starting containers preserves user files via mapped volumes.
+  </Card>
+  <Card title="CLI Control" icon="terminal">
+    Tested `php occ` commands for headless user management and maintenance.
+  </Card>
+  <Card title="Scalability" icon="add-document">
+    Analyzed the difficulty of moving from local volumes to S3-compatible storage.
+  </Card>
+</CardGrid>
+
+### 4. Decision
+
+<Aside type="tip" title="Verdict: Integrate">
+  The POC is successful. We will move forward with integrating Nextcloud as the primary storage engine for AssoCORE.
+</Aside>
+
+**Next Steps for Integration:**
+* Replace Docker Compose port mapping with **Traefik IngressRoutes**.
+* Implement **External Auth (OIDC)** so users login with their AssoCORE credentials.
+* Automate deployment via **Helm Charts** in our Kubernetes cluster.
+
+---
+
+## POC Process
+
+<Tabs>
+  <TabItem label="Ideation">
+    Identify a specific problem (e.g., "File storage is too complex") and propose a high-level solution.
+  </TabItem>
+  <TabItem label="Prototyping">
+    Build a Minimal Viable Prototype (MVP) using isolated environments like Docker.
+  </TabItem>
+  <TabItem label="Validation">
+    Test the prototype against real-world scenarios, stressing the I/O and security.
+  </TabItem>
+  <TabItem label="Decision">
+    **Integrate** (Move to production), **Iterate** (Fix flaws and re-test), or **Archive** (Discard).
+  </TabItem>
+</Tabs>

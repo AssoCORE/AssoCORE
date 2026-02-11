@@ -1,0 +1,77 @@
+---
+title: Backend & Database Strategy
+description: Comparative analysis of the core stack and performance evolution for AssoCORE
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+This study defines the technical foundation for AssoCORE, evaluating the trade-offs between development velocity and long-term performance scalability.
+
+## 1. Backend Framework Analysis
+
+### Methodology
+We evaluated frameworks based on their **Async I/O** capabilities and **Performance Ceiling**—the maximum efficiency reachable when bypassing high-level abstractions.
+
+### Criteria
+* **Async Performance:** Handling thousands of concurrent member requests.
+* **Developer Velocity:** Speed of implementation using SQLAlchemy.
+* **Optimization Path:** Ease of dropping down to Raw SQL.
+
+### Findings
+| Framework | Performance (RPS) | Dev Speed | Optimization Path |
+| :--- | :--- | :--- | :--- |
+| **FastAPI** | High | **Highest** | **Native Raw SQL support** |
+| **Go (Fiber)** | **Ultra High** | Moderate | Direct SQL |
+| **Django** | Moderate | High | Complex to optimize |
+
+<Tabs>
+  <TabItem label="FastAPI (Chosen)">
+    **FastAPI** provides the best "Performance-to-Velocity" ratio. Its native support for `async/await` and Pydantic ensures high speed during initial development, while its architecture allows us to swap ORM logic for optimized SQL queries without a complete rewrite.
+  </TabItem>
+  <TabItem label="Go (Golang)">
+    While Go offers superior raw CPU performance, the development overhead for frequent business logic changes in an association management context makes it less efficient than the FastAPI + Python ecosystem.
+  </TabItem>
+</Tabs>
+
+---
+
+## 2. Database & Storage Strategy
+
+### Methodology
+We compared **PostgreSQL** (Relational) against **MongoDB** (NoSQL), focusing on data integrity for financial records and the ability to perform high-speed manual query tuning.
+
+### Findings
+<Aside type="tip" title="Strategic Choice: PostgreSQL">
+  PostgreSQL is our primary choice because it offers strict **ACID compliance** for membership dues while providing **JSONB** for flexible metadata.
+</Aside>
+
+| Feature | PostgreSQL | MongoDB |
+| :--- | :--- | :--- |
+| **Integrity** | Strict Foreign Keys | Eventual Consistency |
+| **Performance** | **Ultra-fast Raw SQL** | Slower Aggregations |
+| **Flexibility** | Hybrid (Tables + JSONB) | Native JSON |
+
+---
+
+## 3. The "Raw SQL" Evolution
+
+<Aside type="caution" title="Performance Roadmap">
+  To ensure AssoCORE remains fast as associations grow to thousands of members, we will architect the system to transition from **SQLAlchemy** to **Raw SQL** for critical paths.
+</Aside>
+
+### Why Raw SQL?
+1. **Eliminating the ORM Tax:** Bypassing the object-relational mapping layer reduces CPU usage and memory overhead.
+2. **Precision Tuning:** We can use PostgreSQL-specific features (e.g., Common Table Expressions, Window Functions) that ORMs often struggle to optimize.
+3. **Async Efficiency:** Using the **`asyncpg`** driver directly allows for significantly higher throughput than standard ORM-wrapped sessions.
+
+### Architectural Safeguards
+To make this transition possible without breaking the project:
+* **Repository Pattern:** All database interactions will be abstracted into "Repository" classes.
+* **Interface Decoupling:** API routes will interact with Pydantic schemas, never with SQLAlchemy models directly.
+* **Driver Selection:** We are standardizing on `asyncpg` to ensure compatibility between our initial ORM code and future Raw SQL optimizations.
+
+---
+
+## Available Studies
+
+- [Container Registry Analysis: Docker Hub vs GHCR](/studies/comparative/registeries)

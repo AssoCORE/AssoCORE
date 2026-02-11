@@ -45,7 +45,17 @@ This study evaluates frameworks based on their suitability for high-concurrency 
   </TabItem>
 </Tabs>
 
+## Optimization & Future Scalability
 
+<Aside type="caution" title="Performance Evolution">
+  While we start with **SQLAlchemy** for rapid development, we acknowledge that ORMs introduce overhead. We may switch to **Raw SQL** (using `asyncpg`) for critical high-traffic endpoints in the future.
+</Aside>
+
+### Architectural Requirements for SQL Transition:
+To allow a smooth transition to Raw SQL without rewriting the entire backend, we will:
+* **Decouple Logic:** Use a **Repository Pattern** to isolate database calls from our FastAPI routes.
+* **Interface Consistency:** Ensure Pydantic schemas remain the source of truth for data shapes, regardless of whether the data comes from an ORM or a raw row-set.
+* **Dependency Injection:** Use FastAPI's `Depends` to inject database sessions, making it easier to swap the underlying driver later.
 
 ## Recommendations
 
@@ -63,4 +73,4 @@ This study evaluates frameworks based on their suitability for high-concurrency 
 ## Available Studies
 
 - [Container Registry Analysis: Docker Hub vs GHCR](/studies/comparative/registeries)
-{/* - [Database Strategy: PostgreSQL vs. NoSQL](./database-analysis) */}
+- [Database Strategy: PostgreSQL vs. NoSQL](/studies/comparative/database)
