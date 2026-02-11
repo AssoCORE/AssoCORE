@@ -18,11 +18,11 @@ Executive summary: Short, actionable guidance for building privacy-first associa
 ## Principles (Privacy by Design)
 
 <CardGrid>
-  <Card title="Minimize Data" icon="shield">
+  <Card title="Minimize Data" icon="warning">
     Collect only what's necessary for the purpose.
   </Card>
 
-  <Card title="Secure by Default" icon="lock">
+  <Card title="Secure by Default" icon="rocket">
     Safe defaults for profiles, opt-ins unchecked, least privilege access.
   </Card>
 
@@ -118,7 +118,7 @@ Collect only data required for membership or legal obligations.
     </Aside>
   </Card>
 
-  <Card title="Right to Rectification" icon="pencil">
+  <Card title="Right to Rectification" icon="document">
     **Implementation:**
     - Allow profile updates in the UI
     - Keep an edit audit trail
@@ -129,7 +129,7 @@ Collect only data required for membership or legal obligations.
     </Aside>
   </Card>
 
-  <Card title="Right to Erasure" icon="trash">
+  <Card title="Right to Erasure" icon="warning">
     **Implementation:**
     - Implement soft-delete plus anonymization, or
     - Full deletion where legally permitted
@@ -248,14 +248,14 @@ Collect only data required for membership or legal obligations.
     - [ ] Accessible consent mechanisms
   </Card>
 
-  <Card title="Authentication" icon="lock">
+  <Card title="Authentication" icon="rocket">
     - [ ] Enforce strong password hashing (bcrypt/Argon2)
     - [ ] Implement MFA for admin roles
     - [ ] No plaintext passwords anywhere
     - [ ] Rate limiting on auth endpoints
   </Card>
 
-  <Card title="Transport Security" icon="shield">
+  <Card title="Transport Security" icon="star">
     - [ ] TLS enforced on all endpoints
     - [ ] HSTS configured
     - [ ] Secure cookies (HttpOnly, Secure, SameSite)

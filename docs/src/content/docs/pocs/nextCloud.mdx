@@ -5,16 +5,6 @@ description: Proof of Concept for decentralized storage and document management 
 
 import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
 
-# Proof of Concepts (POCs)
-
-Explore experimental features, prototypes, and proof of concepts developed for **AssoCORE**.
-
-## What are POCs?
-
-POCs are experimental implementations that validate new ideas, technologies, or approaches before full implementation in AssoCORE. They allow us to fail fast or confirm technical feasibility without risking the stability of the main codebase.
-
----
-
 ## Active POC: Nextcloud Integration
 
 <Card title="Nextcloud Storage Engine" icon="document">
@@ -99,13 +89,13 @@ We verified the POC against four critical success factors:
   <Card title="Performance" icon="rocket">
     Verified Redis integration via `config.php` to prevent PHP opcache bottlenecks.
   </Card>
-  <Card title="Persistence" icon="save">
-    Confirmed that stopping/starting containers preserves user files via mapped volumes.
+  <Card title="Persistence" icon="document">
+  Confirmed that stopping/starting containers preserves user files via mapped volumes.
   </Card>
-  <Card title="CLI Control" icon="terminal">
+  <Card title="CLI Control" icon="seti:shell">
     Tested `php occ` commands for headless user management and maintenance.
   </Card>
-  <Card title="Scalability" icon="add-document">
+  <Card title="Scalability" icon="rocket">
     Analyzed the difficulty of moving from local volumes to S3-compatible storage.
   </Card>
 </CardGrid>

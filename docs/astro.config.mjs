@@ -8,6 +8,9 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'AssoCORE',
+			customCss: [
+				'./src/styles/custom.css',
+			],
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/AssoCORE/AssoCORE' }
 			],
