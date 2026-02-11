@@ -1,0 +1,336 @@
+---
+title: GDPR Compliance
+description: Research and actionable guidance for association apps
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+Executive summary: Short, actionable guidance for building privacy-first association software. Covers architecture, data minimization, user rights, retention, and developer checklist based on CNIL guidance.
+
+<Aside type="note" title="Scope">
+  Applies to web and mobile applications that store or process member personal data, payment metadata, and any data revealing sensitive attributes.
+</Aside>
+
+**Sources:**
+- [CNIL Developer's Guide](https://lincnil.github.io/Guide-RGPD-du-developpeur/)
+- [CNIL Guide for Associations](https://www.cnil.fr/sites/cnil/files/atoms/files/cnil-guide_association.pdf)
+
+## Principles (Privacy by Design)
+
+<CardGrid>
+  <Card title="Minimize Data" icon="shield">
+    Collect only what's necessary for the purpose.
+  </Card>
+
+  <Card title="Secure by Default" icon="lock">
+    Safe defaults for profiles, opt-ins unchecked, least privilege access.
+  </Card>
+
+  <Card title="Transparency" icon="approve-check">
+    Provide clear notices and data export tools.
+  </Card>
+</CardGrid>
+
+## 1. Architecture & Technology Choices
+
+<Aside type="tip">
+  Use proven, actively maintained frameworks and libraries. Track versions and apply security patches promptly.
+</Aside>
+
+**Infrastructure:**
+- Prefer EU-hosted infrastructure or ensure lawful data transfers (SCCs or adequacy decisions) when using non-EU providers
+- Audit dependencies regularly (Dependabot, `npm audit`, Snyk)
+
+### Security Controls
+
+<Tabs>
+  <TabItem label="Transport Security">
+    - Enforce TLS for all traffic
+    - Enable HSTS for web apps
+    - Use secure cookies with `HttpOnly` and `Secure` flags
+
+    <Aside type="caution">
+      All data in transit must be encrypted.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Data at Rest">
+    - Encrypt sensitive fields (financial identifiers) where feasible
+    - Use column-level encryption for highly sensitive data
+    - Secure backup encryption
+
+    <Aside>
+      Consider encryption performance impact on query operations.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Authentication">
+    - Never store plaintext passwords
+    - Use Argon2 or bcrypt with appropriate parameters
+    - Implement password strength requirements
+    - Enable MFA for admin roles
+
+    <Aside type="tip" title="Password Hashing">
+      Use bcrypt with a cost factor of at least 12 for production.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Authorization">
+    - Implement RBAC/ACL
+    - Roles: member, volunteer, admin
+    - Apply least privilege principle
+    - Audit access to sensitive data
+
+    <Aside type="note">
+      Regular access audits help identify privilege creep.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## 2. Data Minimization and Collection
+
+Collect only data required for membership or legal obligations.
+
+### Collection Guidelines
+
+| Data | When to collect | Recommendation |
+| ---: | --- | --- |
+| Identity (name, email) | Required for membership & communication | Keep; restrict access |
+| Date of birth | Only if age affects eligibility or pricing | Collect only when needed |
+| Family situation | Rarely required | Do not collect by default |
+| Financial data (card numbers) | **Never store card PANs** | Use PCI-compliant payment providers; store only transaction IDs/status |
+
+<Aside type="caution" title="PCI Compliance">
+  Never store full credit card numbers. Always use payment processors for handling card data.
+</Aside>
+
+## 3. User Rights (Implementation Suggestions)
+
+<CardGrid>
+  <Card title="Right of Access" icon="document">
+    **Implementation:**
+    - Provide a data export (CSV/JSON) from the user area
+    - Include all personal data stored
+    - Make it easily accessible in user settings
+
+    <Aside>
+      Users should be able to download their data at any time.
+    </Aside>
+  </Card>
+
+  <Card title="Right to Rectification" icon="pencil">
+    **Implementation:**
+    - Allow profile updates in the UI
+    - Keep an edit audit trail
+    - Log who changed what and when
+
+    <Aside type="tip">
+      Audit trails help with compliance and debugging.
+    </Aside>
+  </Card>
+
+  <Card title="Right to Erasure" icon="trash">
+    **Implementation:**
+    - Implement soft-delete plus anonymization, or
+    - Full deletion where legally permitted
+    - Keep accounting records for statutory periods
+
+    **Anonymization example:**
+    Replace identifying fields with `Deleted User #<id>` and remove direct contact information from non-accounting tables.
+
+    <Aside type="caution">
+      Some data must be retained for legal/tax reasons even after deletion requests.
+    </Aside>
+  </Card>
+</CardGrid>
+
+## 4. Retention Policy
+
+<Aside type="tip">
+  Automate retention with scheduled jobs and logs showing actions taken.
+</Aside>
+
+### Retention Periods
+
+| Data category | Retention period | Notes |
+| ---: | ---: | --- |
+| Active member profile | While active | Update on status change |
+| Former member (archived) | 3 years after last contact | Then delete or anonymize |
+| Accounting / donation records | 10 years | Preserve as required by law; anonymize elsewhere |
+
+<Steps>
+1. **Implement automated cleanup jobs**
+   
+   Schedule cron jobs to identify data past retention periods.
+
+2. **Log all deletions**
+   
+   Keep audit logs of what was deleted and when.
+
+3. **Test retention logic**
+   
+   Regularly verify that retention policies work correctly.
+
+4. **Document retention schedules**
+   
+   Maintain clear documentation of all retention periods.
+</Steps>
+
+## 5. Sensitive Data and DPIA
+
+<Aside type="caution" title="Special Category Data">
+  If membership implies political, religious, or other special-category processing (Article 9 GDPR), treat all related data as sensitive.
+</Aside>
+
+**Requirements for sensitive data:**
+- Apply stricter access logging
+- Enhanced encryption measures
+- Consider conducting a DPIA (Data Protection Impact Assessment)
+- Document processing justification
+
+## 6. Operational Recommendations
+
+<Tabs>
+  <TabItem label="Backups">
+    **Best Practices:**
+    - Encrypt all backups
+    - Limit access to backup systems
+    - Keep a recovery plan
+    - Maintain retention schedule for backups
+    - Test restoration procedures regularly
+
+    <Aside type="tip">
+      Regularly test your backup restoration process!
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Logging">
+    **Requirements:**
+    - Log access to sensitive data
+    - Include who, what, when
+    - Rotate logs securely
+    - Retain logs appropriately
+    - Monitor for suspicious activity
+
+    <Aside>
+      Logs are crucial for security audits and breach detection.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Incident Response">
+    **Essential Elements:**
+    - Breach response plan
+    - Notification procedures (72h rule)
+    - Contact information for authorities
+    - Communication templates
+    - Regular incident drills
+
+    <Aside type="caution">
+      GDPR requires breach notification within 72 hours.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## 7. Developer Checklist
+
+<CardGrid>
+  <Card title="Database Design" icon="seti:db">
+    - [ ] Review DB schema: remove unnecessary personal fields
+    - [ ] Implement appropriate indexes
+    - [ ] Use encrypted columns for sensitive data
+    - [ ] Document all personal data fields
+  </Card>
+
+  <Card title="Forms & UI" icon="seti:html">
+    - [ ] Default to opt-out privacy-safe settings
+    - [ ] Newsletter checkboxes unchecked by default
+    - [ ] Clear privacy notices
+    - [ ] Accessible consent mechanisms
+  </Card>
+
+  <Card title="Authentication" icon="lock">
+    - [ ] Enforce strong password hashing (bcrypt/Argon2)
+    - [ ] Implement MFA for admin roles
+    - [ ] No plaintext passwords anywhere
+    - [ ] Rate limiting on auth endpoints
+  </Card>
+
+  <Card title="Transport Security" icon="shield">
+    - [ ] TLS enforced on all endpoints
+    - [ ] HSTS configured
+    - [ ] Secure cookies (HttpOnly, Secure, SameSite)
+    - [ ] CSP headers configured
+  </Card>
+
+  <Card title="Payment Security" icon="rocket">
+    - [ ] Delegate to PCI-compliant providers
+    - [ ] Never store PANs (Primary Account Numbers)
+    - [ ] Store only transaction IDs/status
+    - [ ] Audit payment flows
+  </Card>
+
+  <Card title="Data Management" icon="document">
+    - [ ] Retention jobs implemented
+    - [ ] Cron tasks with logs
+    - [ ] Soft-delete/anonymization logic
+    - [ ] Data export functionality
+  </Card>
+
+  <Card title="Documentation" icon="open-book">
+    - [ ] Maintain RoPA (Records of Processing Activities)
+    - [ ] Document retention policies
+    - [ ] Privacy policy published
+    - [ ] Developer documentation updated
+  </Card>
+
+  <Card title="Testing & Audits" icon="approve-check">
+    - [ ] Quarterly dependency/security review
+    - [ ] Test data export functionality
+    - [ ] Verify deletion/anonymization works
+    - [ ] Audit access logs regularly
+  </Card>
+</CardGrid>
+
+## What to Do Next
+
+<Steps>
+1. **Assign Ownership**
+   
+   Designate someone to maintain the RoPA and oversee GDPR compliance.
+
+2. **Implement Retention**
+   
+   Create automated jobs for data retention and deletion.
+
+3. **Schedule Reviews**
+   
+   Set up quarterly security and dependency reviews.
+
+4. **Test Everything**
+   
+   Verify all GDPR-related functionality works as expected.
+
+5. **Document Processes**
+   
+   Maintain clear documentation of all compliance measures.
+</Steps>
+
+<Aside type="tip" title="Start Small">
+  Focus on the most critical items first: password security, data minimization, and user rights.
+</Aside>
+
+## References
+
+<CardGrid>
+  <Card title="CNIL Developer Guide" icon="document">
+    [CNIL Developer's Guide (GitHub)](https://lincnil.github.io/Guide-RGPD-du-developpeur/)
+  </Card>
+
+  <Card title="CNIL Association Guide" icon="open-book">
+    [Guide for Associations (PDF)](https://www.cnil.fr/sites/cnil/files/atoms/files/cnil-guide_association.pdf)
+  </Card>
+
+  <Card title="GDPR Official Text" icon="star">
+    [GDPR Regulation (EUR-Lex)](https://eur-lex.europa.eu/eli/reg/2016/679/oj)
+  </Card>
+</CardGrid>

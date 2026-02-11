@@ -1,0 +1,425 @@
+---
+title: DevOps & Infrastructure
+description: DevOps practices and infrastructure setup
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+AssoCORE uses modern DevOps practices with Docker, Kubernetes, and GitHub Actions for reliable, scalable deployments.
+
+## Containerization with Docker
+
+<Tabs>
+  <TabItem label="Development">
+    Development environment with hot-reload enabled for rapid iteration.
+
+    ```dockerfile title="Dockerfile.dev"
+    FROM python:3.11-slim
+
+    WORKDIR /app
+
+    COPY pyproject.toml poetry.lock ./
+    RUN pip install poetry && poetry install
+
+    COPY . .
+
+    CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0"]
+    ```
+  </TabItem>
+
+  <TabItem label="Production">
+    Multi-stage build for optimized production images with minimal attack surface.
+
+    ```dockerfile title="Dockerfile"
+    # Multi-stage build for optimized images
+    FROM python:3.11-slim as builder
+
+    WORKDIR /app
+    COPY pyproject.toml poetry.lock ./
+    RUN pip install poetry && poetry export -f requirements.txt > requirements.txt
+
+    FROM python:3.11-slim
+
+    WORKDIR /app
+    COPY --from=builder /app/requirements.txt .
+    RUN pip install --no-cache-dir -r requirements.txt
+
+    COPY app/ ./app/
+    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ```
+
+    <Aside type="tip">
+      Multi-stage builds reduce final image size by ~60% compared to single-stage builds.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Docker Compose">
+    Local development setup with database and API services.
+
+    ```yaml title="docker-compose.yml"
+    version: '3.8'
+
+    services:
+      api:
+        build:
+          context: ./backend
+          dockerfile: Dockerfile.dev
+        ports:
+          - "8000:8000"
+        volumes:
+          - ./backend:/app
+        environment:
+          - DATABASE_URL=postgresql://user:pass@db:5432/assocore
+        depends_on:
+          - db
+
+      db:
+        image: postgres:15-alpine
+        environment:
+          POSTGRES_DB: assocore
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+
+    volumes:
+      postgres_data:
+    ```
+
+    <Aside type="note" title="Quick Start">
+      Run `docker-compose up -d` to start the development environment.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## Kubernetes Orchestration
+
+<Tabs>
+  <TabItem label="Deployment">
+    Production-ready Kubernetes deployment with health checks and resource limits.
+
+    ```yaml title="k8s/api-deployment.yaml"
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: assocore-api
+      labels:
+        app: assocore-api
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: assocore-api
+      template:
+        metadata:
+          labels:
+            app: assocore-api
+        spec:
+          containers:
+          - name: api
+            image: ghcr.io/assocore/api:latest
+            ports:
+            - containerPort: 8000
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: assocore-secrets
+                  key: database-url
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 30
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /ready
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 5
+    ```
+  </TabItem>
+
+  <TabItem label="Service">
+    LoadBalancer service to expose the API externally.
+
+    ```yaml title="k8s/api-service.yaml"
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: assocore-api
+    spec:
+      selector:
+        app: assocore-api
+      ports:
+      - protocol: TCP
+        port: 80
+        targetPort: 8000
+      type: LoadBalancer
+    ```
+  </TabItem>
+
+  <TabItem label="Autoscaling">
+    Horizontal Pod Autoscaler for automatic scaling based on CPU utilization.
+
+    ```yaml title="k8s/hpa.yaml"
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: assocore-api-hpa
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: assocore-api
+      minReplicas: 3
+      maxReplicas: 10
+      metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 70
+    ```
+
+    <Aside type="tip" title="Auto-Scaling">
+      The HPA automatically scales pods between 3 and 10 replicas based on CPU usage, keeping utilization around 70%.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## CI/CD with GitHub Actions
+
+<Tabs>
+  <TabItem label="PR Checks">
+    Automated testing and linting for every pull request.
+
+    ```yaml title=".github/workflows/pr.yml"
+    name: Pull Request Checks
+
+    on:
+      pull_request:
+        branches: [ main, develop ]
+
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v4
+        
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        
+        - name: Install dependencies
+          run: |
+            pip install poetry
+            poetry install
+        
+        - name: Run linters
+          run: |
+            poetry run ruff check .
+            poetry run black --check .
+            poetry run mypy .
+        
+        - name: Run tests
+          run: poetry run pytest --cov=app tests/
+        
+        - name: Upload coverage
+          uses: codecov/codecov-action@v4
+    ```
+
+    <Aside type="note">
+      All checks must pass before a PR can be merged to ensure code quality.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Build & Deploy">
+    Automated build and deployment pipeline triggered on main branch pushes.
+
+    ```yaml title=".github/workflows/deploy.yml"
+    name: Build and Deploy
+
+    on:
+      push:
+        branches: [ main ]
+
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v4
+        
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+        
+        - name: Login to GitHub Container Registry
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+        
+        - name: Build and push
+          uses: docker/build-push-action@v5
+          with:
+            context: ./backend
+            push: true
+            tags: ghcr.io/assocore/api:latest
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+      
+      deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v4
+        
+        - name: Set up kubectl
+          uses: azure/setup-kubectl@v3
+        
+        - name: Configure kubectl
+          run: |
+            echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+            export KUBECONFIG=./kubeconfig
+        
+        - name: Deploy to Kubernetes
+          run: |
+            kubectl set image deployment/assocore-api \
+              api=ghcr.io/assocore/api:latest
+            kubectl rollout status deployment/assocore-api
+    ```
+
+    <Aside type="caution" title="Production Deployments">
+      Deployments to production happen automatically on main branch. Ensure all tests pass before merging.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## Deployment Environments
+
+<CardGrid>
+  <Card title="Development" icon="rocket">
+    <Badge text="Auto-deploy" variant="note" />
+    
+    - Auto-deployed from `develop` branch
+    - Testing and validation environment
+    - Lower resource limits
+    - Isolated test data
+  </Card>
+
+  <Card title="Staging" icon="approve-check">
+    <Badge text="Pre-production" variant="caution" />
+    
+    - Pre-production environment
+    - Production-like configuration
+    - Final validation before release
+    - Real data subset for testing
+  </Card>
+
+  <Card title="Production" icon="star">
+    <Badge text="Live" variant="success" />
+    
+    - Deployed from `main` branch
+    - High availability setup
+    - Multiple replicas across zones
+    - Full monitoring and alerting
+  </Card>
+</CardGrid>
+
+## Monitoring & Observability
+
+<CardGrid>
+  <Card title="Health Checks" icon="approve-check">
+    - `/health` - Liveness probe
+    - `/ready` - Readiness probe
+    - `/metrics` - Prometheus metrics
+  </Card>
+
+  <Card title="Logging" icon="document">
+    - Structured JSON logging
+    - Centralized log aggregation
+    - Log levels: DEBUG, INFO, WARNING, ERROR
+  </Card>
+
+  <Card title="Metrics" icon="chart">
+    - Request latency
+    - Error rates
+    - Resource utilization
+    - Custom business metrics
+  </Card>
+</CardGrid>
+
+<Aside type="tip" title="Observability Stack">
+  We use Prometheus for metrics collection, Grafana for visualization, and Loki for log aggregation to ensure complete system observability.
+</Aside>
+
+## Security
+
+<CardGrid stagger>
+  <Card title="Secrets Management" icon="lock">
+    Kubernetes Secrets store sensitive data like database credentials and API keys.
+  </Card>
+
+  <Card title="Image Security" icon="shield">
+    Automated vulnerability scanning in CI pipeline ensures container images are secure.
+  </Card>
+
+  <Card title="Network Policies" icon="setting">
+    Fine-grained control over pod-to-pod communication and external access.
+  </Card>
+
+  <Card title="Access Control" icon="star">
+    RBAC (Role-Based Access Control) ensures proper authorization for cluster resources.
+  </Card>
+
+  <Card title="Updates" icon="up-caret">
+    Regular security updates and patch management keep the system secure.
+  </Card>
+
+  <Card title="Signed Images" icon="approve-check">
+    Container images are signed to verify authenticity and prevent tampering.
+  </Card>
+</CardGrid>
+
+<Aside type="caution" title="Security Best Practices">
+  Never commit secrets to version control. Always use Kubernetes Secrets or external secret management solutions.
+</Aside>
+
+## Disaster Recovery
+
+<Steps>
+1. **Automated Backups**
+   
+   Regular automated backups of all critical data and configurations.
+
+2. **Multi-Region Deployment** (future)
+   
+   Deploy across multiple regions for geographic redundancy.
+
+3. **Database Replication**
+   
+   Primary-replica setup ensures data availability during outages.
+
+4. **Rollback Procedures**
+   
+   Quick rollback capabilities using Kubernetes deployment history.
+
+5. **Incident Response Plan**
+   
+   Documented procedures for handling security incidents and system failures.
+</Steps>
+
+<Aside type="tip" title="Recovery Time Objective">
+  Our RTO (Recovery Time Objective) target is under 15 minutes for critical services.
+</Aside>

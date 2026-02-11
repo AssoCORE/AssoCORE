@@ -3,6 +3,8 @@ title: Code Guidelines
 description: Coding standards and best practices for AssoCORE
 ---
 
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
 Standards and best practices for contributing to AssoCORE's codebase.
 
 ## Python Code Style
@@ -11,27 +13,54 @@ Standards and best practices for contributing to AssoCORE's codebase.
 
 We follow [PEP 8](https://pep8.org/) with some extensions:
 
-- **Line length**: 100 characters (not 79)
-- **String quotes**: Double quotes preferred
-- **Imports**: Organized with isort
-- **Formatting**: Black code formatter
+<CardGrid>
+  <Card title="Line Length" icon="document">
+    **100 characters** (not 79)
+  </Card>
+
+  <Card title="String Quotes" icon="seti:text">
+    Double quotes preferred
+  </Card>
+
+  <Card title="Imports" icon="seti:python">
+    Organized with isort
+  </Card>
+
+  <Card title="Formatting" icon="star">
+    Black code formatter
+  </Card>
+</CardGrid>
 
 ### Type Hints
 
 Always use type hints for function signatures:
 
-```python
-# ✅ Good
-def get_user(user_id: int) -> User:
-    return user_service.get(user_id)
+<Tabs>
+  <TabItem label="✅ Good">
+    ```python
+    def get_user(user_id: int) -> User:
+        return user_service.get(user_id)
 
-async def create_user(user: UserCreate) -> User:
-    return await user_service.create(user)
+    async def create_user(user: UserCreate) -> User:
+        return await user_service.create(user)
+    ```
 
-# ❌ Bad
-def get_user(user_id):
-    return user_service.get(user_id)
-```
+    <Aside type="tip">
+      Type hints improve IDE support and catch errors early.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="❌ Bad">
+    ```python
+    def get_user(user_id):
+        return user_service.get(user_id)
+    ```
+
+    <Aside type="caution">
+      Missing type hints make code harder to maintain and debug.
+    </Aside>
+  </TabItem>
+</Tabs>
 
 ### Docstrings
 
@@ -64,13 +93,15 @@ def calculate_membership_fee(
     return final_fee
 ```
 
+<Aside type="note">
+  Document public APIs, complex logic, and any non-obvious behavior.
+</Aside>
+
 ## FastAPI Best Practices
 
 ### Router Organization
 
-```python
-# ✅ Good: Organized by resource
-# app/api/v1/endpoints/users.py
+```python title="app/api/v1/endpoints/users.py"
 from fastapi import APIRouter, Depends
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -87,10 +118,13 @@ async def create_user(
     return await service.create_user(user)
 ```
 
+<Aside>
+  Organize routers by resource for clear, maintainable API structure.
+</Aside>
+
 ### Dependency Injection
 
 ```python
-# Define dependencies clearly
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -106,6 +140,10 @@ async def get_current_user(
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 ```
+
+<Aside type="tip">
+  Dependencies make testing easier and keep endpoints clean.
+</Aside>
 
 ### Error Handling
 
@@ -131,7 +169,6 @@ async def get_user(user_id: int, service: UserService = Depends()):
 ### Schema Naming
 
 ```python
-# ✅ Good: Clear naming convention
 class UserBase(BaseModel):
     """Shared properties"""
     email: EmailStr
@@ -160,6 +197,10 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 ```
+
+<Aside type="note" title="Naming Convention">
+  Use suffixes: `Base`, `Create`, `Update`, `InDB`, `Response` for consistency.
+</Aside>
 
 ### Validation
 
@@ -205,6 +246,10 @@ class Association(Base):
     def __repr__(self) -> str:
         return f"<Association(id={self.id}, name={self.name})>"
 ```
+
+<Aside type="tip">
+  Add indexes to columns used in WHERE clauses and foreign keys.
+</Aside>
 
 ### Repository Pattern
 
@@ -263,6 +308,10 @@ async def test_create_user(client: AsyncClient, db: Session):
     assert "password" not in data  # Don't expose password
 ```
 
+<Aside>
+  Follow the **Arrange-Act-Assert** pattern for clear, maintainable tests.
+</Aside>
+
 ### Fixtures
 
 ```python
@@ -298,52 +347,94 @@ async def test_send_email(user_service: UserService):
 
 ## Async/Await
 
-### When to Use Async
+<Tabs>
+  <TabItem label="✅ When to Use Async">
+    ```python
+    # Good: Async for I/O operations
+    async def get_users_from_db():
+        async with db.session() as session:
+            return await session.execute(select(User))
 
-```python
-# ✅ Good: Async for I/O operations
-async def get_users_from_db():
-    async with db.session() as session:
-        return await session.execute(select(User))
+    async def call_external_api():
+        async with httpx.AsyncClient() as client:
+            return await client.get("https://api.example.com")
+    ```
 
-async def call_external_api():
-    async with httpx.AsyncClient() as client:
-        return await client.get("https://api.example.com")
+    <Aside type="tip">
+      Use async for I/O-bound operations: database queries, HTTP requests, file operations.
+    </Aside>
+  </TabItem>
 
-# ❌ Bad: Not needed for CPU-bound operations
-async def calculate_statistics(numbers: list[int]) -> float:
-    # This doesn't benefit from async
-    return sum(numbers) / len(numbers)
-```
+  <TabItem label="❌ When Not to Use">
+    ```python
+    # Bad: Not needed for CPU-bound operations
+    async def calculate_statistics(numbers: list[int]) -> float:
+        # This doesn't benefit from async
+        return sum(numbers) / len(numbers)
+    ```
+
+    <Aside type="caution">
+      Async adds overhead for CPU-bound tasks without I/O.
+    </Aside>
+  </TabItem>
+</Tabs>
 
 ## Security
 
 ### Password Handling
 
-```python
-from passlib.context import CryptContext
+<Tabs>
+  <TabItem label="✅ Secure">
+    ```python
+    from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# ✅ Good: Hash passwords
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    def get_password_hash(password: str) -> str:
+        return pwd_context.hash(password)
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        return pwd_context.verify(plain_password, hashed_password)
+    ```
 
-# ❌ Never store plain passwords
-```
+    <Aside type="tip" title="Best Practice">
+      Always hash passwords with bcrypt or Argon2.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="❌ Insecure">
+    ```python
+    # Never store plain passwords
+    user.password = password  # WRONG!
+    ```
+
+    <Aside type="caution">
+      Never store passwords in plain text or with weak hashing.
+    </Aside>
+  </TabItem>
+</Tabs>
 
 ### SQL Injection Prevention
 
-```python
-# ✅ Good: Use ORM or parameterized queries
-user = db.query(User).filter(User.email == email).first()
+<Tabs>
+  <TabItem label="✅ Safe">
+    ```python
+    # Good: Use ORM or parameterized queries
+    user = db.query(User).filter(User.email == email).first()
+    ```
+  </TabItem>
 
-# ❌ Bad: String concatenation
-query = f"SELECT * FROM users WHERE email = '{email}'"  # Vulnerable!
-```
+  <TabItem label="❌ Vulnerable">
+    ```python
+    # Bad: String concatenation
+    query = f"SELECT * FROM users WHERE email = '{email}'"  # Vulnerable!
+    ```
+
+    <Aside type="caution" title="Security Warning">
+      This code is vulnerable to SQL injection attacks!
+    </Aside>
+  </TabItem>
+</Tabs>
 
 ## Git Commit Messages
 
@@ -358,20 +449,60 @@ refactor: simplify user service logic
 chore: update dependencies
 ```
 
+<Aside type="note">
+  Conventional commits enable automated changelog generation and semantic versioning.
+</Aside>
+
 ## Code Review Checklist
 
-- [ ] Code follows style guidelines (passes Black, Ruff, mypy)
-- [ ] All functions have type hints
-- [ ] Complex logic has explanatory comments
-- [ ] New features have tests (>80% coverage)
-- [ ] API changes are documented
-- [ ] No sensitive data in code or logs
-- [ ] Error handling is appropriate
-- [ ] Database queries are optimized
+<CardGrid>
+  <Card title="Style" icon="star">
+    - [ ] Code follows style guidelines (passes Black, Ruff, mypy)
+    - [ ] All functions have type hints
+    - [ ] Complex logic has explanatory comments
+  </Card>
+
+  <Card title="Testing" icon="approve-check">
+    - [ ] New features have tests (>80% coverage)
+    - [ ] Tests follow AAA pattern
+    - [ ] Edge cases are covered
+  </Card>
+
+  <Card title="Documentation" icon="document">
+    - [ ] API changes are documented
+    - [ ] Docstrings are updated
+    - [ ] README updated if needed
+  </Card>
+
+  <Card title="Security" icon="lock">
+    - [ ] No sensitive data in code or logs
+    - [ ] Error handling is appropriate
+    - [ ] Input validation is present
+  </Card>
+
+  <Card title="Performance" icon="rocket">
+    - [ ] Database queries are optimized
+    - [ ] No N+1 query problems
+    - [ ] Async used appropriately
+  </Card>
+</CardGrid>
 
 ## Additional Resources
 
-- [FastAPI Best Practices](https://fastapi.tiangolo.com/tutorial/)
-- [Pydantic Documentation](https://docs.pydantic.dev/)
-- [SQLAlchemy Best Practices](https://docs.sqlalchemy.org/en/20/orm/quickstart.html)
-- [Python Testing with pytest](https://docs.pytest.org/)
+<CardGrid>
+  <Card title="FastAPI" icon="seti:python">
+    [FastAPI Best Practices](https://fastapi.tiangolo.com/tutorial/)
+  </Card>
+
+  <Card title="Pydantic" icon="document">
+    [Pydantic Documentation](https://docs.pydantic.dev/)
+  </Card>
+
+  <Card title="SQLAlchemy" icon="seti:db">
+    [SQLAlchemy Best Practices](https://docs.sqlalchemy.org/en/20/orm/quickstart.html)
+  </Card>
+
+  <Card title="Testing" icon="star">
+    [Python Testing with pytest](https://docs.pytest.org/)
+  </Card>
+</CardGrid>

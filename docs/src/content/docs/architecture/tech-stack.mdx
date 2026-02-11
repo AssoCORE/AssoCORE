@@ -1,0 +1,134 @@
+---
+title: Technology Stack
+description: Technologies and tools used in AssoCORE
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+AssoCORE is built with modern, scalable technologies chosen for their performance, developer experience, and community support.
+
+## Backend
+
+<Card title="FastAPI" icon="seti:python">
+  Our API layer is built with [FastAPI](https://fastapi.tiangolo.com/), a modern Python web framework.
+
+  **Why FastAPI?**
+
+  - High performance (comparable to NodeJS and Go)
+  - Built-in data validation with Pydantic
+  - Automatic API documentation (OpenAPI/Swagger)
+  - Native async/await support
+  - Type hints for better code quality and IDE support
+
+  **Key Features:**
+
+  - RESTful API endpoints
+  - Automatic request/response validation
+  - Built-in authentication and authorization
+  - WebSocket support for real-time features
+  - Dependency injection system
+</Card>
+
+<Aside type="tip">
+  FastAPI was chosen for its excellent balance between developer productivity and runtime performance.
+</Aside>
+
+## DevOps & Infrastructure
+
+<CardGrid>
+  <Card title="Docker" icon="seti:docker">
+    Application containerization for consistent deployments across environments.
+
+    **Usage:**
+
+    - Development environment setup
+    - Production deployment containers
+    - Service isolation and management
+    - Multi-stage builds for optimized images
+  </Card>
+
+  <Card title="Kubernetes" icon="puzzle">
+    Container orchestration for scalable, resilient deployments.
+
+    **Features:**
+
+    - Auto-scaling based on load
+    - Self-healing containers
+    - Zero-downtime deployments
+    - Service discovery and load balancing
+    - Configuration and secret management
+  </Card>
+
+  <Card title="GitHub Actions" icon="github">
+    CI/CD pipeline automation for continuous integration and deployment.
+
+    **Workflows:**
+
+    - Automated testing on pull requests
+    - Code quality checks and linting
+    - Docker image building and publishing
+    - Automated deployment to Kubernetes
+    - Security scanning
+  </Card>
+</CardGrid>
+
+## Development Tools
+
+<Card title="Python Ecosystem" icon="seti:python">
+  **Essential Tools:**
+
+  - **Poetry/pip** - Dependency management
+  - **pytest** - Testing framework
+  - **Black** - Code formatting
+  - **mypy** - Static type checking
+  - **Ruff** - Fast Python linter
+</Card>
+
+## Infrastructure Architecture
+
+```txt
+┌─────────────────┐
+│  GitHub Actions │ ──► CI/CD Pipeline
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Docker Images  │ ──► Container Registry
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Kubernetes    │ ──► Orchestration
+│   ┌─────────┐   │
+│   │ FastAPI │   │ ──► Backend API
+│   └─────────┘   │
+└─────────────────┘
+```
+
+## Future Considerations
+
+<CardGrid>
+  <Card title="Message Queues" icon="rocket">
+    RabbitMQ or Redis for asynchronous task processing and event-driven architecture.
+  </Card>
+
+  <Card title="Caching Layers" icon="seti:clock">
+    Redis or Memcached for improved performance and reduced database load.
+  </Card>
+
+  <Card title="Monitoring Tools" icon="chart">
+    Prometheus, Grafana, and Loki for comprehensive observability.
+  </Card>
+
+  <Card title="Database Solutions" icon="seti:db">
+    PostgreSQL for relational data, potentially MongoDB for document storage.
+  </Card>
+
+  <Card title="CDN Integration" icon="star">
+    Content Delivery Network for faster static asset delivery globally.
+  </Card>
+</CardGrid>
+
+<Aside type="note" title="Technology Evolution">
+  Our stack evolves based on community feedback and real-world usage patterns. We prioritize stability while staying modern.
+</Aside>

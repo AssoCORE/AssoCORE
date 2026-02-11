@@ -1,0 +1,324 @@
+---
+title: Backend Architecture
+description: FastAPI backend architecture and design patterns
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+AssoCORE's backend is built with FastAPI, following modern Python best practices and clean architecture principles.
+
+## Project Structure
+
+```zsh
+backend/
+├── app/
+│   ├── main.py              # FastAPI application entry point
+│   ├── config.py            # Configuration management
+│   ├── dependencies.py      # Dependency injection
+│   │
+│   ├── api/                 # API layer
+│   │   ├── v1/
+│   │   │   ├── endpoints/   # API endpoints
+│   │   │   └── router.py    # API router
+│   │   └── deps.py          # API dependencies
+│   │
+│   ├── core/                # Core functionality
+│   │   ├── security.py      # Authentication & authorization
+│   │   ├── config.py        # Settings
+│   │   └── exceptions.py    # Custom exceptions
+│   │
+│   ├── models/              # Database models
+│   │   ├── user.py
+│   │   ├── association.py
+│   │   └── ...
+│   │
+│   ├── schemas/             # Pydantic schemas
+│   │   ├── user.py
+│   │   ├── association.py
+│   │   └── ...
+│   │
+│   ├── services/            # Business logic
+│   │   ├── user_service.py
+│   │   ├── association_service.py
+│   │   └── ...
+│   │
+│   └── repositories/        # Data access layer
+│       ├── user_repository.py
+│       └── ...
+│
+├── tests/                   # Test suite
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+│
+├── alembic/                 # Database migrations
+├── Dockerfile
+├── pyproject.toml           # Dependencies
+└── README.md
+```
+
+## Architectural Layers
+
+<Tabs>
+  <TabItem label="API Layer" icon="seti:html">
+    FastAPI routers and endpoints handling HTTP requests.
+
+    **Responsibilities:**
+
+    - Request/response handling
+    - Input validation (via Pydantic)
+    - HTTP status codes
+    - API documentation
+
+    <Aside type="note">
+      The API layer should remain thin, delegating business logic to services.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Service Layer" icon="seti:python">
+    Business logic and application workflows.
+
+    **Responsibilities:**
+
+    - Business rules enforcement
+    - Complex operations coordination
+    - Service-to-service communication
+    - Transaction management
+
+    <Aside type="tip">
+      Services orchestrate repositories and contain the core business logic.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Repository Layer" icon="seti:db">
+    Data access abstraction.
+
+    **Responsibilities:**
+
+    - Database queries
+    - CRUD operations
+    - Data persistence
+    - Query optimization
+
+    <Aside>
+      Repositories provide a clean abstraction over database operations, making testing easier.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Models" icon="document">
+    Database models and ORM definitions (SQLAlchemy/Tortoise).
+
+    - Define database schema
+    - Relationships between entities
+    - Database constraints
+    - Migrations support
+  </TabItem>
+
+  <TabItem label="Schemas" icon="approve-check">
+    Pydantic models for request/response validation and serialization.
+
+    - Input validation
+    - Output serialization
+    - API documentation
+    - Type safety
+  </TabItem>
+</Tabs>
+
+## Design Patterns
+
+<Tabs>
+  <TabItem label="Dependency Injection">
+    FastAPI's dependency injection system provides clean separation of concerns and testability.
+
+    **Use Cases:**
+    - Database session management
+    - Authentication
+    - Service instantiation
+    - Configuration access
+
+    ```python
+    from fastapi import Depends
+    from app.services import UserService
+
+    def get_user_service() -> UserService:
+        return UserService()
+
+    @router.get("/users")
+    async def list_users(
+        service: UserService = Depends(get_user_service)
+    ):
+        return await service.list_users()
+    ```
+
+    <Aside type="tip" title="Testing Benefit">
+      Dependencies can be easily mocked in tests, making unit testing straightforward.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Repository Pattern">
+    Separating data access logic from business logic.
+
+    **Benefits:**
+    - Clean separation of concerns
+    - Easy to test business logic
+    - Database-agnostic service layer
+    - Query reusability
+
+    <Aside>
+      Repositories abstract away database implementation details from the service layer.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Service Pattern">
+    Encapsulating business logic in service classes.
+
+    **Benefits:**
+    - Centralized business rules
+    - Reusable across endpoints
+    - Easy to test independently
+    - Clear responsibility boundaries
+  </TabItem>
+</Tabs>
+
+## Key Features
+
+<CardGrid>
+  <Card title="Async/Await" icon="rocket">
+    Non-blocking I/O for better performance and scalability.
+
+    ```python
+    @router.get("/associations")
+    async def get_associations():
+        async with database.session() as session:
+            return await association_service.get_all(session)
+    ```
+  </Card>
+
+  <Card title="Request Validation" icon="approve-check">
+    Automatic validation with Pydantic schemas.
+
+    ```python
+    class UserCreate(BaseModel):
+        email: EmailStr
+        password: constr(min_length=8)
+        name: str
+
+    @router.post("/users")
+    async def create_user(user: UserCreate):
+        # user is already validated
+        return await user_service.create(user)
+    ```
+  </Card>
+
+  <Card title="API Documentation" icon="open-book">
+    Auto-generated OpenAPI (Swagger) docs at `/docs` and `/redoc`.
+    
+    Documentation is automatically generated from your code, type hints, and docstrings.
+  </Card>
+
+  <Card title="Error Handling" icon="warning">
+    Centralized exception handling with custom exceptions.
+    
+    Consistent error responses across all endpoints with proper HTTP status codes.
+  </Card>
+</CardGrid>
+
+## Security
+
+<CardGrid stagger>
+  <Card title="JWT Authentication" icon="lock">
+    Secure token-based authentication for API access.
+  </Card>
+
+  <Card title="Password Hashing" icon="shield">
+    Passwords hashed with bcrypt for secure storage.
+  </Card>
+
+  <Card title="CORS Configuration" icon="setting">
+    Proper CORS setup to control cross-origin requests.
+  </Card>
+
+  <Card title="Rate Limiting" icon="seti:clock">
+    Protection against abuse and DoS attacks.
+  </Card>
+
+  <Card title="Input Sanitization" icon="approve-check">
+    Automatic sanitization and validation of all inputs.
+  </Card>
+
+  <Card title="SQL Injection Prevention" icon="shield">
+    ORM usage prevents SQL injection vulnerabilities.
+  </Card>
+</CardGrid>
+
+<Aside type="caution" title="Security First">
+  All security features are enabled by default. Never disable security features without understanding the implications.
+</Aside>
+
+## Testing Strategy
+
+<Tabs>
+  <TabItem label="Unit Tests">
+    Testing individual components in isolation.
+
+    **Focus:**
+    - Service logic
+    - Repository methods
+    - Utility functions
+    - Business rules
+
+    **Target Coverage:** >80%
+  </TabItem>
+
+  <TabItem label="Integration Tests">
+    Testing API endpoints with real dependencies.
+
+    **Focus:**
+    - API endpoints
+    - Database interactions
+    - Authentication flows
+    - Error responses
+  </TabItem>
+
+  <TabItem label="E2E Tests">
+    Testing complete user workflows.
+
+    **Focus:**
+    - Full user journeys
+    - Multi-step processes
+    - Real-world scenarios
+    - Cross-service interactions
+  </TabItem>
+</Tabs>
+
+<Aside type="note">
+  Test coverage target is >80%, but focus on meaningful tests rather than reaching 100% coverage.
+</Aside>
+
+## Performance Considerations
+
+<CardGrid>
+  <Card title="Connection Pooling" icon="rocket">
+    Database connection pooling reduces overhead and improves response times.
+  </Card>
+
+  <Card title="Query Optimization" icon="magnifier">
+    Proper indexing and query optimization for fast database access.
+  </Card>
+
+  <Card title="Caching Strategies" icon="seti:clock">
+    Strategic caching of frequently accessed data reduces database load.
+  </Card>
+
+  <Card title="Async Operations" icon="star">
+    Async/await for I/O-bound tasks maximizes throughput.
+  </Card>
+
+  <Card title="Response Compression" icon="document">
+    Automatic compression reduces bandwidth usage and improves load times.
+  </Card>
+</CardGrid>
+
+<Aside type="tip" title="Performance Monitoring">
+  Use the `/metrics` endpoint to monitor application performance and identify bottlenecks.
+</Aside>

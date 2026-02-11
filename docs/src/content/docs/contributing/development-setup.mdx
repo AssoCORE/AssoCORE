@@ -1,0 +1,508 @@
+---
+title: Development Setup
+description: Complete development environment setup guide
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+Comprehensive guide for setting up a complete AssoCORE development environment.
+
+## Development Environment
+
+### Required Tools
+
+<Steps>
+1. **Python 3.11+**
+
+   ```bash
+   python --version  # Should be 3.11 or higher
+   ```
+
+2. **Poetry** (Dependency Management)
+
+   ```bash
+   curl -sSL https://install.python-poetry.org | python3 -
+   poetry --version
+   ```
+
+3. **Docker & Docker Compose**
+
+   ```bash
+   docker --version
+   docker-compose --version
+   ```
+
+4. **Git**
+
+   ```bash
+   git --version
+   ```
+</Steps>
+
+### Recommended Tools
+
+<CardGrid>
+  <Card title="VS Code" icon="seti:visual-studio">
+    **Extensions:**
+    - Python
+    - Pylance
+    - Docker
+    - GitLens
+    - REST Client
+  </Card>
+
+  <Card title="API Testing" icon="rocket">
+    **Postman** or **Insomnia** for API testing
+  </Card>
+
+  <Card title="Database Tools" icon="seti:db">
+    **pgAdmin** or **DBeaver** for database management
+  </Card>
+</CardGrid>
+
+## Project Setup
+
+<Steps>
+1. **Fork and Clone**
+
+   ```bash
+   # Fork the repository on GitHub, then:
+   git clone https://github.com/YOUR_USERNAME/AssoCORE.git
+   cd AssoCORE
+
+   # Add upstream remote
+   git remote add upstream https://github.com/AssoCORE/AssoCORE.git
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   cd backend
+   poetry install
+
+   # Install pre-commit hooks
+   poetry run pre-commit install
+   ```
+
+3. **Environment Configuration**
+
+   ```bash
+   # Copy environment template
+   cp .env.example .env
+
+   # Edit with your local values
+   nano .env
+   ```
+
+   <Aside type="caution" title="Environment Variables">
+     Never commit your `.env` file! It contains sensitive configuration.
+   </Aside>
+
+   **Development `.env` example:**
+
+   ```bash
+   DATABASE_URL=postgresql://assocore:dev_password@localhost:5432/assocore_dev
+   SECRET_KEY=dev-secret-key-change-this
+   DEBUG=True
+   TESTING=False
+   LOG_LEVEL=DEBUG
+   ```
+
+4. **Start Development Database**
+
+   <Tabs>
+     <TabItem label="Docker Compose">
+       ```bash
+       # Using Docker Compose
+       docker-compose up -d db
+       ```
+     </TabItem>
+
+     <TabItem label="Standalone">
+       ```bash
+       # Or standalone PostgreSQL
+       docker run -d \
+         --name assocore-dev-db \
+         -e POSTGRES_DB=assocore_dev \
+         -e POSTGRES_USER=assocore \
+         -e POSTGRES_PASSWORD=dev_password \
+         -p 5432:5432 \
+         postgres:15-alpine
+       ```
+     </TabItem>
+   </Tabs>
+
+5. **Run Database Migrations**
+
+   ```bash
+   poetry run alembic upgrade head
+   ```
+
+6. **Seed Development Data** (Optional)
+
+   ```bash
+   poetry run python scripts/seed_dev_data.py
+   ```
+</Steps>
+
+## Running the Application
+
+<Tabs>
+  <TabItem label="Development Server">
+    ```bash
+    # With hot reload
+    poetry run uvicorn app.main:app --reload --host 0.0.0.0
+
+    # Or with custom port
+    poetry run uvicorn app.main:app --reload --port 8001
+
+    # With specific log level
+    poetry run uvicorn app.main:app --reload --log-level debug
+    ```
+
+    <Aside type="tip">
+      Hot reload automatically restarts the server when you make code changes.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Docker">
+    ```bash
+    # Start all services
+    docker-compose up
+
+    # Rebuild after changes
+    docker-compose up --build
+
+    # Run in background
+    docker-compose up -d
+
+    # View logs
+    docker-compose logs -f api
+    ```
+
+    <Aside>
+      Docker setup provides the most consistent environment across different machines.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## Development Workflow
+
+### Branch Strategy
+
+```bash
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Or bug fix
+git checkout -b fix/bug-description
+```
+
+<Aside type="note">
+  Follow the branch naming convention: `feature/`, `fix/`, `docs/`, or `refactor/`.
+</Aside>
+
+### Code Style
+
+<Tabs>
+  <TabItem label="Formatting">
+    ```bash
+    # Format code
+    poetry run black .
+    poetry run isort .
+    ```
+  </TabItem>
+
+  <TabItem label="Linting">
+    ```bash
+    # Lint
+    poetry run ruff check .
+    poetry run ruff check --fix .
+    ```
+  </TabItem>
+
+  <TabItem label="Type Checking">
+    ```bash
+    # Type checking
+    poetry run mypy app/
+    ```
+  </TabItem>
+
+  <TabItem label="All Checks">
+    ```bash
+    # Run all checks at once
+    poetry run pre-commit run --all-files
+    ```
+
+    <Aside type="tip">
+      This runs automatically on git commit if you installed pre-commit hooks.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+### Testing
+
+<Tabs>
+  <TabItem label="Basic">
+    ```bash
+    # Run all tests
+    poetry run pytest
+
+    # Run with coverage
+    poetry run pytest --cov=app --cov-report=html
+    ```
+  </TabItem>
+
+  <TabItem label="Specific Tests">
+    ```bash
+    # Run specific test file
+    poetry run pytest tests/test_users.py
+
+    # Run tests matching pattern
+    poetry run pytest -k "test_user"
+    ```
+  </TabItem>
+
+  <TabItem label="Advanced">
+    ```bash
+    # Run with verbose output
+    poetry run pytest -vv
+
+    # Stop on first failure
+    poetry run pytest -x
+    ```
+  </TabItem>
+</Tabs>
+
+### Creating Migrations
+
+```bash
+# Auto-generate migration
+poetry run alembic revision --autogenerate -m "Add user table"
+
+# Manual migration
+poetry run alembic revision -m "Custom migration"
+
+# Apply migrations
+poetry run alembic upgrade head
+
+# Rollback
+poetry run alembic downgrade -1
+```
+
+<Aside type="caution">
+  Always review auto-generated migrations before applying them!
+</Aside>
+
+## Database Management
+
+### Access Database
+
+```bash
+# Using Docker exec
+docker exec -it assocore-dev-db psql -U assocore -d assocore_dev
+
+# Common commands
+\dt          # List tables
+\d users     # Describe table
+\q           # Quit
+```
+
+### Reset Database
+
+<Tabs>
+  <TabItem label="With Alembic">
+    ```bash
+    # Drop and recreate
+    poetry run alembic downgrade base
+    poetry run alembic upgrade head
+    ```
+  </TabItem>
+
+  <TabItem label="With Docker">
+    ```bash
+    # Or with Docker
+    docker-compose down -v
+    docker-compose up -d db
+    poetry run alembic upgrade head
+    ```
+
+    <Aside type="caution">
+      This will delete all data! Make sure you have backups if needed.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## API Development
+
+### Interactive API Docs
+
+Once the server is running:
+
+<CardGrid>
+  <Card title="Swagger UI" icon="open-book">
+    <http://localhost:8000/docs>
+    
+    Interactive API documentation with try-it-out functionality.
+  </Card>
+
+  <Card title="ReDoc" icon="document">
+    <http://localhost:8000/redoc>
+    
+    Alternative documentation with a different layout.
+  </Card>
+</CardGrid>
+
+### Testing Endpoints
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# API endpoint (example)
+curl -X POST http://localhost:8000/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}'
+```
+
+## Debugging
+
+### VS Code Launch Configuration
+
+Create `.vscode/launch.json`:
+
+```json title=".vscode/launch.json"
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: FastAPI",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "jinja": true,
+      "justMyCode": false
+    }
+  ]
+}
+```
+
+### Python Debugger
+
+```python
+# Add breakpoint in code
+import pdb; pdb.set_trace()
+
+# Or with ipdb (better interface)
+import ipdb; ipdb.set_trace()
+```
+
+<Aside type="tip">
+  VS Code has built-in debugging support. Set breakpoints by clicking in the gutter.
+</Aside>
+
+## Common Issues
+
+<Tabs>
+  <TabItem label="Poetry Lock">
+    **Poetry Lock File Conflicts**
+
+    ```bash
+    poetry lock --no-update
+    poetry install
+    ```
+  </TabItem>
+
+  <TabItem label="Database">
+    **Database Connection Errors**
+
+    ```bash
+    # Check if DB is running
+    docker ps | grep postgres
+
+    # Check connection
+    poetry run python -c "from app.db import engine; print(engine)"
+    ```
+  </TabItem>
+
+  <TabItem label="Port in Use">
+    **Port Already in Use**
+
+    ```bash
+    # Find and kill process
+    lsof -i :8000
+    kill -9 <PID>
+    ```
+  </TabItem>
+</Tabs>
+
+## Performance Profiling
+
+```bash
+# Install profiling tools
+poetry add --dev py-spy line-profiler
+
+# Profile with py-spy
+py-spy top -- poetry run python -m app.main
+
+# Record profile
+py-spy record -o profile.svg -- poetry run python script.py
+```
+
+<Aside type="note">
+  Profiling helps identify performance bottlenecks in your code.
+</Aside>
+
+## Documentation
+
+### Building Docs Locally
+
+```bash
+cd docs
+npm install
+npm run dev
+```
+
+## CI/CD Testing Locally
+
+### Act (Run GitHub Actions Locally)
+
+```bash
+# Install act
+brew install act  # macOS
+# or follow: https://github.com/nektos/act
+
+# Run PR checks
+act pull_request
+
+# Run specific job
+act -j test
+```
+
+<Aside type="tip" title="Test Before Push">
+  Running CI checks locally can save time by catching issues before pushing.
+</Aside>
+
+## Next Steps
+
+<CardGrid>
+  <Card title="Code Guidelines" icon="document">
+    Review [Code Guidelines](./code-guidelines.md) for coding standards.
+  </Card>
+
+  <Card title="Architecture" icon="puzzle">
+    Check [Architecture Documentation](../architecture/) for system design.
+  </Card>
+
+  <Card title="API Patterns" icon="open-book">
+    Read [API Design Patterns](../architecture/backend-architecture.md).
+  </Card>
+</CardGrid>
