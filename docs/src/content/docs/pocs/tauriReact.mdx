@@ -1,0 +1,66 @@
+---
+title: React with Tauri Integration POC
+description: Proof of Concept in AssoCORE.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Card title="Tauri+React" icon="seti:tauri">
+  **Brief Description:** Implementing a calendar, multiple page, a widget system and a tree structure.
+
+  **Status:** <Badge text="Complete" variant="success" size="medium" />
+
+  **Findings:** With Tauri, the setup of the project is easy, and the usage of React allows us to have access to plenty of UI libraries. It makes for a smooth development experience.
+</Card>
+
+## Objectives
+
+- Evaluate Tauri build tree and what possibility it would offer.
+- Create a Widget creation instance with automatic resize depending on their number.
+- Implementation of a Calendar feature in which we can easily navigate.
+
+## Scope
+
+This POC focuses on the web application and the project architecture.
+The mobile application is based on what Tauri provide, as to keep the architecture alignment and web functionalities.
+
+## Architecture Overview
+
+- **src-tauri**: resources used by Tauri to run the project. In Rust.
+- **src**: resources used by the project to create the web page. In React.
+- **pnpm**: chosen package manager.
+- **public**: contains the assets used by the project in svg format.
+
+The different features within the project allows us to verify and test multiple things:
+- Tauri's architecture is clean and easy to understand.
+- React is able to support the project and fits well into Tauri's architecture.
+- Creating and importing new component is easy.
+
+## Findings
+
+**Strengths**
+
+- Fast UI iteration with Hot Reload
+- Good documentation and lots of libraries&extensions available
+- Good performance for dynamic widget rendering
+- Strong architecture, suitable for both web development and mobile development.
+
+**Limitations**
+
+- Dependent on WebView, which can cause different behavior based on OS
+- Though currently growing, Tauri's echosystem is still quite small compared to Flutter/React Native
+- Mobile is not as mature as Flutter/React Native
+
+## Conclusion
+
+The usage of React with Tauri has been validated as a strong candidate for the web application.
+
+It enables rapid feature development.
+
+The mobile application remains possible with this stack as it will still provide this ability.
+
+## Impact
+
+- Reproducible development environment
+- Faster iteration on web features
+- Modular feature system improving maintainability
