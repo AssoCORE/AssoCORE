@@ -1,0 +1,137 @@
+---
+title: Next.js Web Integration POC
+description: Proof of Concept in AssoCORE.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Card title="Next.js + shadcn/ui" icon="logos:nextjs-icon">
+  **Brief Description:** Implementing a complete modular web frontend including a design system showcase, multiple pages, interactive components and an advanced calendar module.
+
+  **Status:** <Badge text="Selected for Web Frontend" variant="success" size="medium" />
+
+  **Findings:** Simple to set up, highly modular approach, selective component usage with shadcn/ui limiting unnecessary code.
+</Card>
+
+## Objectives
+
+- Evaluate Next.js for building a scalable and maintainable web application dedicated to member engagement and association activities
+- Test a modular component system aligned with feature-based architecture
+- Validate a complete design system implementation using shadcn/ui
+- Implement a calendar feature to manage and display association events and activities
+- Validate integration of third-party interactive modules (FullCalendar)
+
+## Scope
+
+This POC focuses on the web frontend application.
+
+It validates:
+- Multi-page routing
+- Design system completeness
+- Interactive UI components
+- Event calendar integration
+
+The mobile application remains a separate track.
+
+## Architecture Overview
+
+- **Web framework:** Next.js (App Router)
+- **UI system:** shadcn/ui (selective component installation)
+- **Styling:** Tailwind CSS
+- **Notifications:** Sonner (toast system)
+- **Calendar module:** FullCalendar (dayGrid, timeGrid, interaction plugins)
+- **Architecture pattern:** Feature-based modular structure
+
+The component system enables dynamic UI composition, where each feature (events, membership, notifications, etc.) can be structured as an isolated and reusable module.
+
+shadcn/ui allows installing only the necessary components, avoiding unused UI elements and reducing unnecessary code.
+
+## Implemented Features
+
+### Design System Demonstration Page
+
+A complete demonstration page showcasing:
+
+- Buttons (default, outline, destructive)
+- Cards
+- Forms (Input, Textarea, Checkbox, Switch, Select, RadioGroup)
+- Dialog (Modal)
+- Sheet (Sidebar)
+- Dropdown Menu
+- Tabs
+- Accordion
+- Tooltip
+- Popover
+- HoverCard
+- Badge
+- Avatar
+- Alert
+- Progress
+- Skeleton
+- Table
+- Calendar (single date selection)
+- Toast notifications (Sonner)
+- Next.js routing (navigation to calendar page)
+
+This validates:
+- UI consistency
+- Component composability
+- Interactive capabilities
+- State management in client components
+
+### Dedicated Calendar Page (/calendar)
+
+An advanced interactive calendar built with FullCalendar including:
+
+- Week / Day / Month views
+- Editable events
+- Selectable time slots
+- Dynamic event rendering
+- Toolbar navigation
+- Toast feedback on date click and event click
+
+This validates:
+- Third-party library integration
+- Advanced interaction handling
+- Event lifecycle management
+- Compatibility with Tailwind + shadcn/ui environment
+
+## Findings
+
+**Strengths**
+
+- Simple and fast project setup
+- Excellent developer experience
+- Modular and scalable architecture
+- Selective component installation (no unnecessary UI imports)
+- Clean integration of interactive modules
+- Strong composability of components
+- Efficient routing and multi-page structure
+
+**Limitations**
+
+- Visual harmonization needed when integrating third-party libraries
+- Web-only scope (mobile requires separate solution)
+
+## Conclusion
+
+Next.js combined with shadcn/mui has been validated as the strategic choice for the web frontend.
+
+The stack enables:
+
+- Rapid UI implementation
+- Modular feature-based development
+- Clean and maintainable architecture
+- Controlled and minimal design system usage
+- Integration of complex modules such as an interactive calendar
+
+This POC has been retained as the foundation for the AssoCORE web platform.
+
+## Impact
+
+- Modern and scalable web frontend
+- Modular feature system improving maintainability
+- Optimized component usage (no unnecessary UI overhead)
+- Interactive event calendar for association management
+- Clear separation between frontend experience and backend services
+- Strong foundation for future expansion
