@@ -1,0 +1,115 @@
+---
+title: Angular Integration
+description: Proof of Concept in AssoCORE.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Card title="Angular" icon="rocket">
+  **Brief Description:** Implementation of a modular standalone architecture with feature-based components, routing system, and mobile compatibility via Capacitor.
+
+  **Status:** <Badge text="Uncomplete" variant="danger" size="medium" />
+
+  **Findings:** Angular provides a strong architectural foundation for scalable applications with clear separation of concerns and enterprise-ready structure.
+</Card>
+
+## Objectives
+
+- Evaluate Angular for building a scalable and maintainable web application for association management
+- Implement a feature-based modular architecture using standalone components
+- Ensure compatibility with mobile deployment through Capacitor
+- Validate routing, state management, and UI composition strategy
+
+## Scope
+
+This POC focuses on:
+
+- The web administration interface
+- The architectural structure for scalability
+- Mobile packaging via Capacitor (Android)
+
+The objective is to validate Angular as the main application framework for AssoCORE.
+
+## Architecture Overview
+
+- **Frontend framework:** Angular (Standalone Architecture)
+- **Mobile bridge:** Capacitor
+- **Routing:** Angular Router (feature-based lazy loading)
+- **State strategy:** Service-based state management
+- **Structure pattern:** Feature-oriented architecture
+
+### Architectural Principles
+
+- Standalone components (no NgModules)
+- Clear separation between:
+  - Core (singleton services, global config)
+  - Shared (reusable UI components)
+  - Features (business modules)
+- Lazy loading for scalability
+- Mobile-ready build configuration
+
+## Feature-Based Structure
+
+Each major business domain is isolated:
+
+- Calendar with Events management
+- Dashboard layout
+- Widget system
+- Sidebar/Topbar with Breadcrum
+
+Each feature contains:
+
+- Components
+- Routing configuration
+- Services
+- Models
+- UI logic
+
+This ensures:
+
+- High maintainability
+- Scalability
+- Clear team collaboration boundaries
+
+## Capacitor Integration
+
+Capacitor enables packaging the Angular web application as a native Android application.
+
+### Benefits
+
+- Single codebase for web and mobile
+- Access to native APIs if needed
+- Progressive mobile evolution strategy
+
+## Findings
+
+**Strengths**
+
+- Strong architectural conventions
+- Clear project structure for long-term scalability
+- Enterprise-ready tooling
+- Native TypeScript integration
+- Easy web + mobile alignment with Capacitor
+- Standalone architecture simplifies dependency management
+
+**Limitations**
+
+- Heavier boilerplate compared to lighter frameworks
+- More rigid structure
+- Slower initial iteration for rapid prototyping
+- Learning curve for teams unfamiliar with Angular patterns
+
+## Conclusion
+
+Angular proved to be a solid and reliable framework for large-scale applications.
+
+However, after evaluation, it was not selected as the final technology stack for AssoCORE.
+
+The decision was based on strategic considerations including development velocity, flexibility, and long-term product direction.
+
+## Impact
+
+- Validated architectural patterns for modular applications
+- Clarified technical requirements for scalability
+- Provided comparative insights for final stack selection
+- Reduced uncertainty in technology decision-making
