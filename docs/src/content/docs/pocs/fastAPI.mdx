@@ -1,0 +1,190 @@
+---
+title: FastAPI backend
+description: Proof of Concept for a backend API using FastAPI and nextCloud as a backend storage solution.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+## Active POC: FastAPI Backend with nextCloud Storage
+
+<Card title="FastAPI Backend with nextCloud Storage" icon="server">
+  **Brief Description:** Developing a backend API using FastAPI to interface with nextCloud for document storage and management.
+
+  **Status:** <Badge text="Done" variant="success" size="medium" />
+
+  **Findings:** Initial setup of FastAPI is complete, and basic CRUD operations are functional. Integration with nextCloud is complete.
+</Card>
+
+### 1. Ideation
+We need a modern, efficient backend API to manage documents and user interactions.
+FastAPI offers high performance and ease of development, while nextCloud provides a robust storage solution.
+
+### 2. Prototyping (Deployment Guide)
+<Steps>
+1.  **Directory Structure Setup**
+    You will need to set up a dot env file to store your nextCloud credentials and API endpoint.
+    ```sh
+    # MariaDB Root
+    MYSQL_ROOT_PASSWORD=root_password
+
+    # Nextcloud Database
+    NEXTCLOUD_DB_NAME=nextcloud
+    NEXTCLOUD_DB_USER=nextcloud
+    NEXTCLOUD_DB_PASSWORD=nextcloud_db_password
+
+    # App Database
+    MYSQL_USER=my_app_user
+    MYSQL_PASSWORD=my_app_password
+    MYSQL_DATABASE=my_app_db
+    MYSQL_HOST=db
+    MYSQL_PORT=3306
+
+    # Nextcloud API
+    NEXTCLOUD_URL=http://nextcloud
+    NEXTCLOUD_USER=admin
+    NEXTCLOUD_PASSWORD=admin
+    ```
+
+    For development, you should create a python virtual environment and install the required dependencies.
+
+    <Aside type="note" title="Note">
+      The venv gets automatically created by the `setup.sh` script, but you can also do it manually if you prefer.
+    </Aside>
+
+    ```sh
+    python -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    ```
+
+2.  **Compose Configuration**
+    We use mariadb for both nextCloud and our FastAPI app.
+
+    <Aside type="note" title="Security Tip">
+      In this POC, we use environment variables for passwords.
+    </Aside>
+
+    ```yaml
+    services:
+      db:
+        image: mariadb:10.11
+        restart: always
+        command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+        volumes:
+          - ./data/db:/var/lib/mysql
+          - ./init-db:/docker-entrypoint-initdb.d
+        env_file:
+          - .env
+        environment:
+          - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
+          - MYSQL_USER=${NEXTCLOUD_DB_USER}
+          - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+
+      redis:
+        image: redis:alpine
+        restart: always
+
+      nextcloud:
+        image: nextcloud:latest
+        restart: always
+        ports:
+          - "8080:80"
+        depends_on:
+          - db
+          - redis
+        env_file:
+          - .env
+        environment:
+          - MYSQL_HOST=db
+          - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
+          - MYSQL_USER=${NEXTCLOUD_DB_USER}
+          - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+          - REDIS_HOST=redis
+          - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8080 nextcloud
+        volumes:
+          - ./data/nextcloud:/var/www/html
+
+      myapp:
+        build: .
+        restart: always
+        ports:
+          - "8000:8000"
+        depends_on:
+          - db
+        env_file:
+          - .env
+        environment:
+          - DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}
+    ```
+
+3.  **Initialization**
+    Run the script to initialize everything
+    ```bash
+    ./setup.sh
+    ```
+
+    Or run manually:
+    ```bash
+    # Start the stack
+    docker compose up -d
+
+    # Set trusted domains so you don’t get "Access through untrusted domain" errors
+    docker exec -u www-data $(docker compose ps -q nextcloud) php occ config:system:set trusted_domains 0 --value=localhost:8080
+    docker exec -u www-data $(docker compose ps -q nextcloud) php occ config:system:set trusted_domains 1 --value=nextcloud
+
+    # Install the productivity suite
+    docker exec -u www-data $(docker compose ps -q nextcloud) php occ app:install calendar
+    docker exec -u www-data $(docker compose ps -q nextcloud) php occ app:install contacts
+    docker exec -u www-data $(docker compose ps -q nextcloud) php occ app:install notes
+    ```
+
+4.  **Shuttdown**
+    Run the script to stop everything
+    ```bash
+    ./shutdown.sh
+    ```
+</Steps>
+
+### 3. Validation
+
+We validated the POC against four practical criteria to verify readiness for further development:
+
+<CardGrid>
+  <Card title="API Performance" icon="rocket">
+    Benchmarked endpoint latency under concurrent requests;
+    observed median response times around 50ms for simple CRUD operations.
+  </Card>
+  <Card title="Persistence" icon="document">
+    Confirmed that stopping/starting containers preserves user files via mapped volumes.
+  </Card>
+  <Card title="nextCloud Integration" icon="lock">
+    Confirmed user creation, file uploads, and metadata retrieval via FastAPI endpoints interfacing with nextCloud.
+  </Card>
+  <Card title="Ease of Development" icon="seti:server">
+    Initial boilerplate setup is complete, and the codebase is structured for maintainability and scalability.
+    Very easy to add new endpoints and features without major refactoring.
+  </Card>
+</CardGrid>
+
+### 4. Decision
+
+{/* TODO */}
+
+---
+
+## POC Process
+<Tabs>
+  <TabItem label="Ideation">
+    Identify a specific problem (e.g., "Need a way to interact with nextCloud via API") and propose a high-level solution.
+  </TabItem>
+  <TabItem label="Prototyping">
+    Build a Minimal Viable Prototype (MVP) using isolated environments like Docker.
+  </TabItem>
+  <TabItem label="Validation">
+    Test the prototype against real-world scenarios, stressing the I/O and security.
+  </TabItem>
+  <TabItem label="Decision">
+    **Integrate** (Move to production), **Iterate** (Fix flaws and re-test), or **Archive** (Discard).
+  </TabItem>
+</Tabs>
