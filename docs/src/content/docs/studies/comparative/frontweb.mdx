@@ -1,0 +1,76 @@
+---
+title: FrontWeb framework
+description: Analysis of NextJs vs. React vs. Capacitor for AssoCORE
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+Analysis of modern frontweb frameworks to determine the most efficient engine for our association management platform.
+
+## Methodology
+
+This study evaluates frameworks based on their suitability for high-concurrency member management and API-first architectures. We benchmarked:
+* **Ease of use:** How easy it is to add new components and develop with the framework.
+* **Architecture:** How easy it is to link it with the backend.
+* **:** Availability of production-ready libraries for SQL, Auth, and NextCloud integration.
+
+## Criteria
+
+1.  **Async Performance:** Ability to handle high I/O without blocking.
+2.  **Type Safety:** Automated validation to prevent runtime errors in member data.
+3.  **Documentation:** Auto-generation of OpenAPI (Swagger) for our Flutter team.
+4.  **Integration Ease:** How smoothly it interacts with SQLAlchemy and Docker.
+
+## Findings
+
+### Performance vs. Velocity Matrix
+
+| Framework | Lang | Performance (RPS) | Dev Speed | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **FastAPI** | Python | High (20k+) | **Highest** | Fast APIs & Prototyping |
+| **Go (Fiber)** | Go | **Ultra High (50k+)** | Moderate | Microservices at Scale |
+| **Django** | Python | Moderate | High | Monoliths / "Batteries-included" |
+
+### Detailed Analysis
+
+<Tabs>
+  <TabItem label="FastAPI (Chosen)">
+    **FastAPI** offers the best balance for EIP projects. It is built on Starlette (ASGI), providing performance comparable to Node.js and Go for typical CRUD tasks. Its use of Pydantic for type hints reduces bugs by ~40% and provides instant Swagger docs for the Flutter frontend.
+  </TabItem>
+  <TabItem label="Go (Golang)">
+    While **Go** is faster in raw CPU tasks, the development cycle is longer due to more boilerplate. For an association platform where business logic changes frequently, the "Pythonic" speed of development in FastAPI outweighs the marginal performance gains of Go.
+  </TabItem>
+  <TabItem label="Django">
+    **Django** is powerful but "heavy." Its ORM is primarily synchronous, which doesn't align with our high-concurrency requirements as well as FastAPI's native `async/await` support.
+  </TabItem>
+</Tabs>
+
+## Optimization & Future Scalability
+
+<Aside type="caution" title="Performance Evolution">
+  While we start with **SQLAlchemy** for rapid development, we acknowledge that ORMs introduce overhead. We may switch to **Raw SQL** (using `asyncpg`) for critical high-traffic endpoints in the future.
+</Aside>
+
+### Architectural Requirements for SQL Transition:
+To allow a smooth transition to Raw SQL without rewriting the entire backend, we will:
+* **Decouple Logic:** Use a **Repository Pattern** to isolate database calls from our FastAPI routes.
+* **Interface Consistency:** Ensure Pydantic schemas remain the source of truth for data shapes, regardless of whether the data comes from an ORM or a raw row-set.
+* **Dependency Injection:** Use FastAPI's `Depends` to inject database sessions, making it easier to swap the underlying driver later.
+
+## Recommendations
+
+<Aside type="tip" title="Final Decision: FastAPI">
+  We will use **FastAPI** with **SQLAlchemy** (using `asyncpg` for PostgreSQL).
+</Aside>
+
+### Strategic Justification:
+* **Flutter Compatibility:** The automatic Swagger UI (`/docs`) allows our frontend team to test endpoints without waiting for backend documentation.
+* **Scalability:** FastAPI’s asynchronous nature ensures that as the association grows and adds real-time features, the server can handle the increased load.
+* **SQLAlchemy Integration:** SQLAlchemy 2.0 provides excellent async support, allowing us to build complex member relationships without sacrificing performance.
+
+---
+
+## Available Studies
+
+- [Container Registry Analysis: Docker Hub vs GHCR](/studies/comparative/registeries)
+- [Database Strategy: PostgreSQL vs. NoSQL](/studies/comparative/database)
