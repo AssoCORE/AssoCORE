@@ -1,0 +1,341 @@
+name: PR Status Sync
+
+on:
+  pull_request:
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        edited,
+        ready_for_review,
+        converted_to_draft,
+      ]
+  pull_request_review:
+    types: [submitted, dismissed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  sync-pr-status:
+    runs-on: ubuntu-latest
+    # Only run on PRs, include "issue comments" only if they're on PRs
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Sync PR Status Labels and Projects
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            let prNumber;
+            if (context.eventName === 'pull_request' || context.eventName === 'pull_request_review') {
+              prNumber = context.payload.pull_request.number;
+            } else if (context.eventName === 'issue_comment') {
+              prNumber = context.payload.issue.number;
+            }
+
+            console.log(`Processing PR #${prNumber}`);
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const currentLabels = pr.labels.map(l => l.name);
+
+            const statusLabels = {
+              changesRequested: '5. status: changes-requested',
+              waitingReview: '5. status: waiting-for-review',
+              mergeConflict: '5. status: merge-conflict',
+              blocked: '5. status: blocked',
+              readyMerge: '5. status: ready-for-merge'
+            };
+
+            // Get latest review state per reviewer
+            const latestReviewByUser = {};
+            reviews
+              .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
+              .forEach(review => {
+                if (!latestReviewByUser[review.user.login]) {
+                  latestReviewByUser[review.user.login] = review;
+                }
+              });
+
+            // Convert object to array
+            const latestReviews = Object.values(latestReviewByUser);
+
+            // Count different review states
+            const changesRequestedBy = latestReviews.filter(r => r.state === 'CHANGES_REQUESTED');
+            const approvedBy = latestReviews.filter(r => r.state === 'APPROVED');
+            const commentedBy = latestReviews.filter(r => r.state === 'COMMENTED');
+            const dismissedBy = latestReviews.filter(r => r.state === 'DISMISSED');
+
+            // A PR has "changes requested" if ANY reviewer (in their latest review) requested changes
+            const hasChangesRequested = changesRequestedBy.length > 0;
+
+            // A PR is "approved" only if:
+            // 1. At least one reviewer approved
+            // 2. NO reviewers have requested changes
+            const hasApprovals = approvedBy.length > 0;
+            const isFullyApproved = hasApprovals && !hasChangesRequested;
+
+            const reviewCount = latestReviews.filter(r => r.state !== 'DISMISSED').length;
+
+            console.log(`Total reviewers: ${reviewCount}`);
+            console.log(`Approved by: ${approvedBy.length} reviewer(s) - ${approvedBy.map(r => r.user.login).join(', ') || 'none'}`);
+            console.log(`Changes requested by: ${changesRequestedBy.length} reviewer(s) - ${changesRequestedBy.map(r => r.user.login).join(', ') || 'none'}`);
+            console.log(`Commented by: ${commentedBy.length} reviewer(s)`);
+
+            // Check for merge conflicts
+            const isMergeable = pr.mergeable;
+            console.log(`Mergeable: ${isMergeable}`);
+
+            // Check for blocked status (from PR body)
+            const prBody = pr.body || '';
+            const blockingPatterns = [
+              /blocked\s+by[:\s]+#(\d+)/i,
+              /depends?\s+on[:\s]+#(\d+)/i,
+            ];
+
+            const isBlocked = blockingPatterns.some(pattern => pattern.test(prBody));
+            const isDraft = pr.draft;
+
+            let correctStatus = null;
+            let projectStatus = null;
+
+            if (isDraft) {
+              // Draft PRs don't get status labels
+              console.log('Status: Draft (no status label)');
+              projectStatus = 'Created';
+            } else if (hasChangesRequested) {
+              // Priority 1: If ANY reviewer requested changes, status is "changes requested"
+              correctStatus = statusLabels.changesRequested;
+              projectStatus = 'Change Requested';
+              console.log('Status: Changes Requested (takes precedence over approvals)');
+            } else if (!hasApprovals || reviewCount === 0) {
+              // Priority 2: No approvals yet, or no reviews at all
+              correctStatus = statusLabels.waitingReview;
+              projectStatus = 'In Review';
+              console.log('Status: Waiting for Review');
+            } else if (isMergeable === false) {
+              // Priority 3: Has approvals but has merge conflicts
+              correctStatus = statusLabels.mergeConflict;
+              projectStatus = 'Waiting Merge'; // Conflicts need resolution before merge
+              console.log('Status: Merge Conflict (has approvals but cannot merge)');
+            } else if (isBlocked) {
+              // Priority 4: Has approvals but is blocked by dependencies
+              correctStatus = statusLabels.blocked;
+              projectStatus = 'Waiting Merge';
+              console.log('Status: Blocked (has approvals but blocked by dependencies)');
+            } else if (isFullyApproved && isMergeable !== false) {
+              // Priority 5: Fully approved (no change requests), mergeable, and not blocked
+              correctStatus = statusLabels.readyMerge;
+              projectStatus = 'Waiting Merge';
+              console.log('Status: Ready for Merge (all conditions met)');
+            }
+
+            // Remove all other status labels except the correct one
+            const statusLabelsToRemove = Object.values(statusLabels).filter(
+              label => label !== correctStatus && currentLabels.includes(label)
+            );
+
+            for (const label of statusLabelsToRemove) {
+              console.log(`Removing: ${label}`);
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label
+                });
+              } catch (error) {
+                console.log(`Failed to remove ${label}: ${error.message}`);
+              }
+            }
+
+            // Add correct status label if not draft and not already present
+            if (correctStatus && !currentLabels.includes(correctStatus)) {
+              console.log(`Adding: ${correctStatus}`);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: [correctStatus]
+              });
+            }
+
+            // If draft, remove all status labels
+            if (isDraft && statusLabelsToRemove.length === 0) {
+              for (const label of Object.values(statusLabels)) {
+                if (currentLabels.includes(label)) {
+                  console.log(`Removing status label from draft: ${label}`);
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,
+                      name: label
+                    });
+                  } catch (error) {
+                    console.log(`Failed to remove ${label}: ${error.message}`);
+                  }
+                }
+              }
+            }
+
+            // This requires the project to be linked to the PR
+            // Uses GraphQL to update the project status field
+            if (projectStatus) {
+              try {
+                // First, find if this PR is in any project
+                const query = `
+                  query($owner: String!, $repo: String!, $prNumber: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      pullRequest(number: $prNumber) {
+                        projectItems(first: 10) {
+                          nodes {
+                            id
+                            project {
+                              id
+                              title
+                            }
+                            fieldValues(first: 20) {
+                              nodes {
+                                ... on ProjectV2ItemFieldSingleSelectValue {
+                                  id
+                                  name
+                                  field {
+                                    ... on ProjectV2SingleSelectField {
+                                      id
+                                      name
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+
+                const result = await github.graphql(query, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  prNumber: prNumber
+                });
+
+                const projectItems = result.repository.pullRequest.projectItems.nodes;
+
+                if (projectItems.length > 0) {
+                  console.log(`Found ${projectItems.length} project(s) containing this PR`);
+
+                  for (const item of projectItems) {
+                    console.log(`Project: ${item.project.title}`);
+
+                    const statusField = item.fieldValues.nodes.find(
+                      fv => fv.field?.name === 'Status'
+                    );
+
+                    if (statusField) {
+                      const currentStatus = statusField.name;
+                      console.log(`Current project status: ${currentStatus}`);
+                      console.log(`Target project status: ${projectStatus}`);
+
+                      if (currentStatus !== projectStatus) {
+                        // Get the field ID and option ID
+                        const projectQuery = `
+                          query($projectId: ID!) {
+                            node(id: $projectId) {
+                              ... on ProjectV2 {
+                                field(name: "Status") {
+                                  ... on ProjectV2SingleSelectField {
+                                    id
+                                    options {
+                                      id
+                                      name
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        `;
+
+                        const projectData = await github.graphql(projectQuery, {
+                          projectId: item.project.id
+                        });
+
+                        const statusFieldId = projectData.node.field.id;
+                        const statusOption = projectData.node.field.options.find(
+                          opt => opt.name === projectStatus
+                        );
+
+                        if (statusOption) {
+                          // Update the project item status
+                          const updateMutation = `
+                            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                              updateProjectV2ItemFieldValue(
+                                input: {
+                                  projectId: $projectId
+                                  itemId: $itemId
+                                  fieldId: $fieldId
+                                  value: { singleSelectOptionId: $optionId }
+                                }
+                              ) {
+                                projectV2Item {
+                                  id
+                                }
+                              }
+                            }
+                          `;
+
+                          await github.graphql(updateMutation, {
+                            projectId: item.project.id,
+                            itemId: item.id,
+                            fieldId: statusFieldId,
+                            optionId: statusOption.id
+                          });
+
+                          console.log(`Updated project status to: ${projectStatus}`);
+                        } else {
+                          console.log(`Status option "${projectStatus}" not found in project`);
+                        }
+                      } else {
+                        console.log('Project status already correct');
+                      }
+                    } else {
+                      console.log('No Status field found in project');
+                    }
+                  }
+                } else {
+                  console.log('PR not linked to any project');
+                }
+              } catch (error) {
+                console.log(`Could not update project: ${error.message}`);
+                console.log('This is normal if PR is not in a project or token lacks permissions');
+              }
+            }
+
+            console.log('\n=== Summary ===');
+            console.log(`Status Label: ${correctStatus || 'None (draft)'}`);
+            console.log(`Project Status: ${projectStatus || 'N/A'}`);
