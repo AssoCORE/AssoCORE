@@ -1,0 +1,427 @@
+---
+title: Django + Nextcloud Backend Integration POC
+description: Proof of Concept for Python/Django REST API integration with Nextcloud for AssoCORE backend services.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+## Active POC: Django Backend with Nextcloud Integration
+
+<Card title="Django REST API Backend" icon="rocket">
+  **Brief Description:** Building a Python/Django backend that interfaces with Nextcloud via REST API and WebDAV to provide programmatic access to document management, user provisioning, and file operations.
+
+  **Status:** <Badge text="Complete" variant="success" size="medium" />
+
+  **Findings:** Successfully validated Django REST Framework integration with Nextcloud OCS API, WebDAV protocol for file operations, and Docker multi-service orchestration. Authentication and user management endpoints tested and functional.
+</Card>
+
+### 1. Ideation
+
+While Nextcloud provides excellent UI and document management, AssoCORE needs programmatic backend access to:
+- Automate user provisioning when members join associations
+- Create and manage file shares via business logic
+- Integrate document workflows with other microservices
+- Provide RESTful API endpoints for frontend applications
+- Implement custom authentication flows and permission management
+
+A Django backend acting as an intermediary layer can orchestrate Nextcloud operations while maintaining separation of concerns and enabling future extensibility.
+
+### 2. Prototyping (Deployment Guide)
+
+We built a multi-container architecture with Django, PostgreSQL, Nextcloud, MariaDB, and Redis.
+
+<Steps>
+1.  **Project Structure Setup**
+    Initialize the Django project with proper configuration for containerized deployment.
+    ```bash
+    mkdir -p django_backend/{config,nextcloud_api}
+    cd django_backend
+    ```
+
+    Create the Django app structure:
+    ```
+    django_backend/
+    ├── Dockerfile
+    ├── requirements.txt
+    ├── manage.py
+    ├── config/           # Django project settings
+    │   ├── settings.py
+    │   ├── urls.py
+    │   └── wsgi.py
+    └── nextcloud_api/    # Nextcloud integration app
+        ├── client.py     # Nextcloud API client wrapper
+        ├── views.py      # REST API endpoints
+        ├── urls.py       # URL routing
+        └── models.py
+    ```
+
+2.  **Dependencies Configuration**
+    Create `requirements.txt` with essential packages:
+    ```python
+    Django==5.0.2
+    djangorestframework==3.14.0
+    django-cors-headers==4.3.1
+    psycopg2-binary==2.9.9
+    requests==2.31.0
+    gunicorn==21.2.0
+    python-dotenv==1.0.1
+    ```
+
+3.  **Nextcloud Client Implementation**
+    Build a Python client wrapper for Nextcloud's OCS API and WebDAV:
+
+    <Aside type="note" title="API Standards">
+      Nextcloud uses **OCS API** (Open Collaboration Services) for user/share management and **WebDAV** for file operations. Both require HTTP Basic Authentication.
+    </Aside>
+
+    ```python
+    class NextcloudClient:
+        def __init__(self, url, username, password):
+            self.base_url = url.rstrip('/')
+            self.auth = HTTPBasicAuth(username, password)
+            self.ocs_base = f"{self.base_url}/ocs/v2.php"
+            self.webdav_base = f"{self.base_url}/remote.php/dav"
+        
+        def get_server_status(self) -> Dict:
+            """Check Nextcloud connectivity and authentication"""
+            # Implementation using OCS capabilities endpoint
+        
+        def create_user(self, userid, password, display_name) -> Dict:
+            """Create a new Nextcloud user via OCS API"""
+            # Implementation using OCS user provisioning API
+        
+        def create_share(self, path, share_type=3) -> Dict:
+            """Create a public share link for files/folders"""
+            # Implementation using OCS sharing API
+    ```
+
+4.  **Docker Compose Orchestration**
+    Configure multi-service deployment with proper networking and dependencies:
+
+    <Aside type="caution" title="Trusted Domains">
+      Nextcloud enforces a **trusted_domains** whitelist. The Django container must communicate using a hostname that's in this list (e.g., `app`).
+    </Aside>
+
+    ```yaml
+    services:
+      # Nextcloud stack (existing)
+      db:
+        image: mariadb:10.11
+        environment:
+          - MYSQL_ROOT_PASSWORD=root_password
+          - MYSQL_PASSWORD=nextcloud_db_password
+          - MYSQL_DATABASE=nextcloud
+          - MYSQL_USER=nextcloud
+        volumes:
+          - ./data/db:/var/lib/mysql
+
+      redis:
+        image: redis:alpine
+
+      app:
+        image: nextcloud:latest
+        ports:
+          - "8080:80"
+        depends_on:
+          - db
+          - redis
+        environment:
+          - MYSQL_HOST=db
+          - REDIS_HOST=redis
+          - NEXTCLOUD_ADMIN_USER=admin
+          - NEXTCLOUD_ADMIN_PASSWORD=Base_Password_123!
+          - NEXTCLOUD_TRUSTED_DOMAINS=localhost app
+        volumes:
+          - ./data/nextcloud:/var/www/html
+
+      # Django backend stack (new)
+      django_db:
+        image: postgres:16-alpine
+        environment:
+          - POSTGRES_DB=django_poc
+          - POSTGRES_USER=django_user
+          - POSTGRES_PASSWORD=django_password
+        volumes:
+          - django_postgres_data:/var/lib/postgresql/data
+
+      django_backend:
+        build:
+          context: ./django_backend
+        ports:
+          - "8000:8000"
+        depends_on:
+          - django_db
+          - app
+        environment:
+          - DJANGO_SECRET_KEY=django-insecure-poc-key
+          - DEBUG=True
+          - POSTGRES_HOST=django_db
+          - NEXTCLOUD_URL=http://app
+          - NEXTCLOUD_USERNAME=admin
+          - NEXTCLOUD_PASSWORD=Base_Password_123!
+        volumes:
+          - ./django_backend:/app
+
+    volumes:
+      django_postgres_data:
+    ```
+
+5.  **REST API Endpoints**
+    Implement RESTful endpoints using Django REST Framework:
+    ```bash
+    # Start all services
+    docker compose up -d
+
+    # Wait for initialization
+    docker compose logs -f django_backend
+    ```
+
+    Test the API:
+    ```bash
+    # Health check
+    curl http://localhost:8000/api/health/
+
+    # Nextcloud connectivity
+    curl http://localhost:8000/api/nextcloud/status/
+
+    # List users
+    curl http://localhost:8000/api/nextcloud/users/
+
+    # Create user
+    curl -X POST http://localhost:8000/api/nextcloud/users/create/ \
+      -H "Content-Type: application/json" \
+      -d '{"userid": "newuser", "password": "StrongPass2026", "display_name": "New User"}'
+    ```
+</Steps>
+
+### 3. Validation
+
+We verified the POC against six critical integration points:
+
+<CardGrid>
+  <Card title="API Connectivity" icon="laptop">
+    Confirmed Django successfully authenticates with Nextcloud OCS API and receives proper JSON responses from status/capabilities endpoints.
+  </Card>
+  
+  <Card title="User Management" icon="user">
+    Validated user provisioning via OCS API. Discovered Nextcloud enforces password policies (compromised password list) requiring strong, random passwords.
+  </Card>
+  
+  <Card title="File Operations" icon="open-book">
+    Tested WebDAV protocol for listing files and directories. Confirmed proper path formatting and authentication headers.
+  </Card>
+  
+  <Card title="Network Isolation" icon="puzzle">
+    Verified container-to-container communication using Docker's internal DNS. Required adding service name to Nextcloud's trusted_domains.
+  </Card>
+  
+  <Card title="Database Persistence" icon="setting">
+    Confirmed Django migrations persist across container restarts using PostgreSQL volume. Separate from Nextcloud's MariaDB instance.
+  </Card>
+  
+  <Card title="REST Standards" icon="rocket">
+    Validated proper HTTP status codes (200, 201, 400, 500), JSON serialization, and CORS headers for frontend integration.
+  </Card>
+</CardGrid>
+
+### 4. Decision
+
+<Aside type="tip" title="Verdict: Integrate">
+  The POC successfully demonstrates Django as a robust backend layer for Nextcloud integration. The architecture is ready for production hardening and Kubernetes deployment.
+</Aside>
+
+**Key Learnings:**
+* **Password Policy**: Nextcloud's built-in security requires strong, non-compromised passwords. Implement password generation utilities in production.
+* **Trusted Domains**: Configure Nextcloud to accept requests from internal service names (not just localhost).
+* **API Versioning**: Nextcloud OCS API has v1 and v2 endpoints. Use v2 for JSON responses.
+* **Error Handling**: OCS API returns 200 OK even for failures. Check XML/JSON status codes within response body.
+
+**Next Steps for Production:**
+* Implement **JWT authentication** for Django API endpoints
+* Add **Celery task queue** for async file operations (uploads, batch processing)
+* Replace environment variables with **Kubernetes Secrets** and ConfigMaps
+* Implement **connection pooling** for Nextcloud API requests
+* Add **comprehensive error handling** and retry logic with exponential backoff
+* Deploy behind **Traefik ingress** with TLS certificates
+* Add **monitoring** via Prometheus metrics and health checks
+* Implement **unit tests** for Nextcloud client and **integration tests** for API endpoints
+* Document **API schema** with OpenAPI/Swagger for frontend teams
+
+**Architectural Benefits:**
+* **Separation of Concerns**: Business logic in Django, document storage in Nextcloud
+* **Extensibility**: Easy to add new endpoints without touching Nextcloud core
+* **Flexibility**: Can integrate multiple Nextcloud instances or migrate to alternative storage
+* **Modern Stack**: Python ecosystem enables ML, data processing, and extensive libraries
+* **API-First**: Frontend applications (React, Vue) consume standardized REST endpoints
+
+---
+
+## POC Process
+
+<Tabs>
+  <TabItem label="Ideation">
+    Identified the need for programmatic backend access to Nextcloud. Associations require automated user provisioning, document workflow integration, and API access for custom frontends beyond Nextcloud's native UI.
+  </TabItem>
+  
+  <TabItem label="Prototyping">
+    Built a multi-container Django application with:
+    - **Django 5.0** with REST Framework for API development
+    - **PostgreSQL** for Django application data
+    - **Nextcloud client wrapper** implementing OCS and WebDAV protocols
+    - **Docker Compose** for local development and testing
+    - **Automated test scripts** for endpoint validation
+  </TabItem>
+  
+  <TabItem label="Validation">
+    Tested against real-world scenarios:
+    - User creation with password policy enforcement
+    - Server status and connectivity checks
+    - File listing via WebDAV
+    - Share link generation
+    - Container restart persistence
+    - Network communication between services
+  </TabItem>
+  
+  <TabItem label="Decision">
+    **Integrate** - Move forward with Django backend architecture. Next phase involves production hardening, Kubernetes migration, authentication implementation, and comprehensive testing suite.
+  </TabItem>
+</Tabs>
+
+---
+
+## API Reference
+
+### Available Endpoints
+
+| Endpoint | Method | Description | Status |
+|----------|--------|-------------|--------|
+| `/api/` | GET | API overview and endpoint listing | ✅ Implemented |
+| `/api/health/` | GET | Health check for monitoring | ✅ Implemented |
+| `/api/nextcloud/status/` | GET | Check Nextcloud connectivity | ✅ Implemented |
+| `/api/nextcloud/users/` | GET | List all Nextcloud users | ✅ Implemented |
+| `/api/nextcloud/users/create/` | POST | Create new Nextcloud user | ✅ Implemented |
+| `/api/nextcloud/files/` | GET | List files in directory | ✅ Implemented |
+| `/api/nextcloud/share/` | POST | Create public share link | ✅ Implemented |
+
+### Example Request/Response
+
+**Create User Request:**
+```bash
+POST /api/nextcloud/users/create/
+Content-Type: application/json
+
+{
+  "userid": "jdoe",
+  "password": "SecureRandomPassword2026XYZ",
+  "display_name": "John Doe"
+}
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "userid": "jdoe"
+}
+```
+
+**Error Response (Weak Password):**
+```json
+{
+  "success": false,
+  "error": "Failed to create user: 400 Client Error: Password is present in compromised password list"
+}
+```
+
+---
+
+## Repository Structure
+
+```
+POC_Django/
+├── docker-compose.yml          # Multi-service orchestration
+├── start.sh                    # Automated startup script
+├── test_api.sh                 # API endpoint testing
+├── README.md                   # Detailed documentation
+├── data/                       # Persistent storage (gitignored)
+│   ├── db/                     # MariaDB data
+│   ├── nextcloud/              # Nextcloud files
+│   └── redis/                  # Redis cache
+└── django_backend/             # Django application
+    ├── Dockerfile              # Container build instructions
+    ├── requirements.txt        # Python dependencies
+    ├── manage.py               # Django CLI
+    ├── config/                 # Project configuration
+    │   ├── settings.py         # Django settings
+    │   ├── urls.py             # URL routing
+    │   └── wsgi.py             # WSGI application
+    └── nextcloud_api/          # Nextcloud integration app
+        ├── __init__.py
+        ├── apps.py
+        ├── client.py           # Nextcloud API client
+        ├── views.py            # REST API views
+        ├── urls.py             # App URL patterns
+        ├── models.py           # Database models
+        └── tests.py            # Unit tests
+```
+
+---
+
+## Quick Start Commands
+
+```bash
+# Start all services
+docker compose up -d
+
+# Or use the startup script
+./start.sh
+
+# Check service status
+docker compose ps
+
+# View logs
+docker compose logs -f django_backend
+
+# Run API tests
+./test_api.sh
+
+# Access Django shell
+docker exec -it poc_django-django_backend-1 python manage.py shell
+
+# Stop all services
+docker compose down
+
+# Clean up volumes (WARNING: deletes all data)
+docker compose down -v
+rm -rf data/
+```
+
+---
+
+## Technologies Used
+
+<CardGrid>
+  <Card title="Django 5.0" icon="seti:python">
+    Modern Python web framework with ORM, admin interface, and excellent documentation.
+  </Card>
+  
+  <Card title="Django REST Framework" icon="rocket">
+    Powerful toolkit for building Web APIs with serialization, authentication, and browsable API.
+  </Card>
+  
+  <Card title="PostgreSQL 16" icon="seti:db">
+    Advanced relational database for Django application data with ACID compliance.
+  </Card>
+  
+  <Card title="Nextcloud 32" icon="document">
+    Self-hosted file sync and collaboration platform with extensive API support.
+  </Card>
+  
+  <Card title="Docker Compose" icon="docker">
+    Multi-container orchestration for development and testing environments.
+  </Card>
+  
+  <Card title="Gunicorn" icon="rocket">
+    Production-grade WSGI HTTP server for Python applications.
+  </Card>
+</CardGrid>
