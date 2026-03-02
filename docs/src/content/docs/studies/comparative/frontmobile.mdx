@@ -1,0 +1,67 @@
+---
+title: FrontMobile framework
+description: Analysis of Flutter vs. Tauri vs. Capacitor for AssoCORE
+---
+
+import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+Analysis of modern frontmobile frameworks to determine the most efficient engine for our association management platform.
+
+## Methodology
+
+This study evaluates frameworks based on their suitability for high-concurrency member management and API-first architectures. We benchmarked:
+* **Developer Velocity:** Time from setup to a working web server.
+* **Ecosystem Maturity:** Availability of production-ready libraries for components.
+* **Architecture:** Ease of creation for a clean and solid architecture.
+
+## Criteria
+
+1.  **Ease of use:** Ability to add, remove and test components easily.
+2.  **Type Safety:** Automated validation to prevent runtime errors in member data.
+3.  **Integration Ease:** How smoothly it interacts with external our backends technology.
+
+## Findings
+
+### Performance vs. Velocity Matrix
+
+| Framework | Lang | Performance (TTFB) | Dev Speed | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **Flutter** | Dart | **Highest (300-600 ms)** | High | App that touches as many people as possible |
+| **Tauri** | TypeScript | Moderate (700-1400 ms) | Moderate | Secondary apps |
+| **Capacitor** | TypeScript | High (600-1200 ms) | **Highest** | Fast MVP and internal tools |
+
+### Detailed Analysis
+
+<Tabs>
+  <TabItem label="Flutter (Chosen)">
+    **Flutter** offers the best balance for EIP projects. It's portability and ease of use makes it a perfect fit for our needs.
+  </TabItem>
+  <TabItem label="Tauri">
+    While **Tauri** is strong and provide direct control over the backend, its mobile support is still in development and is still a work in progress. This flaw makes it less desirable and guided us into another choice.
+  </TabItem>
+  <TabItem label="Capacitor">
+    **Capacitor** would be good for quick development but it's lesser portability makes it less desirable.
+  </TabItem>
+</Tabs>
+
+## Recommendations
+
+<Aside type="tip" title="Final Decision: Flutter">
+  We will use **Flutter**.
+</Aside>
+
+### Strategic Justification:
+* **Ease of use:** Flutter is very to use, especially for mobile apps due to its design.
+* **Performance:** Its low TTFB compared to other framework will make it more aggreeable to work with and will improve the user experience.
+* **Greater experience:** Our team greater experience is Flutter will make it easier for them to develop a prototype and MVP.
+---
+
+## Related POCs
+
+- [Flutter](/pocs/flutter)
+- [Tauri](/pocs/tauriReact)
+- [Capacitor](/pocs/angular)
+
+## Related Studies
+
+- [Front Web: Next vs React vs Angular](/studies/comparative/frontweb)
