@@ -1,0 +1,158 @@
+---
+title: Golang backend
+description: Proof of Concept for a backend API using Golang and nextCloud as a backend storage solution.
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+## Active POC: FastAPI Backend with nextCloud Storage
+
+<Card title="FastAPI Backend with nextCloud Storage" icon="server">
+  **Brief Description:** Developing a backend API using Golang to interface with nextCloud for document storage and management.
+
+  **Status:** <Badge text="Done" variant="success" size="medium" />
+
+  **Findings:** Initial setup of Golang is complete, and basic CRUD operations are functional. Integration with nextCloud is complete.
+</Card>
+
+### 1. Ideation
+
+### 2. Prototyping (Deployment Guide)
+<Steps>
+1.  **Directory Structure Setup**
+    You will need to set up a dot env file to store your nextCloud credentials and API endpoint.
+    ```sh
+    NEXTCLOUD_DB_NAME=my_app
+    NEXTCLOUD_DB_USER=my_app_user
+    NEXTCLOUD_DB_PASSWORD=my_app_password
+
+    ROOT_PWD=rootpassword
+
+    MYSQL_HST=db
+    MYSQL_DB=my_app
+    MYSQL_USR=my_app_user
+    MYSQL_PWD=my_app_password
+
+    APP_PORT=3306
+    APP_NAME=my_app
+    ```
+
+    For development, you should install go dependencies:
+
+    ```sh
+    github.com/go-sql-driver/mysql
+    github.com/lib/pq
+    github.com/go-chi/chi/v5
+    ```
+
+2.  **Compose Configuration**
+    We use mariadb for both nextCloud and our Golang app.
+
+    <Aside type="note" title="Security Tip">
+      In this POC, we use environment variables for passwords.
+    </Aside>
+
+    ```yaml
+    services:
+      db:
+        image: mariadb:10.11
+        restart: always
+        env_file:
+          - .env
+        environment:
+          - MYSQL_ROOT_PASSWORD=${ROOT_PWD}
+          - MYSQL_DATABASE=${MYSQL_DB}
+          - MYSQL_USER=${MYSQL_USR}
+          - MYSQL_PASSWORD=${MYSQL_PWD}
+        volumes:
+          - ./data/db:/var/lib/mysql
+
+      redis:
+        image: redis:alpine
+        restart: always
+
+      nextcloud:
+        image: nextcloud:latest
+        restart: always
+        ports:
+          - "8080:80"
+        depends_on:
+          - db
+          - redis
+        env_file:
+          - .env
+        environment:
+          - MYSQL_HOST=${MYSQL_HST}
+          - MYSQL_DATABASE=${MYSQL_DB}
+          - MYSQL_USER=${MYSQL_USR}
+          - MYSQL_PASSWORD=${MYSQL_PWD}
+          - REDIS_HOST=redis
+        volumes:
+          - ./data/nextcloud:/var/www/html
+
+      myapp:
+        build: .
+        restart: always
+        ports:
+          - "8000:5173"
+        depends_on:
+          - db
+        env_file:
+          - .env
+        environment:
+          - DB_USER=${MYSQL_USR}
+          - DB_PASS=${MYSQL_PWD}
+          - DB_HOST=${MYSQL_HST}
+          - DB_PORT=${APP_PORT}
+          - DB_NAME=${APP_NAME}
+    ```
+
+3.  **Initialization**
+    run manually:
+    ```bash
+    # Start the docker images
+    docker compose up --build
+    ```
+
+4.  **Shutdown**
+    run manually:
+    ```bash
+    # Stop the docker images
+    docker compose down
+    ```
+### 3. Validation
+
+We validated the POC against two practical criteria to verify readiness for further development:
+
+<CardGrid>
+  </Card>
+  <Card title="nextCloud Integration" icon="lock">
+    Confirmed user creation, file uploads, and metadata retrieval via Golang endpoints interfacing with nextCloud.
+  </Card>
+  <Card title="Ease of Development" icon="seti:server">
+    Very easy to add new endpoints and features without major refactoring.
+  </Card>
+</CardGrid>
+
+
+### 4. Decision
+
+{/* TODO */}
+
+---
+
+## POC Process
+<Tabs>
+  <TabItem label="Ideation">
+    Identify a specific problem (e.g., "Need a way to interact with nextCloud via API") and propose a high-level solution.
+  </TabItem>
+  <TabItem label="Prototyping">
+    Build a Minimal Viable Prototype (MVP) using isolated environments like Docker.
+  </TabItem>
+  <TabItem label="Validation">
+    Test the prototype against real-world scenarios, stressing the I/O and security.
+  </TabItem>
+  <TabItem label="Decision">
+    **Integrate** (Move to production), **Iterate** (Fix flaws and re-test), or **Archive** (Discard).
+  </TabItem>
+</Tabs>
