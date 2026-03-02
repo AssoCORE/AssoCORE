@@ -1,0 +1,121 @@
+name: "🐛 Bug Report"
+description: "Report broken functionality or unexpected behavior"
+title: "[BUG] "
+labels: ["3. type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+        Please provide detailed information to help us identify and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear and concise description of what the bug is
+      placeholder: "When i try to register a new user, the system throws an error and does not create the account."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: "The user registration process should complete successfully and create a new user account."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: "Parser crashes with error: 'Parse error at line 2, column 5'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the bug
+      placeholder: |
+        1. Go to the registration page
+        2. Fill in the registration form with valid data
+        3. Click the 'Register' button
+        4. Observe the error message and failure to create an account
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_code
+    attributes:
+      label: Minimal Reproduction Code
+      description: The smallest code snippet that demonstrates the bug
+      placeholder: |
+        ```ts
+        const response = await api.registerUser({
+          username: "testuser",
+          password: "password123"
+        });
+        console.log(response);
+        ```
+      render: scheme
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Stack Trace / Error Output
+      description: Complete error messages, stack traces, or logs
+      render: shell
+      placeholder: |
+        Error: Parse error at line 2, column 5
+            at Parser.parse (parser.js:45:15)
+            at main.js:10:5
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Your system details
+      placeholder: "NixOS 23.11, Next.js 13, Node.js 18"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "4. severity: blocker"
+        - "4. severity: security"
+        - "4. severity: regular"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: bug_type
+    attributes:
+      label: Bug Type
+      options:
+        - "3. type: bug"
+        - "3. type: regression"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other information that might help (screenshots, related issues, etc.)
+      placeholder: "This might be related to #123"

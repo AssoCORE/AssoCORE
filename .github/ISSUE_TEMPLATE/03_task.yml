@@ -1,0 +1,56 @@
+name: "🔵 Task (Layer 2)"
+description: "Specific technical implementation work required for a Story"
+title: "[TASK] "
+labels: ["0. layer: task"]
+body:
+  - type: input
+    id: parent_story
+    attributes:
+      label: Parent Story
+      description: Which Story does this Task implement?
+      placeholder: "#45"
+
+  - type: textarea
+    id: task_description
+    attributes:
+      label: Description
+      description: Clear explanation of what needs to be done
+      placeholder: "Implement the API endpoint for event creation, including validation and error handling."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      options:
+        - "1. difficulty : easy"
+        - "1. difficulty : medium"
+        - "1. difficulty : hard"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      options:
+        - "3. type: bug"
+        - "3. type: build-integration"
+        - "3. type: chore"
+        - "3. type: cleanup"
+        - "3. type: documentation"
+        - "3. type: extra-deliverable"
+        - "3. type: feature"
+        - "3. type: refactor"
+        - "3. type: regression"
+        - "3. type: test"
+    validations:
+      required: true
+
+  - type: input
+    id: assignee_suggestion
+    attributes:
+      label: Suggested Assignee
+      description: Who should work on this? (Optional)
+      placeholder: "@username"

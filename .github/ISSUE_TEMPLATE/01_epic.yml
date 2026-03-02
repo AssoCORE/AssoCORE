@@ -1,0 +1,33 @@
+name: "🟣 Epic (Layer 0)"
+description: "High-level feature grouping or roadmap milestone."
+title: "[EPIC] "
+labels: ["0. layer: epic", "5. scope: tracking"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Epic Overview
+        An Epic groups multiple Stories under a common goal (e.g., "Implement Event system").
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is the high-level goal of this Epic?
+      placeholder: "As a team, we need to deliver the event system..."
+    validations:
+      required: true
+
+  - type: input
+    id: parent_initiative
+    attributes:
+      label: 🔗 Parent Initiative (Milestone) (Optional)
+      description: Link to GitHub Milestone if applicable
+      placeholder: "Pitch Presentations"
+
+  - type: input
+    id: timeline
+    attributes:
+      label: Timeline
+      description: Target sprint or date
+      placeholder: "Sprint 1 - Ideation: Mar 1 - Mar 14"

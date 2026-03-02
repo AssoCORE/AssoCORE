@@ -1,0 +1,59 @@
+name: "⚠️ Technical Debt"
+description: "Code quality issues, refactoring needs, or maintenance work"
+title: "[DEBT] "
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What technical debt exists?
+      placeholder: "The account management module is too tightly coupled with the authentication system."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_debt
+    attributes:
+      label: Why This Is Debt
+      description: Why does this need to be addressed?
+      placeholder: |
+        - It makes it difficult to implement new features related to accounts without affecting authentication.
+        - It increases the risk of bugs when making changes to either module.
+        - It hinders our ability to scale the codebase effectively.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: How should this be resolved?
+      placeholder: |
+        Split account.py into two separate modules:
+        - account_management.py
+        - authentication.py
+        Define clear interfaces between them to reduce coupling and improve maintainability.
+
+  - type: dropdown
+    id: debt_type
+    attributes:
+      label: Type
+      options:
+        - "3. type: refactor"
+        - "3. type: cleanup"
+        - "3. type: documentation"
+        - "3. type: test"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "2. priority: critical"
+        - "2. priority: high"
+        - "2. priority: medium"
+        - "2. priority: low"
+    validations:
+      required: true

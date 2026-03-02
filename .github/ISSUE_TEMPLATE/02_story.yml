@@ -1,0 +1,70 @@
+name: "🟢 Story (Layer 1)"
+description: "A specific feature requirement or user-facing capability (Roadmap Item)."
+title: "[STORY] "
+labels: ["0. layer: story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## User Story
+        Describe a feature from the user's perspective: **"As a [role], I want [feature], so that [benefit]."**
+
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User Story
+      placeholder: |
+        As a User of AssoCORE,
+        I want to be able to create and manage events,
+        So that I can organize and promote my events effectively.
+    validations:
+      required: true
+
+  - type: input
+    id: parent_epic
+    attributes:
+      label: Parent Epic
+      description: Link the Epic this Story belongs to
+      placeholder: "#12"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Estimated Difficulty
+      options:
+        - "1. difficulty: easy"
+        - "1. difficulty: medium"
+        - "1. difficulty: hard"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "2. priority: critical"
+        - "2. priority: high"
+        - "2. priority: medium"
+        - "2. priority: low"
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations or constraints
+      placeholder: |
+        - Must handle recursive calls without stack overflow
+        - Consider tail-call optimization
+        - Need to maintain closure environments
+
+  - type: input
+    id: sprint
+    attributes:
+      label: Target Sprint
+      description: Target sprint or date for this Story
+      placeholder: "Sprint 2"
