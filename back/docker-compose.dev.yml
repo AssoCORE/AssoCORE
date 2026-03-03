@@ -15,3 +15,5 @@ services:
       - DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
     volumes:
       - ./app:/app/app
+    networks:
+      - default
