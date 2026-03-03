@@ -1,0 +1,17 @@
+services:
+  api-dev:
+    build: .
+    command: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      nextcloud:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+    volumes:
+      - ./app:/app/app

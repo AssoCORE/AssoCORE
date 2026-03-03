@@ -67,19 +67,13 @@
               enable = true;
               name = "black hook";
               entry = ''
-                ${lib.getExe pkgs.black} --quiet ./back
+                ${lib.getExe pkgs.black} --quiet
               '';
+              files = "\\.py$";
             };
             convco = {
               enable = true;
               name = "convco hook";
-            };
-            isort = {
-              enable = true;
-              name = "isort hook";
-              entry = ''
-                ${lib.getExe pkgs.isort} ./back
-              '';
             };
             alejandra = {
               enable = true;
