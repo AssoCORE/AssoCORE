@@ -115,6 +115,9 @@
               isort
               convco
               alejandra
+
+              # Git
+              git-lfs
             ];
 
             env = {
