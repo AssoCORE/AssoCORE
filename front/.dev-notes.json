@@ -1,0 +1,22 @@
+{
+  "scripts": {
+    "dev": "Start development server",
+    "build": "Build for production",
+    "start": "Start production server",
+    "lint": "Run ESLint"
+  },
+  "addShadcnComponent": "pnpm dlx shadcn@latest add <component-name>",
+  "commonComponents": [
+    "button",
+    "card",
+    "input",
+    "dialog",
+    "dropdown-menu",
+    "form",
+    "table",
+    "toast"
+  ],
+  "muiDocs": "https://mui.com/material-ui/",
+  "shadcnDocs": "https://ui.shadcn.com/",
+  "nextjsDocs": "https://nextjs.org/docs"
+}
