@@ -1,38 +1,41 @@
-# Starlight Starter Kit: Basics
+# Documentation
+
+Documentation files are avaliable in `src/content/docs` subfolder.
+
+However, we recommend using starlight to have a clearer, more organized view of documentation
+Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
 
 [![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
 
+
+## Installation
+
+Starlight uses pnpm to compile. As such, you will need npm to install pnpm
+
+1. Install npm (Ubuntu)
 ```
-pnpm create astro@latest -- --template starlight
-```
-
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+apt install npm
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+2. Install pnpm
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+```
+npm install -g pnpm@latest-10
+```
 
-Static assets, like favicons, can be placed in the `public/` directory.
+## Compilation
 
-## 🧞 Commands
+Inside of the project repository, use the following command:
 
+```
+pnpm --prefix docs dev
+```
+
+The project documentation should appear on `http://localhost:4321`
+
+## Starlight Additional Commands
+
+Some of those commands may broke Starlight documentation.
 All commands are run from the root of the project, from a terminal:
 
 | Command                   | Action                                           |
@@ -43,7 +46,3 @@ All commands are run from the root of the project, from a terminal:
 | `pnpm preview`         | Preview your build locally, before deploying     |
 | `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
