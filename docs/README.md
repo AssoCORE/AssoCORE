@@ -2,7 +2,7 @@
 
 Documentation files are avaliable in `src/content/docs` subfolder.
 
-However, we recommend using starlight to have a clearer, more organized view of documentation
+However, we recommend using starlight to have a clearer, more organized view of documentation.
 Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
 
 [![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
@@ -18,7 +18,6 @@ apt install npm
 ```
 
 2. Install pnpm
-
 ```
 npm install -g pnpm@latest-10
 ```
@@ -26,12 +25,18 @@ npm install -g pnpm@latest-10
 ## Compilation
 
 Inside of the project repository, use the following command:
-
 ```
 pnpm --prefix docs dev
 ```
 
 The project documentation should appear on `http://localhost:4321`
+
+
+## Troubleshooting
+
+If the project does not compile, please verify if the port 4321 is already used.
+
+In any other case, please check the [Starlight Documentation](https://docs.astro.build).
 
 ## Starlight Additional Commands
 
