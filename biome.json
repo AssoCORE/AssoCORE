@@ -19,7 +19,8 @@
       "!dist",
       "!result",
       "!venv",
-      "!.pre-commit-config.yaml"
+      "!.pre-commit-config.yaml",
+      "!front/.next"
     ]
   },
   "formatter": {
