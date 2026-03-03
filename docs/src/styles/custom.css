@@ -1,58 +1,58 @@
 /* Custom Dynamic Layout for Starlight */
 :root {
-    /* Narrow the main left sidebar slightly to gain space */
-    --sl-sidebar-width: 16rem;
-    /* Allow content to take more space but keep it readable */
-    --sl-content-width: 64rem;
+  /* Narrow the main left sidebar slightly to gain space */
+  --sl-sidebar-width: 16rem;
+  /* Allow content to take more space but keep it readable */
+  --sl-content-width: 64rem;
 }
 
 /* 1. Make the TOC (Right Sidebar) Dynamic */
 @media (min-width: 72rem) {
-    /* The container for the TOC */
-    .right-sidebar-container {
-        width: clamp(10rem, 15vw, 15rem);
-    }
+  /* The container for the TOC */
+  .right-sidebar-container {
+    width: clamp(10rem, 15vw, 15rem);
+  }
 
-    /* The actual navigation list */
-    starlight-toc nav {
-        width: 100%;
-        font-size: var(--sl-text-xs);
-    }
+  /* The actual navigation list */
+  starlight-toc nav {
+    width: 100%;
+    font-size: var(--sl-text-xs);
+  }
 
-    /* Adjust the main grid to respect the new dynamic right sidebar */
-    .main-frame {
-        grid-template-columns: var(--sl-sidebar-width) 1fr clamp(10rem, 15vw, 15rem);
-    }
+  /* Adjust the main grid to respect the new dynamic right sidebar */
+  .main-frame {
+    grid-template-columns: var(--sl-sidebar-width) 1fr clamp(10rem, 15vw, 15rem);
+  }
 }
 
 /* 2. Fix Overlap by using Flex Layout on the content panel */
 .content-panel {
-    display: flex;
-    justify-content: center;
+  display: flex;
+  justify-content: center;
 }
 
 .sl-container {
-    /* Ensure the container never exceeds the remaining width */
-    margin-inline: 0;
-    width: 100%;
-    max-width: var(--sl-content-width);
+  /* Ensure the container never exceeds the remaining width */
+  margin-inline: 0;
+  width: 100%;
+  max-width: var(--sl-content-width);
 }
 
 /* 3. Handling wide elements (Code blocks, Tables) */
 .sl-markdown-content :not(pre) > code {
-    white-space: normal;
+  white-space: normal;
 }
 
 /* Force code blocks to stay within the bounds of the content area */
-.expressive-code, 
+.expressive-code,
 .sl-markdown-content pre {
-    max-width: 100% !important;
-    overflow-x: auto;
+  max-width: 100% !important;
+  overflow-x: auto;
 }
 
 /* 4. Responsive font sizing for the TOC */
 @media (min-width: 72rem) and (max-width: 80rem) {
-    starlight-toc nav {
-        font-size: 0.75rem;
-    }
+  starlight-toc nav {
+    font-size: 0.75rem;
+  }
 }

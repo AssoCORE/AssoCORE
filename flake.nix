@@ -60,7 +60,7 @@
               enable = true;
               name = "biome hook";
               entry = ''
-                ${lib.getExe pkgs.biome} format --write ./front --config-path ${./biome.json}
+                ${lib.getExe pkgs.biome} format --write --config-path ${./biome.json}
               '';
             };
             black = {
