@@ -13,3 +13,6 @@ result/
 
 # pnpm
 .pnpm-workspace.yaml
+# Build outputs
+build/
+data/
