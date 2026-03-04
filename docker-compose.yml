@@ -1,15 +1,7 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
-    depends_on:
-      - db
-    # ... other config
-
   frontend:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
     ports:
-      - "80:80"
+      - "3000:3000"
