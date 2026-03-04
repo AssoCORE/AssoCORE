@@ -5,3 +5,11 @@ services:
       dockerfile: docker/frontend.Dockerfile
     ports:
       - "3000:3000"
+
+  mobile:
+    build:
+      context: .
+      dockerfile: docker/mobile.Dockerfile
+    volumes:
+      - ./build/mobile:/output
+
