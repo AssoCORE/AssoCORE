@@ -1,11 +1,77 @@
 services:
+  # Database for Nextcloud
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    volumes:
+      - ./data/db:/var/lib/mysql
+    env_file:
+      - back/.env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Redis cache
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+  # Nextcloud instance
+  nextcloud:
+    image: nextcloud:latest
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - back/.env
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - REDIS_HOST=redis
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
+    volumes:
+      - ./data/nextcloud:/var/www/html
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - nextcloud
+    env_file:
+      - back/.env
+    environment:
+      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+
+  # Frontend
   frontend:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
 
+  # Mobile APK builder
   mobile:
     build:
       context: .
