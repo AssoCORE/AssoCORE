@@ -46,8 +46,6 @@ back/
 │   │   ├── __init__.py
 │   │   └── database.py      # SQLAlchemy async setup
 │   └── schemas/             # Pydantic models
-├── init-db/
-│   └── init.sql             # DB initialization
 ├── pyproject.toml           # uv dependencies
 ├── uv.lock                  # Locked dependencies
 ├── docker-compose.yml       # Full stack
