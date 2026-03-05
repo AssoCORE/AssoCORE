@@ -1,7 +1,48 @@
-data/
-.env
-__pycache__/
-*.pyc
-.pytest_cache/
+# Virtual environments
 .venv/
 venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+**/test/
+**/tests/
+**/__tests__/
+*.test.py
+
+# Development
+data/
+.env
+.env.local
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+README.md
+*.md
+SETUP.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore

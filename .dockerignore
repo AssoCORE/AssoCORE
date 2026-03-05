@@ -1,0 +1,125 @@
+# ==========================================
+# Root .dockerignore for all Docker builds
+# Context: project root (.)
+# ==========================================
+
+# Git and Version Control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation
+README.md
+*.md
+docs/
+LICENSE
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Nix Development
+.direnv/
+.envrc
+flake.nix
+flake.lock
+result/
+.pre-commit-config.yaml
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.dev-notes.json
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python (Backend)
+back/__pycache__/
+back/**/*.pyc
+back/**/*.pyo
+back/**/*.pyd
+back/.pytest_cache/
+back/.venv/
+back/venv/
+back/*.egg-info/
+back/dist/
+back/.tox/
+back/.coverage
+back/htmlcov/
+back/data/
+
+# Node.js (Frontend & Docs)
+front/node_modules/
+front/.next/
+front/out/
+front/coverage/
+front/.nyc_output/
+docs/node_modules/
+docs/.astro/
+docs/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+back/.env
+front/.env.local
+
+# Flutter/Mobile
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.metadata
+mobile/android/.gradle/
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/android/captures/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+
+# Docker
+docker-compose*.yml
+docker/
+Dockerfile
+.dockerignore
+
+# Build outputs and artifacts
+build/
+dist/
+*.apk
+*.aab
+
+# Test files
+**/*.test.js
+**/*.test.ts
+**/*.test.py
+**/*.spec.js
+**/*.spec.ts
+**/test/
+**/tests/
+**/__tests__/
+
+# Data and volumes
+data/
+volumes/

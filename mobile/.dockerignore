@@ -1,12 +1,14 @@
-# Build outputs
+# Build outputs (will be rebuilt in container)
 build/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
+.pub-cache/
 
-# Android specific
+# Android build artifacts
 android/.gradle/
+android/build/
 android/app/debug/
 android/app/profile/
 android/app/release/
@@ -14,37 +16,55 @@ android/local.properties
 android/.idea/
 android/captures/
 android/gradle/wrapper/gradle-wrapper.jar
+android/**/*.iml
 
-# iOS specific (if needed later)
+# iOS build artifacts
 ios/Pods/
 ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Runner.xcworkspace/
 ios/.generated/
+ios/build/
+ios/**/*.mode1v3
+ios/**/*.mode2v3
+ios/**/*.perspectivev3
+ios/**/*.pbxuser
 
-# IDE
+# IDE and editors
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Metadata
+# Flutter metadata
 .metadata
 .flutter-plugins-dependencies
 
-# Test coverage
+# Testing
 coverage/
+test/.test_coverage.dart
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Git
-.git
+.git/
 .gitignore
 .gitattributes
 
-# README and docs
+# Documentation
 README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Environment
+.env
+.env.local
