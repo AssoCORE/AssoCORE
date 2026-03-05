@@ -1,0 +1,161 @@
+---
+# Watchtower Deployment for automated image updates
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watchtower
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: watchtower
+    app.kubernetes.io/instance: watchtower
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: watchtower
+      app.kubernetes.io/instance: watchtower
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: watchtower
+        app.kubernetes.io/instance: watchtower
+    spec:
+      serviceAccountName: watchtower
+      containers:
+        - name: watchtower
+          image: containrrr/watchtower:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # Check for updates every 5 minutes
+            - name: WATCHTOWER_POLL_INTERVAL
+              value: "300"
+            
+            # Only update containers with this label
+            - name: WATCHTOWER_LABEL_ENABLE
+              value: "true"
+            
+            # Remove old images after update
+            - name: WATCHTOWER_CLEANUP
+              value: "true"
+            
+            # Include stopped containers
+            - name: WATCHTOWER_INCLUDE_STOPPED
+              value: "false"
+            
+            # Include restarting containers
+            - name: WATCHTOWER_INCLUDE_RESTARTING
+              value: "true"
+            
+            # Monitor only containers in assocore namespace
+            - name: WATCHTOWER_SCOPE
+              value: "assocore"
+            
+            # Notifications (optional - configure as needed)
+            # - name: WATCHTOWER_NOTIFICATIONS
+            #   value: "slack"
+            # - name: WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: watchtower-secrets
+            #       key: slack-webhook-url
+            
+            # Timezone
+            - name: TZ
+              value: "Europe/Paris"
+          
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            capabilities:
+              drop:
+                - ALL
+          
+          volumeMounts:
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+              readOnly: true
+      
+      volumes:
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+      
+      # Node selector for nodes with Docker runtime
+      # nodeSelector:
+      #   kubernetes.io/os: linux
+
+---
+# Watchtower ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: watchtower
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: watchtower
+    app.kubernetes.io/instance: watchtower
+
+---
+# Watchtower Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: watchtower
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: watchtower
+    app.kubernetes.io/instance: watchtower
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - statefulsets
+      - daemonsets
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+
+---
+# Watchtower RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: watchtower
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: watchtower
+    app.kubernetes.io/instance: watchtower
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: watchtower
+subjects:
+  - kind: ServiceAccount
+    name: watchtower
+    namespace: assocore

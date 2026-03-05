@@ -18,3 +18,9 @@ build/
 
 # Docker volumes
 data/
+
+# Kubernetes secrets (never commit real secrets!)
+k8s/**/secrets.yaml
+k8s/**/*-secret.yaml
+!k8s/**/*-secret.yaml.template
+k8s/**/kubeconfig

@@ -17,7 +17,9 @@ Practical guides for specific tasks:
 
 ### DevOps & Deployment
 
-- [Docker Deployment with GHCR](./how-to/docker-deployment/) - Build, push, and deploy Docker images using GitHub Container Registry
+- **[Docker Basics](./how-to/docker-basics/)** - Complete beginner's guide to Docker concepts and commands
+- **[Docker Deployment with GHCR](./how-to/docker-deployment/)** - Build, push, and deploy Docker images using GitHub Container Registry
+- **[Kubernetes Deployment](./how-to/kubernetes-deployment/)** - Deploy AssoCORE on Kubernetes with k3d (beginner-friendly guide)
 
 ### Development
 
