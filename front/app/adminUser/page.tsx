@@ -1,13 +1,17 @@
 import Link from "next/link";
+import { AppSidebar } from "@/components/custom/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
-export default function adminUser() {
+export default function Home() {
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Bienvenue sur l'autre page</h1>
+    <SidebarProvider>
+      <div className="flex">
+        <AppSidebar />
+        <main className="flex-1">
+          <h1>Page AdminUser</h1>
 
-      <Link href="/">
-        <button>Retour à l'accueil</button>
-      </Link>
-    </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
