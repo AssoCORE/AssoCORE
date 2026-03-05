@@ -1,0 +1,118 @@
+---
+# Grafana Admin Password Secret
+# Default password: admin (CHANGE THIS IN PRODUCTION!)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-admin
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+type: Opaque
+stringData:
+  admin-user: admin
+  admin-password: admin  # CHANGE THIS!
+
+---
+# Grafana Datasources Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.assocore.svc:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: 15s
+          httpMethod: POST
+
+---
+# Grafana Dashboard Provider Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+      - name: 'kubernetes'
+        orgId: 1
+        folder: 'Kubernetes'
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/kubernetes
+      - name: 'assocore'
+        orgId: 1
+        folder: 'AssoCORE'
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/assocore
+
+---
+# Grafana Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+data:
+  grafana.ini: |
+    [server]
+    root_url = http://localhost:3000
+    serve_from_sub_path = true
+
+    [security]
+    admin_user = ${ADMIN_USER}
+    admin_password = ${ADMIN_PASSWORD}
+
+    [auth.anonymous]
+    enabled = false
+
+    [analytics]
+    check_for_updates = true
+    reporting_enabled = false
+
+    [log]
+    mode = console
+    level = info
+
+    [paths]
+    data = /var/lib/grafana
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning

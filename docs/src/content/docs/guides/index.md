@@ -20,6 +20,7 @@ Practical guides for specific tasks:
 - **[Docker Basics](./how-to/docker-basics/)** - Complete beginner's guide to Docker concepts and commands
 - **[Docker Deployment with GHCR](./how-to/docker-deployment/)** - Build, push, and deploy Docker images using GitHub Container Registry
 - **[Kubernetes Deployment](./how-to/kubernetes-deployment/)** - Deploy AssoCORE on Kubernetes with k3d (beginner-friendly guide)
+- **[Observability & Monitoring](./how-to/observability-monitoring/)** - Monitor your cluster with Prometheus and Grafana dashboards
 
 ### Development
 

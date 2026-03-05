@@ -1,0 +1,799 @@
+---
+title: Observability & Monitoring Guide
+description: Complete guide to monitoring your AssoCORE deployment with Prometheus and Grafana
+---
+
+import { Tabs, TabItem, Steps, Card, Aside, CardGrid } from '@astrojs/starlight/components';
+
+## What is Observability?
+
+**Observability** means being able to understand what's happening inside your system by looking at its outputs. For AssoCORE, this means:
+
+- **Monitoring** - Is everything running? Are there errors?
+- **Metrics** - How much CPU/memory are we using?
+- **Visualization** - Show me graphs and dashboards!
+- **Alerting** - Tell me when something goes wrong!
+
+### Our Observability Stack
+
+<CardGrid>
+  <Card title="Prometheus" icon="seti:config">
+    **The Collector**
+    Gathers metrics from all your services every 15 seconds. Stores time-series data.
+  </Card>
+
+  <Card title="Grafana" icon="seti:html">
+    **The Dashboard**
+    Beautiful graphs and visualizations. Query Prometheus data and create alerts.
+  </Card>
+</CardGrid>
+
+---
+
+## Quick Start
+
+<Aside type="tip" title="Already have k3d running?">
+  If you followed the [Kubernetes Deployment Guide](/guides/how-to/kubernetes-deployment/), Prometheus and Grafana are already installed!
+</Aside>
+
+### Deploy Monitoring Stack
+
+<Steps>
+
+1. **Ensure cluster is running**
+
+   ```bash
+   kubectl get nodes
+   # Should show your k3d nodes as Ready
+   ```
+
+2. **Deploy Prometheus and Grafana**
+
+   ```bash
+   # Deploy Prometheus (metrics collection)
+   kubectl apply -f k8s/04-prometheus/
+
+   # Deploy Grafana (dashboards)
+   kubectl apply -f k8s/05-grafana/
+
+   # Deploy ingress routes
+   kubectl apply -f k8s/06-ingress/observability-ingress.yaml
+   ```
+
+3. **Wait for pods to be ready**
+
+   ```bash
+   kubectl get pods -n assocore -w
+   # Wait until prometheus and grafana show 1/1 Running
+   # Press Ctrl+C to exit
+   ```
+
+4. **Access services**
+
+   ```bash
+   # Start port-forwards
+   kubectl port-forward -n assocore svc/prometheus 9090:9090 &
+   kubectl port-forward -n assocore svc/grafana 3000:3000 &
+   ```
+
+5. **Open dashboards**
+
+   - **Grafana**: http://localhost:3000 (admin/admin)
+   - **Prometheus**: http://localhost:9090
+
+</Steps>
+
+---
+
+## Understanding Prometheus
+
+### What Does Prometheus Monitor?
+
+Prometheus automatically collects metrics from:
+
+<Tabs>
+<TabItem label="Kubernetes">
+
+**Kubernetes Components:**
+- API Server - Cluster operations
+- Nodes - CPU, memory, disk usage
+- Pods - Container resource usage
+- Services - Network metrics
+
+**Example Metrics:**
+- `kube_pod_status_phase{phase="Running"}` - Running pods
+- `kube_node_info` - Node information
+- `container_cpu_usage_seconds_total` - CPU usage
+
+</TabItem>
+<TabItem label="Your Apps">
+
+**Application Metrics** (if exposed):
+- HTTP request counts
+- Response times
+- Error rates
+- Custom business metrics
+
+**How to expose metrics:**
+```python
+# Example: Python with prometheus_client
+from prometheus_client import Counter, generate_latest
+
+request_count = Counter('http_requests_total', 'Total HTTP requests')
+
+@app.route('/metrics')
+def metrics():
+    return generate_latest()
+```
+
+</TabItem>
+<TabItem label="Traefik">
+
+**Ingress Metrics:**
+- `traefik_service_requests_total` - HTTP requests
+- `traefik_service_request_duration_seconds` - Response time
+- `traefik_entrypoint_requests_total` - Requests by entry point
+
+Available at: http://traefik-service:9000/metrics
+
+</TabItem>
+</Tabs>
+
+### Exploring Prometheus
+
+<Steps>
+
+1. **Open Prometheus**
+
+   Go to http://localhost:9090
+
+2. **Try Example Queries**
+
+   Click "Graph" tab and paste these queries:
+
+   ```txt
+   # How many pods are running?
+   sum(kube_pod_status_phase{phase="Running"})
+
+   # CPU usage by pod
+   rate(container_cpu_usage_seconds_total{namespace="assocore",pod!=""}[5m])
+
+   # Memory usage by pod (in MB)
+   container_memory_usage_bytes{namespace="assocore",pod!=""} / 1024 / 1024
+
+   # Pod restart count
+   kube_pod_container_status_restarts_total{namespace="assocore"}
+
+   # How many nodes?
+   count(kube_node_info)
+   ```
+
+3. **Understand the Results**
+
+   - **Table** tab shows current values
+   - **Graph** tab shows trends over time
+   - Adjust time range at the top (e.g., "Last 1 hour")
+
+</Steps>
+
+<Aside type="note" title="PromQL = Prometheus Query Language">
+  PromQL is used to query metrics. It's like SQL but for time-series data.
+  [Learn PromQL basics →](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+</Aside>
+
+---
+
+## Understanding Grafana
+
+### Pre-Installed Dashboards
+
+When you first login to Grafana, you'll find these dashboards ready:
+
+<CardGrid>
+  <Card title="Kubernetes Cluster Overview" icon="star">
+    **What it shows:**
+    - Total nodes, pods, namespaces
+    - CPU usage per node
+    - Memory usage per node
+    - Failed pods count
+
+    **Use it to:** Get overall cluster health at a glance
+  </Card>
+
+  <Card title="Kubernetes Pod Monitoring" icon="puzzle">
+    **What it shows:**
+    - CPU usage per pod (AssoCORE namespace)
+    - Memory usage per pod
+    - Pod restart counts over time
+
+    **Use it to:** Debug specific pod issues
+  </Card>
+</CardGrid>
+
+### Using Grafana
+
+<Steps>
+
+1. **Login**
+
+   Go to http://localhost:3000
+   - Username: `admin`
+   - Password: `admin`
+
+   <Aside type="caution">
+     Change this password immediately! We'll show you how below.
+   </Aside>
+
+2. **Navigate Dashboards**
+
+   - Click the **☰ menu** (top left)
+   - Click **Dashboards**
+   - You'll see "Kubernetes" folder with pre-installed dashboards
+
+3. **Explore a Dashboard**
+
+   Click "Kubernetes Cluster Overview":
+   - **Top stats** show current values (nodes, pods)
+   - **Graphs** show trends over time
+   - **Hover** over graphs for exact values
+   - **Click and drag** to zoom in on time range
+
+4. **Change Time Range**
+
+   Top right corner:
+   - "Last 1 hour" dropdown
+   - Choose: Last 5m, 15m, 1h, 6h, 24h, 7d
+   - Or set custom range
+
+5. **Refresh**
+
+   Dashboards auto-refresh every 30 seconds (configurable)
+
+</Steps>
+
+---
+
+## Importing More Dashboards
+
+Grafana has thousands of community dashboards at [grafana.com/dashboards](https://grafana.com/grafana/dashboards/).
+
+### Popular Kubernetes Dashboards
+
+<Tabs>
+<TabItem label="Via Dashboard ID">
+
+<Steps>
+
+1. Go to Grafana → **☰ menu** → **Dashboards** → **New** → **Import**
+
+2. Enter one of these Dashboard IDs:
+   - **315** - Kubernetes cluster monitoring (Prometheus)
+   - **3119** - Kubernetes cluster monitoring (detailed)
+   - **6417** - Kubernetes pods
+   - **747** - Kubernetes deployment metrics
+
+3. Click **Load**
+
+4. Select datasource: **Prometheus**
+
+5. Click **Import**
+
+</Steps>
+
+</TabItem>
+<TabItem label="Via JSON File">
+
+<Steps>
+
+1. Download dashboard JSON from grafana.com
+
+2. Go to Grafana → **☰ menu** → **Dashboards** → **New** → **Import**
+
+3. Click **Upload JSON file**
+
+4. Select your downloaded file
+
+5. Choose datasource: **Prometheus**
+
+6. Click **Import**
+
+</Steps>
+
+</TabItem>
+<TabItem label="Via ConfigMap">
+
+For permanent dashboards in your cluster:
+
+```yaml
+# Edit k8s/05-grafana/grafana-dashboards.yaml
+data:
+  my-custom-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "My Custom Dashboard",
+        "panels": [...]
+      }
+    }
+```
+
+Apply:
+```bash
+kubectl apply -f k8s/05-grafana/grafana-dashboards.yaml
+kubectl rollout restart deployment/grafana -n assocore
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Creating Custom Dashboards
+
+### Simple Dashboard Example
+
+<Steps>
+
+1. **Create New Dashboard**
+
+   Grafana → **☰** → **Dashboards** → **New** → **New Dashboard**
+
+2. **Add Visualization**
+
+   Click **+ Add visualization**
+
+3. **Select Data Source**
+
+   Choose **Prometheus**
+
+4. **Enter Query**
+
+   In the query editor at bottom:
+   ```txt
+   rate(container_cpu_usage_seconds_total{namespace="assocore",pod!=""}[5m])
+   ```
+
+5. **Customize**
+
+   - **Panel title**: Right side → "CPU Usage by Pod"
+   - **Legend**: Show `{{pod}}`
+   - **Visualization type**: Time series (line graph)
+
+6. **Save Dashboard**
+
+   Click **💾 Save** (top right) → Give it a name
+
+</Steps>
+
+### Useful Queries for AssoCORE
+
+```txt
+# CPU usage percentage
+100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Memory usage percentage
+(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+
+# Disk usage
+(node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100
+
+# HTTP requests per second (Traefik)
+rate(traefik_service_requests_total[5m])
+
+# Average response time (Traefik)
+rate(traefik_service_request_duration_seconds_sum[5m]) / rate(traefik_service_requests_total[5m])
+
+# Pod memory working set
+container_memory_working_set_bytes{namespace="assocore",pod!=""}
+
+# Pod network traffic
+rate(container_network_receive_bytes_total{namespace="assocore"}[5m])
+```
+
+---
+
+## Setting Up Alerts
+
+<Aside type="tip">
+  Alerts notify you when something goes wrong, so you don't have to watch dashboards 24/7!
+</Aside>
+
+### Create Alert Rule
+
+<Steps>
+
+1. **Go to Alerting**
+
+   Grafana → **☰** → **Alerting** → **Alert rules** → **New alert rule**
+
+2. **Name Your Alert**
+
+   Example: "High CPU Usage"
+
+3. **Set Condition**
+
+   Query:
+   ```txt
+   avg(rate(container_cpu_usage_seconds_total{namespace="assocore"}[5m])) > 0.8
+   ```
+
+   This triggers when CPU usage > 80%
+
+4. **Configure Evaluation**
+
+   - **For**: 5m (must be true for 5 minutes)
+   - **Evaluate every**: 1m (check every minute)
+
+5. **Add Notification**
+
+   - Add contact point (email, Slack, Discord, etc.)
+   - See "Notification Channels" below
+
+6. **Save**
+
+</Steps>
+
+### Alert Examples
+
+<Tabs>
+<TabItem label="High CPU">
+
+```txt
+# Alert when CPU > 80% for 5 minutes
+avg(rate(container_cpu_usage_seconds_total{namespace="assocore"}[5m])) > 0.8
+```
+
+**Severity**: Warning
+**For**: 5m
+**Message**: `CPU usage is high ({{$value}}%)`
+
+</TabItem>
+<TabItem label="High Memory">
+
+```txt
+# Alert when memory > 90% for 5 minutes
+(container_memory_usage_bytes{namespace="assocore"} / container_spec_memory_limit_bytes) > 0.9
+```
+
+**Severity**: Critical
+**For**: 5m
+**Message**: `Memory usage critical ({{$value}}%)`
+
+</TabItem>
+<TabItem label="Pod Restarting">
+
+```txt
+# Alert when pod restarts > 5 times in 1 hour
+increase(kube_pod_container_status_restarts_total{namespace="assocore"}[1h]) > 5
+```
+
+**Severity**: Warning
+**For**: 0s (immediate)
+**Message**: `Pod {{$labels.pod}} is restarting frequently`
+
+</TabItem>
+<TabItem label="Pod Down">
+
+```txt
+# Alert when pod is not running
+kube_pod_status_phase{namespace="assocore",phase!="Running"} == 1
+```
+
+**Severity**: Critical
+**For**: 2m
+**Message**: `Pod {{$labels.pod}} is {{$labels.phase}}`
+
+</TabItem>
+</Tabs>
+
+### Notification Channels
+
+Configure where alerts go:
+
+**Grafana → ☰ → Alerting → Contact points → Add contact point**
+
+<Tabs>
+<TabItem label="Email">
+
+**Settings:**
+- Addresses: your@email.com
+- (Requires SMTP configured in Grafana)
+
+</TabItem>
+<TabItem label="Slack">
+
+**Settings:**
+- Webhook URL: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+- Channel: #alerts
+
+[Get Slack webhook →](https://api.slack.com/messaging/webhooks)
+
+</TabItem>
+<TabItem label="Discord">
+
+**Settings:**
+- Webhook URL: https://discord.com/api/webhooks/YOUR_WEBHOOK
+- Message: `⚠️ Alert: {{ .CommonLabels.alertname }}`
+
+[Get Discord webhook →](https://support.discord.com/hc/en-us/articles/228383668)
+
+</TabItem>
+<TabItem label="PagerDuty">
+
+**Settings:**
+- Integration Key: (from PagerDuty)
+- Severity: critical
+
+For production on-call alerts.
+
+</TabItem>
+</Tabs>
+
+---
+
+## Configuration & Customization
+
+### Change Grafana Password
+
+<Tabs>
+<TabItem label="Via UI">
+
+1. Click **Profile icon** (bottom left)
+2. **Preferences** → **Change password**
+3. Enter old password (`admin`) and new password
+4. Save
+
+</TabItem>
+<TabItem label="Via kubectl">
+
+```bash
+# Create new secret with your password
+kubectl create secret generic grafana-admin \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password=YOUR_NEW_PASSWORD \
+  --dry-run=client -o yaml | kubectl replace -f - -n assocore
+
+# Restart Grafana
+kubectl rollout restart deployment/grafana -n assocore
+```
+
+</TabItem>
+</Tabs>
+
+### Adjust Prometheus Retention
+
+Edit retention time (default: 15 days):
+
+```bash
+kubectl edit deployment prometheus -n assocore
+```
+
+Find and change:
+```yaml
+args:
+  - '--storage.tsdb.retention.time=30d'  # Change to 30 days
+```
+
+Save and Prometheus will restart automatically.
+
+### Increase Storage
+
+If running out of space:
+
+```bash
+# Check current usage
+kubectl exec -n assocore deployment/prometheus -- df -h /prometheus
+
+# Increase PVC size
+kubectl edit pvc prometheus-storage -n assocore
+# Change: storage: 20Gi (from 10Gi)
+
+# Note: Requires storage class that supports volume expansion
+```
+
+---
+
+## Troubleshooting
+
+### Grafana Shows "No Data"
+
+<Steps>
+
+1. **Check Prometheus is running**
+   ```bash
+   kubectl get pods -n assocore -l app.kubernetes.io/name=prometheus
+   ```
+
+2. **Test Prometheus directly**
+   ```bash
+   kubectl port-forward -n assocore svc/prometheus 9090:9090
+   # Go to http://localhost:9090/targets
+   # All targets should be "UP"
+   ```
+
+3. **Verify Grafana datasource**
+   - Grafana → **☰** → **Connections** → **Data sources** → **Prometheus**
+   - URL should be: `http://prometheus.assocore.svc:9090`
+   - Click **Save & test** → Should say "Data source is working"
+
+4. **Check time range**
+   - Dashboard might be looking at wrong time period
+   - Try "Last 5 minutes" or "Last 1 hour"
+
+</Steps>
+
+### Prometheus Not Scraping Metrics
+
+```bash
+# Check Prometheus logs
+kubectl logs -f -n assocore -l app.kubernetes.io/name=prometheus
+
+# Common issues:
+# - RBAC permissions missing
+# - Service not exposing metrics on expected port
+# - Scrape config typo
+```
+
+**Check targets in Prometheus:**
+- Go to http://localhost:9090/targets
+- Look for targets with status "DOWN"
+- Error message explains why scraping failed
+
+### High Memory Usage
+
+Prometheus stores all metrics in memory. If memory usage is too high:
+
+1. **Reduce retention time** (see Configuration above)
+2. **Increase scrape interval** (query less frequently)
+3. **Increase memory limit**:
+   ```bash
+   kubectl edit deployment prometheus -n assocore
+   # Under resources.limits.memory: change to 4Gi
+   ```
+
+### Can't Access Dashboards
+
+```bash
+# Check pods are running
+kubectl get pods -n assocore
+
+# If CrashLoopBackOff, check logs:
+kubectl logs -n assocore deployment/grafana
+kubectl logs -n assocore deployment/prometheus
+
+# Restart if needed:
+kubectl rollout restart deployment/grafana -n assocore
+kubectl rollout restart deployment/prometheus -n assocore
+```
+
+---
+
+## Production Best Practices
+
+<CardGrid>
+
+<Card title="Security" icon="warning">
+
+**Essential steps:**
+- ✅ Change default Grafana password
+- ✅ Enable authentication on Prometheus
+- ✅ Use TLS/HTTPS for all connections
+- ✅ Restrict network access with NetworkPolicies
+- ✅ Regular security updates
+
+</Card>
+
+<Card title="High Availability" icon="rocket">
+
+**For production reliability:**
+- Run multiple Prometheus replicas (use Thanos)
+- Use external Grafana database (PostgreSQL)
+- Set up federation for multiple clusters
+- Implement backup/restore procedures
+
+</Card>
+
+<Card title="Performance" icon="star">
+
+**Optimize for scale:**
+- Tune scrape intervals (30s instead of 15s)
+- Use recording rules for expensive queries
+- Enable remote write for long-term storage
+- Monitor the monitors (meta-monitoring!)
+
+</Card>
+
+<Card title="Data Retention" icon="document">
+
+**Balance storage vs. history:**
+- Keep recent data in Prometheus (15-30 days)
+- Archive to long-term storage (S3, Thanos)
+- Use downsampling for old data
+- Regular cleanup of unused metrics
+
+</Card>
+
+</CardGrid>
+
+---
+
+## Next Steps
+
+<Card title="Learn More" icon="open-book">
+
+Now that you have monitoring set up:
+
+1. **Explore dashboards** - Click around and see what's available
+2. **Create custom panels** - Build dashboards for your specific needs
+3. **Set up alerts** - Get notified before problems become critical
+4. **Import community dashboards** - Discover pre-built dashboards for your tech stack
+
+**Useful Resources:**
+- [PromQL Tutorial](https://prometheus.io/docs/prometheus/latest/querying/basics/)
+- [Grafana Dashboards Library](https://grafana.com/grafana/dashboards/)
+- [Kubernetes Monitoring Guide](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/)
+- [Docker Basics](/guides/how-to/docker-basics/) - Understand containers
+- [Kubernetes Deployment](/guides/how-to/kubernetes-deployment/) - Deploy your apps
+
+</Card>
+
+---
+
+## Quick Reference
+
+### Access Services
+
+```bash
+# Start port-forwards
+kubectl port-forward -n assocore svc/prometheus 9090:9090 &
+kubectl port-forward -n assocore svc/grafana 3000:3000 &
+
+# Or use k3d ingress (no port-forward needed)
+# http://prometheus.localhost
+# http://grafana.localhost
+```
+
+### Common Commands
+
+```bash
+# Check all monitoring pods
+kubectl get pods -n assocore -l 'app.kubernetes.io/name in (prometheus,grafana)'
+
+# View Prometheus config
+kubectl get configmap prometheus-config -n assocore -o yaml
+
+# Restart services
+kubectl rollout restart deployment/prometheus -n assocore
+kubectl rollout restart deployment/grafana -n assocore
+
+# Check logs
+kubectl logs -f -n assocore -l app.kubernetes.io/name=prometheus
+kubectl logs -f -n assocore -l app.kubernetes.io/name=grafana
+```
+
+### Useful PromQL Queries
+
+```txt
+# Top 5 pods by CPU
+topk(5, rate(container_cpu_usage_seconds_total{namespace="assocore"}[5m]))
+
+# Top 5 pods by memory
+topk(5, container_memory_working_set_bytes{namespace="assocore"})
+
+# Request rate (QPS)
+sum(rate(traefik_service_requests_total[1m]))
+
+# Error rate
+sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) / sum(rate(traefik_service_requests_total[5m]))
+```
+
+---
+
+## Getting Help
+
+**Need assistance?**
+
+1. Check the [troubleshooting section](#troubleshooting) above
+2. Review [k8s/OBSERVABILITY.md](https://github.com/AssoCORE/AssoCORE/blob/main/k8s/OBSERVABILITY.md) for technical details
+3. Ask in the AssoCORE community or create a GitHub issue
+
+Happy monitoring! 📊✨
