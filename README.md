@@ -89,6 +89,59 @@ AssoCORE is built around a **modular architecture**, allowing:
 ---
 
 <a name="usage"></a>
+## Getting Started & Deployment
+
+### 📚 Documentation
+
+Our comprehensive documentation is available in the `docs/` folder and covers everything from Docker basics to Kubernetes deployment:
+
+- **[Docker Basics](./docs/src/content/docs/guides/how-to/docker-basics.mdx)** - Complete beginner's guide to Docker
+- **[Docker Deployment with GHCR](./docs/src/content/docs/guides/how-to/docker-deployment.mdx)** - CI/CD and container registry
+- **[Kubernetes Deployment](./docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx)** - Deploy on Kubernetes (beginner-friendly)
+- **[DevOps Infrastructure](./docs/src/content/docs/architecture/devops-infrastructure.mdx)** - Architecture overview
+
+### 🚀 Quick Start (Docker)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/AssoCORE/AssoCORE.git
+cd AssoCORE
+
+# 2. Set up environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# 3. Start services with Docker Compose
+docker compose up -d
+
+# 4. Initialize database
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py createsuperuser
+
+# 5. Access the application
+# Backend API: http://localhost:8000
+# Frontend: http://localhost:3000
+```
+
+### ☸️ Quick Start (Kubernetes)
+
+```bash
+# 1. Install k3d cluster (easiest for local development)
+./k8s/install-k3d.sh
+
+# 2. Deploy core services (Traefik, Watchtower)
+./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME YOUR_GITHUB_TOKEN
+
+# 3. Access Traefik dashboard
+kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
+# Open: http://localhost:9000/dashboard/
+```
+
+**📖 Full guides with troubleshooting and explanations available in [docs/](./docs/src/content/docs/)!**
+
+---
+
+<a name="usage"></a>
 ## Usage
 
 > Work in progress

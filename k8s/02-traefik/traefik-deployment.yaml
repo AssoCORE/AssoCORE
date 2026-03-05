@@ -1,0 +1,113 @@
+---
+# Traefik PersistentVolumeClaim for ACME certificates
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: traefik-acme-storage
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: default  # Uncomment and set your storage class
+
+---
+# Traefik Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+    app.kubernetes.io/version: "v3.0"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: traefik
+        app.kubernetes.io/instance: traefik
+    spec:
+      serviceAccountName: traefik
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 65532
+      containers:
+        - name: traefik
+          image: traefik:v3.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --configFile=/config/traefik.yaml
+          ports:
+            - name: web
+              containerPort: 80
+              protocol: TCP
+            - name: websecure
+              containerPort: 443
+              protocol: TCP
+            - name: traefik
+              containerPort: 9000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: traefik
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: traefik
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: acme-storage
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+      volumes:
+        - name: config
+          configMap:
+            name: traefik-config
+        - name: acme-storage
+          persistentVolumeClaim:
+            claimName: traefik-acme-storage

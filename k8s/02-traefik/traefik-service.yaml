@@ -1,0 +1,55 @@
+---
+# Traefik Service (LoadBalancer)
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+  annotations:
+    # For cloud providers, adjust annotations as needed
+    # AWS:
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # Azure:
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+    # GCP:
+    # cloud.google.com/load-balancer-type: "External"
+spec:
+  type: LoadBalancer
+  # externalTrafficPolicy: Local  # Uncomment for better performance and source IP preservation
+  selector:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+  ports:
+    - name: web
+      port: 80
+      targetPort: web
+      protocol: TCP
+    - name: websecure
+      port: 443
+      targetPort: websecure
+      protocol: TCP
+
+---
+# Traefik Dashboard Service (Internal)
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-dashboard
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+    app.kubernetes.io/component: dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+  ports:
+    - name: traefik
+      port: 9000
+      targetPort: traefik
+      protocol: TCP

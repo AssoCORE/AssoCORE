@@ -1,0 +1,465 @@
+---
+title: Docker Basics for AssoCORE
+description: Complete beginner's guide to Docker concepts and commands for the AssoCORE project
+---
+
+import { Tabs, TabItem, Steps, Card, Aside } from '@astrojs/starlight/components';
+
+## What is Docker?
+
+**Docker** is a platform that packages your application and all its dependencies into a **container**. Think of it like a shipping container for software - it works the same way everywhere, whether on your laptop or a server.
+
+### Key Concepts
+
+<Card title="Image" icon="document">
+  A **Docker Image** is a snapshot/blueprint of your application. It contains:
+  - Your code
+  - Runtime (Python, Node.js, etc.)
+  - Libraries and dependencies
+  - Configuration files
+  
+  Think of it like a recipe for making your application.
+</Card>
+
+<Card title="Container" icon="rocket">
+  A **Container** is a running instance of an image. It's like cooking the recipe - you can have multiple running containers from one image.
+</Card>
+
+<Card title="Registry" icon="seti:github">
+  A **Registry** is where you store and share images. We use **GitHub Container Registry (GHCR)** for AssoCORE.
+</Card>
+
+<Card title="Docker Compose" icon="puzzle">
+  **Docker Compose** lets you run multiple containers together (backend + database + frontend). It's defined in `docker-compose.yml`.
+</Card>
+
+---
+
+## AssoCORE Docker Structure
+
+Our project has 3 main Docker images:
+
+```
+AssoCORE/
+├── docker/
+│   ├── backend.Dockerfile    ← Python/Django API
+│   ├── frontend.Dockerfile   ← Next.js web app
+│   └── mobile.Dockerfile     ← Flutter mobile app (APK)
+├── docker-compose.yml        ← Development setup
+└── docker-compose.prod.yml   ← Production with GHCR images
+```
+
+---
+
+## Essential Docker Commands
+
+### Check Docker Installation
+
+```bash
+# Check if Docker is installed
+docker --version
+
+# Check if Docker is running
+docker ps
+```
+
+### Working with Images
+
+<Tabs>
+<TabItem label="Build Images">
+
+```bash
+# Build backend image
+docker build -f docker/backend.Dockerfile -t assocore-backend .
+
+# Build frontend image  
+docker build -f docker/frontend.Dockerfile -t assocore-frontend .
+
+# Build with custom tag
+docker build -f docker/backend.Dockerfile -t assocore-backend:v1.2.3 .
+```
+
+</TabItem>
+<TabItem label="List Images">
+
+```bash
+# List all images
+docker images
+
+# List specific images
+docker images | grep assocore
+```
+
+</TabItem>
+<TabItem label="Remove Images">
+
+```bash
+# Remove specific image
+docker rmi assocore-backend
+
+# Remove all unused images
+docker image prune -a
+```
+
+</TabItem>
+</Tabs>
+
+### Working with Containers
+
+<Tabs>
+<TabItem label="Run Containers">
+
+```bash
+# Run container in foreground
+docker run -p 8000:8000 assocore-backend
+
+# Run container in background (-d = detached)
+docker run -d -p 8000:8000 assocore-backend
+
+# Run with environment variables
+docker run -e DATABASE_URL=postgres://... assocore-backend
+
+# Run with name
+docker run -d --name backend assocore-backend
+```
+
+</TabItem>
+<TabItem label="List Containers">
+
+```bash
+# List running containers
+docker ps
+
+# List all containers (including stopped)
+docker ps -a
+
+# Show container logs
+docker logs backend
+docker logs -f backend  # Follow logs (like tail -f)
+```
+
+</TabItem>
+<TabItem label="Stop/Remove">
+
+```bash
+# Stop container
+docker stop backend
+
+# Start stopped container
+docker start backend
+
+# Restart container
+docker restart backend
+
+# Remove container
+docker rm backend
+
+# Force remove running container
+docker rm -f backend
+```
+
+</TabItem>
+<TabItem label="Execute Commands">
+
+```bash
+# Open shell in running container
+docker exec -it backend bash
+docker exec -it backend sh  # If bash not available
+
+# Run single command
+docker exec backend python manage.py migrate
+
+# Check container resource usage
+docker stats backend
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Docker Compose Commands
+
+Docker Compose manages multiple containers together.
+
+### Start Services
+
+<Tabs>
+<TabItem label="Development">
+
+```bash
+# Start all services (backend, frontend, database)
+docker compose up
+
+# Start in background
+docker compose up -d
+
+# Rebuild images before starting
+docker compose up --build
+
+# Start specific service
+docker compose up backend
+```
+
+</TabItem>
+<TabItem label="Production">
+
+```bash
+# Use production compose file
+docker compose -f docker-compose.prod.yml up -d
+
+# Pull latest images from GHCR first
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+</TabItem>
+</Tabs>
+
+### Manage Services
+
+```bash
+# View running services
+docker compose ps
+
+# View logs
+docker compose logs
+docker compose logs backend        # Specific service
+docker compose logs -f backend     # Follow logs
+
+# Stop services (keeps containers)
+docker compose stop
+
+# Start stopped services
+docker compose start
+
+# Restart services
+docker compose restart
+
+# Stop and remove containers
+docker compose down
+
+# Stop and remove containers + volumes (cleans database!)
+docker compose down -v
+```
+
+### Execute Commands in Services
+
+```bash
+# Run command in service
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py createsuperuser
+
+# Open shell in service
+docker compose exec backend bash
+docker compose exec db mysql -u root -p
+```
+
+---
+
+## AssoCORE Quick Start Guide
+
+<Steps>
+
+1. **Start Development Environment**
+
+   ```bash
+   # Clone repository
+   git clone https://github.com/AssoCORE/AssoCORE.git
+   cd AssoCORE
+   
+   # Create environment file
+   cp .env.example .env
+   # Edit .env with your settings
+   ```
+
+2. **Build and Run**
+
+   ```bash
+   # Start all services
+   docker compose up -d
+   
+   # Check they're running
+   docker compose ps
+   ```
+
+3. **Initialize Database**
+
+   ```bash
+   # Run migrations
+   docker compose exec backend python manage.py migrate
+   
+   # Create admin user
+   docker compose exec backend python manage.py createsuperuser
+   ```
+
+4. **Access Services**
+
+   - Backend API: http://localhost:8000
+   - Frontend: http://localhost:3000
+   - Admin Panel: http://localhost:8000/admin
+
+5. **View Logs**
+
+   ```bash
+   # All services
+   docker compose logs -f
+   
+   # Specific service
+   docker compose logs -f backend
+   ```
+
+</Steps>
+
+---
+
+## Production Deployment with GHCR
+
+<Aside type="tip" title="What is GHCR?">
+  **GitHub Container Registry (GHCR)** is where we store pre-built Docker images. This means you don't have to build images yourself - just pull and run!
+</Aside>
+
+<Steps>
+
+1. **Login to GHCR**
+
+   ```bash
+   # Set your GitHub token
+   export GITHUB_TOKEN=ghp_your_token_here
+   
+   # Login to registry
+   ./scripts/ghcr-login.sh
+   ```
+
+2. **Pull Latest Images**
+
+   ```bash
+   # Pull all images
+   docker compose -f docker-compose.prod.yml pull
+   ```
+
+3. **Start Production Stack**
+
+   ```bash
+   # Start all services
+   docker compose -f docker-compose.prod.yml up -d
+   
+   # Check status
+   docker compose -f docker-compose.prod.yml ps
+   ```
+
+</Steps>
+
+---
+
+## Troubleshooting
+
+### Container Won't Start
+
+```bash
+# Check logs for errors
+docker logs container-name
+
+# Check if port is already in use
+sudo lsof -i :8000
+
+# Remove and recreate
+docker compose down
+docker compose up -d
+```
+
+### Out of Disk Space
+
+```bash
+# Remove unused containers
+docker container prune
+
+# Remove unused images
+docker image prune -a
+
+# Remove unused volumes
+docker volume prune
+
+# Remove everything unused
+docker system prune -a --volumes
+```
+
+### Can't Connect to Database
+
+```bash
+# Check database is running
+docker compose ps db
+
+# View database logs
+docker compose logs db
+
+# Restart database
+docker compose restart db
+
+# Check database connectivity
+docker compose exec backend python manage.py dbshell
+```
+
+### Image Build Fails
+
+```bash
+# Clean build without cache
+docker build --no-cache -f docker/backend.Dockerfile -t assocore-backend .
+
+# Check Dockerfile syntax
+cat docker/backend.Dockerfile
+
+# Ensure .dockerignore doesn't exclude needed files
+cat .dockerignore
+```
+
+---
+
+## Best Practices
+
+<Card title="Development" icon="laptop">
+
+- Use `docker compose up` for local development
+- Keep `.env` file out of git (use `.env.example`)
+- Use volume mounts to live-reload code changes
+- Run `docker compose down -v` to reset database between tests
+
+</Card>
+
+<Card title="Production" icon="rocket">
+
+- Use `docker-compose.prod.yml` with pre-built images
+- Set strong passwords in environment variables
+- Use Docker health checks for reliability
+- Monitor logs with `docker compose logs`
+- Keep images updated with CI/CD
+
+</Card>
+
+<Card title="Security" icon="warning">
+
+- Never commit secrets to git
+- Use `.env` files for sensitive data
+- Scan images for vulnerabilities: `docker scan image-name`
+- Keep base images updated
+- Use specific image tags, not `latest`
+
+</Card>
+
+---
+
+## Next Steps
+
+<Card title="Learn More" icon="open-book">
+
+- [Docker Deployment with GHCR](/guides/how-to/docker-deployment/) - CI/CD and image registry
+- [Kubernetes Deployment](/guides/how-to/kubernetes-deployment/) - Scale with Kubernetes
+- [Development Setup](/contributing/development-setup/) - Full dev environment setup
+
+</Card>
+
+## Useful Resources
+
+- [Official Docker Documentation](https://docs.docker.com/)
+- [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
+- [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)

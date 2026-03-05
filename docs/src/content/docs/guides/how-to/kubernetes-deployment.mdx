@@ -1,0 +1,914 @@
+---
+title: Kubernetes Deployment Guide
+description: Complete beginner's guide to deploying AssoCORE on Kubernetes with k3d
+---
+
+import { Tabs, TabItem, Steps, Card, Aside } from '@astrojs/starlight/components';
+
+## What is Kubernetes?
+
+**Kubernetes (K8s)** is a system for automating deployment, scaling, and management of containerized applications. Think of it as an orchestra conductor for your Docker containers.
+
+### Why Kubernetes for AssoCORE?
+
+- **Self-Hosted**: Full data sovereignty - your data stays on your infrastructure
+- **Automatic Updates**: Watchtower keeps containers updated automatically
+- **Load Balancing**: Traefik distributes traffic across multiple instances
+- **Auto-Healing**: If a container crashes, Kubernetes restarts it automatically
+- **Scalability**: Easily run multiple instances of your services
+
+---
+
+## Key Kubernetes Concepts
+
+<Card title="Cluster" icon="seti:config">
+  A **Cluster** is a group of servers (nodes) that run your containers. We use **k3d** which creates a cluster inside Docker.
+</Card>
+
+<Card title="Pod" icon="puzzle">
+  A **Pod** is the smallest unit in Kubernetes. It wraps one or more Docker containers. Think of it as a wrapper around your Docker container.
+</Card>
+
+<Card title="Deployment" icon="rocket">
+  A **Deployment** defines how many pods to run and manages updates. It ensures your app is always running.
+</Card>
+
+<Card title="Service" icon="forward">
+  A **Service** provides a stable network address to access your pods. Pods come and go, but services stay constant.
+</Card>
+
+<Card title="Ingress" icon="right-arrow">
+  An **Ingress** routes external traffic (HTTP/HTTPS) to your services. We use **Traefik** as our ingress controller.
+</Card>
+
+<Card title="Namespace" icon="folder">
+  A **Namespace** is like a folder that groups related resources. AssoCORE uses the `assocore` namespace.
+</Card>
+
+---
+
+## AssoCORE Kubernetes Architecture
+
+```
+                           Internet
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Traefik Ingress │ ← Routes traffic
+                    │  (LoadBalancer)  │   - HTTP → HTTPS redirect
+                    └─────────────────┘   - Let's Encrypt TLS
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+    ┌─────────┐         ┌─────────┐        ┌─────────┐
+    │ Backend │         │Frontend │        │ NextCloud│
+    │  Pods   │         │  Pods   │        │   Pod   │
+    └─────────┘         └─────────┘        └─────────┘
+          │                                      │
+          └──────────────┬──────────────────────┘
+                         ▼
+                   ┌─────────┐
+                   │ MariaDB │
+                   │   Pod   │
+                   └─────────┘
+                   
+    ┌──────────────┐
+    │  Watchtower  │ ← Auto-updates containers
+    └──────────────┘
+```
+
+---
+
+## Quick Start: Local Development with k3d
+
+### What is k3d?
+
+**k3d** runs Kubernetes (k3s) inside Docker containers. Perfect for:
+- ✅ Windows WSL2 development (no systemd required!)
+- ✅ MacOS development
+- ✅ Fast setup (2 minutes)
+- ✅ Easy cleanup
+
+<Steps>
+
+1. **Ensure Docker is Running**
+
+   ```bash
+   docker ps
+   # Should show running containers, not an error
+   ```
+
+2. **Install k3d and Create Cluster**
+
+   ```bash
+   cd AssoCORE/k8s
+   ./install-k3d.sh
+   ```
+
+   This script will:
+   - Install k3d
+   - Create a cluster named "assocore"
+   - Configure kubectl to talk to the cluster
+   - Forward ports 80 and 443 to localhost
+
+3. **Verify Cluster is Running**
+
+   ```bash
+   kubectl get nodes
+   ```
+
+   You should see 3 nodes (1 server, 2 agents) in "Ready" state.
+
+4. **Deploy Core Services**
+
+   ```bash
+   # Replace with your GitHub username and token
+   ./deploy-core-services.sh YOUR_GITHUB_USERNAME YOUR_GITHUB_TOKEN
+   ```
+
+   This deploys:
+   - Traefik (Ingress Controller)
+   - Watchtower (Auto-updater)
+   - GHCR secrets (to pull private images)
+
+5. **Check Services are Running**
+
+   ```bash
+   kubectl get pods -n assocore
+   ```
+
+   Wait until all pods show `Running` status.
+
+</Steps>
+
+---
+
+## Essential kubectl Commands
+
+**kubectl** is the command-line tool to talk to Kubernetes. Think of it like `docker` but for clusters.
+
+### Viewing Resources
+
+<Tabs>
+<TabItem label="Pods">
+
+```bash
+# List all pods in assocore namespace
+kubectl get pods -n assocore
+
+# Detailed pod information
+kubectl describe pod traefik-xxxxx -n assocore
+
+# Watch pods in real-time
+kubectl get pods -n assocore -w
+
+# List pods with more details
+kubectl get pods -n assocore -o wide
+```
+
+</TabItem>
+<TabItem label="Services">
+
+```bash
+# List services
+kubectl get svc -n assocore
+kubectl get services -n assocore  # Same thing
+
+# Show service details
+kubectl describe svc traefik -n assocore
+
+# Show endpoints (which pods are behind the service)
+kubectl get endpoints -n assocore
+```
+
+</TabItem>
+<TabItem label="Deployments">
+
+```bash
+# List deployments
+kubectl get deployments -n assocore
+kubectl get deploy -n assocore  # Shorter
+
+# Show deployment details
+kubectl describe deployment traefik -n assocore
+
+# Show deployment status
+kubectl rollout status deployment/traefik -n assocore
+```
+
+</TabItem>
+<TabItem label="Everything">
+
+```bash
+# Show all resources in namespace
+kubectl get all -n assocore
+
+# Show resources across all namespaces
+kubectl get all --all-namespaces
+kubectl get all -A  # Shortcut
+```
+
+</TabItem>
+</Tabs>
+
+### Working with Pods
+
+<Tabs>
+<TabItem label="Logs">
+
+```bash
+# View pod logs
+kubectl logs traefik-xxxxx -n assocore
+
+# Follow logs (like tail -f)
+kubectl logs -f traefik-xxxxx -n assocore
+
+# Last 50 lines
+kubectl logs --tail=50 traefik-xxxxx -n assocore
+
+# All pods of a deployment
+kubectl logs -l app.kubernetes.io/name=traefik -n assocore
+```
+
+</TabItem>
+<TabItem label="Execute Commands">
+
+```bash
+# Open shell in pod
+kubectl exec -it backend-xxxxx -n assocore -- bash
+kubectl exec -it backend-xxxxx -n assocore -- sh  # If no bash
+
+# Run single command
+kubectl exec backend-xxxxx -n assocore -- python manage.py migrate
+
+# Run command in specific container (if pod has multiple)
+kubectl exec -it pod-name -n assocore -c container-name -- bash
+```
+
+</TabItem>
+<TabItem label="Port Forwarding">
+
+```bash
+# Forward local port to pod
+kubectl port-forward pod-name 8000:8000 -n assocore
+
+# Forward to service (better - survives pod restarts)
+kubectl port-forward svc/traefik-dashboard 9000:9000 -n assocore
+
+# Access in browser: http://localhost:9000
+```
+
+</TabItem>
+</Tabs>
+
+### Managing Resources
+
+<Tabs>
+<TabItem label="Apply/Create">
+
+```bash
+# Create resources from YAML
+kubectl apply -f k8s/00-namespace/namespace.yaml
+
+# Create resources from directory
+kubectl apply -f k8s/02-traefik/
+
+# Create from URL
+kubectl apply -f https://example.com/resource.yaml
+```
+
+</TabItem>
+<TabItem label="Delete">
+
+```bash
+# Delete specific resource
+kubectl delete pod traefik-xxxxx -n assocore
+
+# Delete by file
+kubectl delete -f k8s/02-traefik/traefik-deployment.yaml
+
+# Delete by label
+kubectl delete pods -l app=backend -n assocore
+
+# Delete everything in namespace (careful!)
+kubectl delete all --all -n assocore
+```
+
+</TabItem>
+<TabItem label="Update">
+
+```bash
+# Restart deployment (recreates pods)
+kubectl rollout restart deployment/traefik -n assocore
+
+# Scale deployment
+kubectl scale deployment/backend --replicas=3 -n assocore
+
+# Update image
+kubectl set image deployment/backend backend=ghcr.io/assocore/backend:v2 -n assocore
+
+# Watch rollout status
+kubectl rollout status deployment/traefik -n assocore
+
+# Undo last update
+kubectl rollout undo deployment/traefik -n assocore
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## AssoCORE Cluster Structure
+
+Our Kubernetes setup is organized in folders:
+
+```
+k8s/
+├── 00-namespace/
+│   └── namespace.yaml              ← Creates 'assocore' namespace
+├── 01-secrets/
+│   ├── create-ghcr-secret.sh       ← Script to create GHCR login
+│   └── ghcr-secret.yaml.template   ← Template for secret
+├── 02-traefik/
+│   ├── install-crds.sh             ← Install Traefik custom resources
+│   ├── traefik-rbac.yaml           ← Permissions for Traefik
+│   ├── traefik-config.yaml         ← Traefik settings
+│   ├── traefik-deployment.yaml     ← Runs Traefik pods
+│   ├── traefik-service.yaml        ← Exposes Traefik
+│   └── traefik-dashboard.yaml      ← Dashboard access
+├── 03-watchtower/
+│   └── watchtower-deployment.yaml  ← Auto-updater
+├── deploy-core-services.sh         ← One-command deployment
+├── install-k3d.sh                  ← k3d cluster setup
+└── K3S_SETUP.md                    ← Detailed docs
+```
+
+---
+
+## Understanding Our Core Services
+
+### Traefik Ingress Controller
+
+**What it does**: Routes HTTP/HTTPS traffic to your services and manages TLS certificates.
+
+```bash
+# Check Traefik is running
+kubectl get pods -n assocore -l app.kubernetes.io/name=traefik
+
+# View Traefik logs
+kubectl logs -f -n assocore -l app.kubernetes.io/name=traefik
+
+# Access dashboard
+kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
+# Open: http://localhost:9000/dashboard/
+```
+
+**Configuration files**:
+- `traefik-config.yaml` - Main configuration (entry points, TLS, logging)
+- `traefik-rbac.yaml` - Permissions
+- `traefik-deployment.yaml` - How many pods, resources
+- `traefik-service.yaml` - LoadBalancer on ports 80/443
+
+### Watchtower Auto-Updater
+
+**What it does**: Checks GHCR every 5 minutes for new images and updates running containers.
+
+```bash
+# Check Watchtower is running
+kubectl get pods -n assocore -l app=watchtower
+
+# View Watchtower logs to see updates
+kubectl logs -f -n assocore -l app=watchtower
+
+# Manually trigger update (restart Watchtower)
+kubectl delete pod -n assocore -l app=watchtower
+```
+
+**How it works**:
+- Polls GHCR every 5 minutes
+- Compares running image tags with registry
+- Pulls new images and restarts pods automatically
+- Only updates pods with label: `com.centurylinklabs.watchtower.enable: "true"`
+
+### GHCR Image Pull Secret
+
+**What it does**: Authenticates with GitHub Container Registry to pull private images.
+
+```bash
+# View secret (base64 encoded)
+kubectl get secret ghcr-secret -n assocore -o yaml
+
+# Recreate secret with new token
+cd k8s/01-secrets
+./create-ghcr-secret.sh YOUR_USERNAME YOUR_TOKEN
+```
+
+**Used in deployment YAML**:
+```yaml
+spec:
+  imagePullSecrets:
+    - name: ghcr-secret
+```
+
+---
+
+## Deploying Your Application
+
+Once core services are running, deploy your application workloads:
+
+<Steps>
+
+1. **Create Deployment YAML**
+
+   Create `k8s/04-apps/backend-deployment.yaml`:
+
+   ```yaml
+   ---
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: backend
+     namespace: assocore
+     labels:
+       app: backend
+   spec:
+     replicas: 2  # Run 2 instances
+     selector:
+       matchLabels:
+         app: backend
+     template:
+       metadata:
+         labels:
+           app: backend
+           com.centurylinklabs.watchtower.enable: "true"
+       spec:
+         imagePullSecrets:
+           - name: ghcr-secret
+         containers:
+           - name: backend
+             image: ghcr.io/assocore/assocore/backend:latest
+             ports:
+               - containerPort: 8000
+             env:
+               - name: DATABASE_URL
+                 value: "postgresql://user:pass@db:5432/assocore"
+             resources:
+               requests:
+                 cpu: 100m
+                 memory: 256Mi
+               limits:
+                 cpu: 500m
+                 memory: 512Mi
+   ```
+
+2. **Create Service**
+
+   Create `k8s/04-apps/backend-service.yaml`:
+
+   ```yaml
+   ---
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: backend
+     namespace: assocore
+   spec:
+     selector:
+       app: backend
+     ports:
+       - port: 8000
+         targetPort: 8000
+     type: ClusterIP
+   ```
+
+3. **Create IngressRoute (Traefik)**
+
+   Create `k8s/04-apps/backend-ingress.yaml`:
+
+   ```yaml
+   ---
+   apiVersion: traefik.io/v1alpha1
+   kind: IngressRoute
+   metadata:
+     name: backend
+     namespace: assocore
+   spec:
+     entryPoints:
+       - websecure
+     routes:
+       - match: Host(`api.assocore.org`)
+         kind: Rule
+         services:
+           - name: backend
+             port: 8000
+     tls:
+       certResolver: letsencrypt
+   ```
+
+4. **Deploy**
+
+   ```bash
+   kubectl apply -f k8s/04-apps/
+   ```
+
+5. **Verify**
+
+   ```bash
+   # Check pods
+   kubectl get pods -n assocore -l app=backend
+   
+   # Check service
+   kubectl get svc backend -n assocore
+   
+   # Check logs
+   kubectl logs -f -l app=backend -n assocore
+   ```
+
+</Steps>
+
+---
+
+## Accessing Services Locally (k3d)
+
+Since k3d forwards ports 80/443 to localhost, you can access services directly:
+
+<Tabs>
+<TabItem label="Port Forward">
+
+```bash
+# Access Traefik Dashboard
+kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
+# http://localhost:9000/dashboard/
+
+# Access Backend API
+kubectl port-forward -n assocore svc/backend 8000:8000
+# http://localhost:8000
+
+# Access Frontend
+kubectl port-forward -n assocore svc/frontend 3000:3000
+# http://localhost:3000
+```
+
+</TabItem>
+<TabItem label="/etc/hosts">
+
+Add to `/etc/hosts` (works better with Traefik):
+
+```bash
+sudo nano /etc/hosts
+```
+
+Add these lines:
+```
+127.0.0.1  assocore.local
+127.0.0.1  api.assocore.local
+127.0.0.1  traefik.assocore.local
+```
+
+Then access:
+- http://assocore.local
+- http://api.assocore.local  
+- http://traefik.assocore.local/dashboard/
+
+</TabItem>
+</Tabs>
+
+---
+
+## Troubleshooting
+
+### Pods Not Starting
+
+```bash
+# Check pod status
+kubectl get pods -n assocore
+
+# Describe pod for events
+kubectl describe pod pod-name -n assocore
+
+# Check logs
+kubectl logs pod-name -n assocore
+
+# Check previous logs (if pod restarted)
+kubectl logs pod-name -n assocore --previous
+```
+
+Common issues:
+- **ImagePullBackOff**: GHCR secret is wrong or image doesn't exist
+- **CrashLoopBackOff**: Container starts then crashes - check logs
+- **Pending**: Not enough resources or waiting for volume
+
+### Can't Access Services
+
+```bash
+# Check service exists
+kubectl get svc -n assocore
+
+# Check endpoints (pods behind service)
+kubectl get endpoints backend -n assocore
+
+# Check Traefik is routing
+kubectl logs -f -n assocore -l app.kubernetes.io/name=traefik
+```
+
+### Delete and Recreate Everything
+
+```bash
+# Delete namespace (deletes everything inside)
+kubectl delete namespace assocore
+
+# Recreate
+cd k8s
+./deploy-core-services.sh YOUR_USERNAME YOUR_TOKEN
+```
+
+### Cluster Issues
+
+```bash
+# Restart cluster
+k3d cluster stop assocore
+k3d cluster start assocore
+
+# Delete and recreate cluster
+k3d cluster delete assocore
+./install-k3d.sh
+
+# View cluster logs
+k3d cluster logs assocore
+```
+
+---
+
+## k3d Cluster Management
+
+### Daily Operations
+
+```bash
+# Start cluster (if stopped)
+k3d cluster start assocore
+
+# Stop cluster (saves state)
+k3d cluster stop assocore
+
+# List clusters
+k3d cluster list
+
+# Get cluster info
+kubectl cluster-info
+```
+
+### Cleanup
+
+```bash
+# Kill all port-forwards
+pkill -f "kubectl port-forward"
+
+# Delete cluster (destroys everything)
+k3d cluster delete assocore
+
+# Remove all clusters
+k3d cluster delete --all
+
+# Clean up Docker networks
+docker network prune -f
+```
+
+---
+
+## Production Deployment (Bare Metal)
+
+For production on actual servers (not Docker):
+
+<Steps>
+
+1. **Install k3s** (requires systemd)
+
+   ```bash
+   cd k8s
+   # For single server
+   ./install-k3s-single.sh
+   
+   # For high availability
+   ./install-k3s-ha.sh
+   ```
+
+2. **Install MetalLB** (for LoadBalancer on bare metal)
+
+   ```bash
+   # Gives Traefik a real IP address
+   kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
+   ```
+
+3. **Configure DNS**
+
+   Point your domain to the LoadBalancer IP:
+   ```bash
+   kubectl get svc traefik -n assocore
+   # Note the EXTERNAL-IP
+   ```
+
+   DNS Records:
+   ```
+   A     assocore.org          → EXTERNAL-IP
+   A     *.assocore.org        → EXTERNAL-IP
+   AAAA  assocore.org          → IPv6 (if available)
+   AAAA  *.assocore.org        → IPv6 (if available)
+   ```
+
+4. **Deploy Services**
+
+   Same as development:
+   ```bash
+   ./deploy-core-services.sh YOUR_USERNAME YOUR_TOKEN
+   kubectl apply -f k8s/04-apps/
+   ```
+
+</Steps>
+
+---
+
+## Monitoring Your Cluster
+
+### Check Resource Usage
+
+```bash
+# Node resources
+kubectl top nodes
+
+# Pod resources
+kubectl top pods -n assocore
+
+# Detailed pod info
+kubectl get pods -n assocore -o wide
+```
+
+### View Events
+
+```bash
+# Recent events in namespace
+kubectl get events -n assocore --sort-by='.lastTimestamp'
+
+# Watch events in real-time
+kubectl get events -n assocore -w
+```
+
+### Export Configuration
+
+```bash
+# Export deployment YAML
+kubectl get deployment traefik -n assocore -o yaml > traefik-backup.yaml
+
+# Export all resources
+kubectl get all -n assocore -o yaml > assocore-backup.yaml
+```
+
+---
+
+## Best Practices
+
+<Card title="Resource Limits" icon="warning">
+
+Always set resource requests and limits:
+```yaml
+resources:
+  requests:
+    cpu: 100m      # Minimum needed
+    memory: 128Mi
+  limits:
+    cpu: 500m      # Maximum allowed
+    memory: 512Mi
+```
+
+</Card>
+
+<Card title="Labels" icon="tag">
+
+Use consistent labels:
+```yaml
+labels:
+  app: backend
+  version: v1.2.3
+  environment: production
+```
+
+Useful for:
+- Selecting pods: `kubectl get pods -l app=backend`
+- Watchtower filtering
+- Service selectors
+
+</Card>
+
+<Card title="Health Checks" icon="heart">
+
+Add liveness and readiness probes:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8000
+  periodSeconds: 5
+```
+
+</Card>
+
+<Card title="Secrets" icon="lock">
+
+Never commit secrets to git:
+```bash
+# Create secret from command line
+kubectl create secret generic db-password \
+  --from-literal=password=supersecret \
+  -n assocore
+
+# Use in deployment
+env:
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-password
+        key: password
+```
+
+</Card>
+
+---
+
+## Next Steps
+
+<Card title="Learn More" icon="open-book">
+
+- [Docker Basics](/guides/how-to/docker-basics/) - Understand containers first
+- [Docker Deployment with GHCR](/guides/how-to/docker-deployment/) - CI/CD pipeline
+- [DevOps Infrastructure](/architecture/devops-infrastructure/) - Full architecture overview
+- [Official Kubernetes Tutorials](https://kubernetes.io/docs/tutorials/)
+
+</Card>
+
+---
+
+## Quick Reference Card
+
+### Most Used Commands
+
+```bash
+# View resources
+kubectl get pods -n assocore
+kubectl get svc -n assocore
+kubectl get all -n assocore
+
+# Logs
+kubectl logs -f pod-name -n assocore
+kubectl logs -l app=backend -n assocore
+
+# Execute
+kubectl exec -it pod-name -n assocore -- bash
+
+# Port forward
+kubectl port-forward svc/service-name 8000:8000 -n assocore
+
+# Apply changes
+kubectl apply -f file.yaml
+kubectl rollout restart deployment/name -n assocore
+
+# Debug
+kubectl describe pod pod-name -n assocore
+kubectl get events -n assocore
+```
+
+### Cluster Management
+
+```bash
+# k3d
+k3d cluster start/stop/delete assocore
+k3d cluster list
+
+# kubectl
+kubectl cluster-info
+kubectl get nodes
+kubectl top nodes
+```
+
+---
+
+## Getting Help
+
+```bash
+# Command help
+kubectl --help
+kubectl get --help
+
+# Resource documentation
+kubectl explain pod
+kubectl explain deployment.spec
+
+# API resources
+kubectl api-resources
+```
+
+Need more help? Check the [Development Setup](/contributing/development-setup/) guide or ask the team!
