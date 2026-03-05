@@ -786,6 +786,75 @@ curl http://traefik.localhost/dashboard/
    ```
 5. **Then switch to production** Let's Encrypt
 
+### Watchtower CrashLoopBackOff or ContainerCreating
+
+**Symptoms:**
+```bash
+# CrashLoopBackOff
+watchtower-9bf54dc66-xtfmc    0/1     CrashLoopBackOff   3 (21s ago)   69s
+
+# Or stuck in ContainerCreating
+watchtower-xxx                0/1     ContainerCreating  0             5m
+```
+
+**Cause**: Watchtower is designed for **Docker** environments, but k3s/k3d uses **containerd** by default. Watchtower tries to mount Docker socket at `/var/run/docker.sock` which doesn't exist.
+
+**Why This Happens:**
+- k3s/k3d uses **containerd** as container runtime
+- Watchtower expects **Docker** socket
+- Volume mount fails → Pod can't start
+
+**Solution 1: Disable Watchtower (Recommended for Dev)**
+
+Watchtower is **not essential** for development. It only auto-updates container images.
+
+```bash
+# Scale down to 0 replicas (disable)
+kubectl scale deployment/watchtower --replicas=0 -n assocore
+
+# Or delete completely
+kubectl delete deployment/watchtower -n assocore
+
+# Verify it's gone
+kubectl get pods -n assocore | grep watchtower
+```
+
+**Solution 2: Fix the Deployment**
+
+If you need Watchtower, update it to use containerd socket:
+
+```bash
+# Edit the deployment
+kubectl edit deployment/watchtower -n assocore
+
+# Change the volume path from:
+#   path: /var/run/docker.sock
+# To:
+#   path: /run/k3s/containerd/containerd.sock
+
+# Also update security context:
+#   runAsNonRoot: false
+#   runAsUser: 0
+#   readOnlyRootFilesystem: false
+```
+
+<Aside type="caution">
+**Note**: Even with containerd socket, Watchtower may not work properly in k3s. Consider using Kubernetes-native update strategies like `kubectl rollout restart` or CI/CD pipelines instead.
+</Aside>
+
+**Verification:**
+
+```bash
+# After disabling, all pods should be Running
+kubectl get pods -n assocore
+
+# Should see only:
+# - traefik
+# - prometheus  
+# - grafana
+# (No watchtower)
+```
+
 ---
 
 ## Cleanup Before Testing
