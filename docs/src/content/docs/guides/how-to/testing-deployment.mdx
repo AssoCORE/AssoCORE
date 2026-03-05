@@ -206,6 +206,16 @@ k3d-assocore-server-0   Ready    control-plane,master   2m    v1.28.5+k3s1
 
 ## Phase 3: Core Services Deployment
 
+<Aside type="caution" title="Critical: Order Matters!">
+**You MUST create secrets BEFORE deploying core services.** Traefik and other services depend on secrets existing at startup. If you deploy services before creating secrets, you'll see middleware and authentication errors.
+
+**Correct order:**
+1. Create `.env` file
+2. Run `create-app-secrets.sh`
+3. Verify secrets exist
+4. Deploy core services
+</Aside>
+
 ### Step 1: Create Secrets
 
 ```bash
@@ -705,6 +715,76 @@ pkill -f "kubectl port-forward"
 # Restart specific port-forward
 kubectl port-forward -n assocore svc/<service-name> <local-port>:<service-port>
 ```
+
+### Traefik Middleware Not Found
+
+**Error:**
+```
+middleware "assocore-traefik-dashboard-auth@kubernetescrd" does not exist
+```
+
+**Cause**: The Traefik dashboard auth secret wasn't created before deploying Traefik.
+
+**Fix:**
+```bash
+# Create the missing secret
+./k8s/01-secrets/create-app-secrets.sh
+
+# Verify it exists
+kubectl get secret traefik-dashboard-auth-secret -n assocore
+
+# Restart Traefik
+kubectl rollout restart deployment/traefik -n assocore
+```
+
+### Let's Encrypt Certificate Errors
+
+**Error Type 1 - DNS Not Configured:**
+```
+DNS problem: NXDOMAIN looking up A for traefik.assocore.org
+```
+
+**Cause**: Domain doesn't have DNS records yet.
+
+**Fix**: Either configure DNS or use HTTP for local testing (see below).
+
+**Error Type 2 - Invalid Local Domains:**
+```
+Cannot issue for "prometheus.assocore.local": Domain name does not end with a valid public suffix (TLD)
+```
+
+**Cause**: Let's Encrypt **cannot** issue certificates for:
+- `.local` domains
+- `localhost` domains  
+- Any non-public domain
+
+**Fix for Local Development:**
+
+<Aside type="tip">
+Use HTTP instead of HTTPS for local development to avoid Let's Encrypt errors.
+</Aside>
+
+```bash
+# Apply development ingress routes (HTTP only)
+kubectl apply -f k8s/06-ingress/observability-ingress-dev.yaml
+kubectl apply -f k8s/02-traefik/traefik-dashboard-dev.yaml
+
+# Access via HTTP
+curl http://prometheus.localhost  # or http://grafana.localhost
+curl http://traefik.localhost/dashboard/
+```
+
+**Fix for Production:**
+
+1. **Set up DNS records** pointing to your cluster's external IP
+2. **Change domains** in ingress files to your real domains
+3. **Update email** in `k8s/02-traefik/traefik-config.yaml`
+4. **Use staging first** to test:
+   ```yaml
+   # In traefik-config.yaml
+   caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+   ```
+5. **Then switch to production** Let's Encrypt
 
 ---
 

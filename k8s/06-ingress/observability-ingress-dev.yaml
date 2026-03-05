@@ -1,0 +1,41 @@
+---
+# Prometheus IngressRoute - Development (HTTP)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prometheus-dev
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/component: dev
+spec:
+  entryPoints:
+    - web  # HTTP instead of HTTPS
+  routes:
+    - match: Host(`prometheus.assocore.local`) || Host(`prometheus.localhost`)
+      kind: Rule
+      services:
+        - name: prometheus
+          port: 9090
+
+---
+# Grafana IngressRoute - Development (HTTP)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana-dev
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+    app.kubernetes.io/component: dev
+spec:
+  entryPoints:
+    - web  # HTTP instead of HTTPS
+  routes:
+    - match: Host(`grafana.assocore.local`) || Host(`grafana.localhost`)
+      kind: Rule
+      services:
+        - name: grafana
+          port: 3000

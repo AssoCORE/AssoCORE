@@ -1,0 +1,22 @@
+---
+# IngressRoute for Traefik Dashboard - Development (HTTP)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard-dev
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik
+    app.kubernetes.io/component: dev
+spec:
+  entryPoints:
+    - web  # HTTP instead of HTTPS
+  routes:
+    - match: Host(`traefik.localhost`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+      kind: Rule
+      services:
+        - name: api@internal
+          kind: TraefikService
+      middlewares:
+        - name: traefik-dashboard-auth
