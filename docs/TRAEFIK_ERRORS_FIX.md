@@ -15,6 +15,13 @@ DNS problem: NXDOMAIN looking up A for traefik.assocore.org
 Cannot issue for "prometheus.assocore.local": Domain name does not end with a valid public suffix (TLD)
 ```
 
+### Error 3: Watchtower CrashLoopBackOff
+
+```sh
+watchtower-9bf54dc66-xtfmc    0/1     CrashLoopBackOff   3 (21s ago)   69s
+# Or stuck in ContainerCreating
+```
+
 ---
 
 ## Root Causes
@@ -28,6 +35,11 @@ Cannot issue for "prometheus.assocore.local": Domain name does not end with a va
    - `localhost` domains = Not valid public domains
    - `assocore.org` = No DNS records configured
    - **Let's Encrypt ONLY works with real public domains that have DNS**
+
+3. **Watchtower incompatible with k3s/k3d**
+   - Watchtower expects Docker socket at `/var/run/docker.sock`
+   - k3s/k3d uses **containerd**, not Docker
+   - Volume mount fails → Pod crashes or gets stuck in ContainerCreating
 
 ---
 
@@ -54,7 +66,22 @@ kubectl rollout restart deployment/traefik -n assocore
 # - Traefik Dashboard: http://traefik.localhost/dashboard/
 ```
 
-### Option B: Fix for Production
+### Option C: Disable Watchtower (Recommended)
+
+Watchtower is **not essential** for development and causes issues in k3s:
+
+```bash
+# Disable Watchtower (scale to 0 replicas)
+kubectl scale deployment/watchtower --replicas=0 -n assocore
+
+# Or delete it completely
+kubectl delete deployment/watchtower -n assocore
+
+# Verify all pods are now healthy
+kubectl get pods -n assocore
+```
+
+### Option D: Fix for Production
 
 If you have a real domain with DNS configured:
 

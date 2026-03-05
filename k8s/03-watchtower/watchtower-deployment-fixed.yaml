@@ -1,5 +1,5 @@
 ---
-# Watchtower Deployment for automated image updates
+# Watchtower Deployment for k3s/k3d (uses containerd instead of Docker)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,11 +9,8 @@ metadata:
     app.kubernetes.io/name: watchtower
     app.kubernetes.io/instance: watchtower
 spec:
-  # NOTE: Watchtower disabled by default (replicas: 0)
-  # Reason: Requires Docker socket, but k3s/k3d uses containerd
-  # This causes CrashLoopBackOff or ContainerCreating errors
-  # To enable: kubectl scale deployment/watchtower --replicas=1 -n assocore
-  # WARNING: Only enable if you have Docker runtime, not containerd
+  # Set to 0 to disable Watchtower (recommended for development)
+  # Set to 1 to enable automated image updates
   replicas: 0
   strategy:
     type: Recreate
@@ -26,6 +23,9 @@ spec:
       labels:
         app.kubernetes.io/name: watchtower
         app.kubernetes.io/instance: watchtower
+      annotations:
+        # Note about containerd compatibility
+        description: "Watchtower is disabled by default - not compatible with containerd in k3s"
     spec:
       serviceAccountName: watchtower
       containers:
@@ -57,15 +57,6 @@ spec:
             - name: WATCHTOWER_SCOPE
               value: "assocore"
             
-            # Notifications (optional - configure as needed)
-            # - name: WATCHTOWER_NOTIFICATIONS
-            #   value: "slack"
-            # - name: WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: watchtower-secrets
-            #       key: slack-webhook-url
-            
             # Timezone
             - name: TZ
               value: "Europe/Paris"
@@ -80,27 +71,34 @@ spec:
           
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 65534
+            # Note: readOnlyRootFilesystem conflicts with Docker socket access
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false  # Docker socket requires root
+            runAsUser: 0
             capabilities:
               drop:
                 - ALL
           
+          # NOTE: Watchtower requires Docker socket
+          # k3s uses containerd by default, not Docker
+          # This will cause CrashLoopBackOff or ContainerCreating errors
           volumeMounts:
-            - name: docker-socket
+            - name: container-socket
               mountPath: /var/run/docker.sock
-              readOnly: true
+              readOnly: false
       
       volumes:
-        - name: docker-socket
+        # For Docker runtime (standard Docker)
+        - name: container-socket
           hostPath:
             path: /var/run/docker.sock
             type: Socket
-      
-      # Node selector for nodes with Docker runtime
-      # nodeSelector:
-      #   kubernetes.io/os: linux
+        
+        # For containerd runtime (k3s) - Uncomment to use:
+        # - name: container-socket
+        #   hostPath:
+        #     path: /run/k3s/containerd/containerd.sock
+        #     type: Socket
 
 ---
 # Watchtower ServiceAccount
@@ -124,27 +122,12 @@ metadata:
     app.kubernetes.io/name: watchtower
     app.kubernetes.io/instance: watchtower
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-      - statefulsets
-      - daemonsets
-    verbs:
-      - get
-      - list
-      - watch
-      - update
-      - patch
+  - apiGroups: [""]
+    resources: ["pods", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch"]
 
 ---
 # Watchtower RoleBinding

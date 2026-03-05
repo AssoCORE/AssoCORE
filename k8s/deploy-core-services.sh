@@ -129,6 +129,9 @@ main() {
     echo "════════════════════════════════════════════════════════════════"
     echo "Step 6: Deploying Watchtower"
     echo "════════════════════════════════════════════════════════════════"
+    echo "Note: Watchtower is disabled by default (replicas: 0)"
+    echo "      It requires Docker, but k3s/k3d uses containerd"
+    echo "      Enable only if you have Docker runtime: kubectl scale deployment/watchtower --replicas=1 -n assocore"
     kubectl apply -f k8s/03-watchtower/watchtower-deployment.yaml
     echo ""
 
@@ -200,7 +203,7 @@ main() {
     echo "✓ Core services deployment complete!"
     echo "  ✓ Namespace: $NAMESPACE"
     echo "  ✓ Traefik Ingress Controller"
-    echo "  ✓ Watchtower Auto-updater"
+    echo "  ✓ Watchtower Auto-updater (disabled by default)"
     echo "  ✓ Prometheus Monitoring"
     echo "  ✓ Grafana Visualization"
 }
