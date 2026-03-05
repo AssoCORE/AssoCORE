@@ -112,6 +112,9 @@
 
               # Git
               git-lfs
+
+              # Utilities
+              kubernetes
             ];
 
             env = {
