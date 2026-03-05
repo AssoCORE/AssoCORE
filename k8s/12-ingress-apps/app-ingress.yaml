@@ -1,0 +1,190 @@
+---
+# IngressRoute for AssoCORE Frontend (Main Web Application)
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: frontend-ingress
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: web
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`assocore.localhost`) || Host(`www.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: frontend
+          port: 3000
+      middlewares:
+        - name: security-headers
+  tls:
+    secretName: assocore-tls
+---
+# HTTP to HTTPS redirect for frontend
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: frontend-ingress-http
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: frontend
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`assocore.localhost`) || Host(`www.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: frontend
+          port: 3000
+      middlewares:
+        - name: redirect-to-https
+          namespace: assocore
+---
+# IngressRoute for Backend API
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: backend-ingress
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`api.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: backend
+          port: 8000
+      middlewares:
+        - name: security-headers
+        - name: api-rate-limit
+  tls:
+    secretName: assocore-api-tls
+---
+# HTTP to HTTPS redirect for backend
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: backend-ingress-http
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: backend
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`api.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: backend
+          port: 8000
+      middlewares:
+        - name: redirect-to-https
+          namespace: assocore
+---
+# IngressRoute for NextCloud
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nextcloud-ingress
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: nextcloud
+    app.kubernetes.io/component: storage
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`files.assocore.localhost`) || Host(`nextcloud.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: nextcloud
+          port: 80
+      middlewares:
+        - name: nextcloud-headers
+  tls:
+    secretName: nextcloud-tls
+---
+# HTTP to HTTPS redirect for NextCloud
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nextcloud-ingress-http
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: nextcloud
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`files.assocore.localhost`) || Host(`nextcloud.assocore.localhost`)
+      kind: Rule
+      services:
+        - name: nextcloud
+          port: 80
+      middlewares:
+        - name: redirect-to-https
+          namespace: assocore
+---
+# Middleware: HTTP to HTTPS redirect
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-to-https
+  namespace: assocore
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+# Middleware: Security headers for web applications
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: assocore
+spec:
+  headers:
+    browserXssFilter: true
+    contentTypeNosniff: true
+    forceSTSHeader: true
+    stsIncludeSubdomains: true
+    stsPreload: true
+    stsSeconds: 31536000
+    frameDeny: true
+    customResponseHeaders:
+      X-Robots-Tag: "noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
+---
+# Middleware: NextCloud specific headers
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: nextcloud-headers
+  namespace: assocore
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"
+    customResponseHeaders:
+      Referrer-Policy: "no-referrer"
+      X-Content-Type-Options: "nosniff"
+      X-Frame-Options: "SAMEORIGIN"
+      X-XSS-Protection: "1; mode=block"
+---
+# Middleware: Rate limiting for API
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-rate-limit
+  namespace: assocore
+spec:
+  rateLimit:
+    average: 100
+    burst: 50
+    period: 1s

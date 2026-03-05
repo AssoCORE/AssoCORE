@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+data:
+  # Backend environment configuration
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  # Database connection will use mariadb service
+  DB_HOST: "mariadb.assocore.svc.cluster.local"
+  DB_PORT: "3306"

@@ -86,12 +86,17 @@ Comprehensive guide for setting up a complete AssoCORE development environment.
 
 3. **Environment Configuration**
 
-   ```bash
-   # Copy environment template
-   cp .env.example .env
+   <Aside type="tip" title="Secrets Management Guide">
+     See the complete [Secrets Management Guide](/guides/how-to/secrets-management/) for detailed information about setting up `.env` files for different environments.
+   </Aside>
 
-   # Edit with your local values
-   nano .env
+   **Quick Setup:**
+
+   Create a `.env` file in the backend directory with your local configuration:
+
+   ```bash
+   # Create .env file
+   touch backend/.env
    ```
 
    <Aside type="caution" title="Environment Variables">
@@ -114,7 +119,7 @@ Comprehensive guide for setting up a complete AssoCORE development environment.
      <TabItem label="Docker Compose">
        ```bash
        # Using Docker Compose
-       docker-compose up -d db
+       docker-compose up -d db --remove-orphans
        ```
      </TabItem>
 
@@ -168,13 +173,13 @@ Comprehensive guide for setting up a complete AssoCORE development environment.
   <TabItem label="Docker">
     ```bash
     # Start all services
-    docker-compose up
+    docker-compose up --remove-orphans
 
     # Rebuild after changes
-    docker-compose up --build
+    docker-compose up --build --remove-orphans
 
     # Run in background
-    docker-compose up -d
+    docker-compose up -d --remove-orphans
 
     # View logs
     docker-compose logs -f api
@@ -323,7 +328,7 @@ docker exec -it assocore-dev-db psql -U assocore -d assocore_dev
     ```bash
     # Or with Docker
     docker-compose down -v
-    docker-compose up -d db
+    docker-compose up -d db --remove-orphans
     poetry run alembic upgrade head
     ```
 

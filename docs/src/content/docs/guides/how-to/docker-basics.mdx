@@ -42,7 +42,7 @@ Our project has 3 main Docker images:
 ```
 AssoCORE/
 ├── docker/
-│   ├── backend.Dockerfile    ← Python/Django API
+│   ├── backend.Dockerfile    ← Python/FastAPI API
 │   ├── frontend.Dockerfile   ← Next.js web app
 │   └── mobile.Dockerfile     ← Flutter mobile app (APK)
 ├── docker-compose.yml        ← Development setup
@@ -189,16 +189,16 @@ Docker Compose manages multiple containers together.
 
 ```bash
 # Start all services (backend, frontend, database)
-docker compose up
+docker compose up --remove-orphans
 
 # Start in background
-docker compose up -d
+docker compose up -d --remove-orphans
 
 # Rebuild images before starting
-docker compose up --build
+docker compose up --build --remove-orphans
 
 # Start specific service
-docker compose up backend
+docker compose up backend --remove-orphans
 ```
 
 </TabItem>
@@ -206,11 +206,11 @@ docker compose up backend
 
 ```bash
 # Use production compose file
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 # Pull latest images from GHCR first
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
 ```
 
 </TabItem>
@@ -277,7 +277,7 @@ docker compose exec db mysql -u root -p
 
    ```bash
    # Start all services
-   docker compose up -d
+   docker compose up -d --remove-orphans
    
    # Check they're running
    docker compose ps
@@ -342,7 +342,7 @@ docker compose exec db mysql -u root -p
 
    ```bash
    # Start all services
-   docker compose -f docker-compose.prod.yml up -d
+   docker compose -f docker-compose.prod.yml up -d --remove-orphans
    
    # Check status
    docker compose -f docker-compose.prod.yml ps
@@ -365,7 +365,7 @@ sudo lsof -i :8000
 
 # Remove and recreate
 docker compose down
-docker compose up -d
+docker compose up -d --remove-orphans
 ```
 
 ### Out of Disk Space
@@ -419,7 +419,7 @@ cat .dockerignore
 
 <Card title="Development" icon="laptop">
 
-- Use `docker compose up` for local development
+- Use `docker compose up --remove-orphans` for local development
 - Keep `.env` file out of git (use `.env.example`)
 - Use volume mounts to live-reload code changes
 - Run `docker compose down -v` to reset database between tests

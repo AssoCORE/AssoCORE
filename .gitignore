@@ -1,5 +1,6 @@
 # Environment
 .env
+k8s/.env
 
 # Editor
 .vscode/

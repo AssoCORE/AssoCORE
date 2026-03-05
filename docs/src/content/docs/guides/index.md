@@ -21,6 +21,7 @@ Practical guides for specific tasks:
 - **[Docker Deployment with GHCR](./how-to/docker-deployment/)** - Build, push, and deploy Docker images using GitHub Container Registry
 - **[Kubernetes Deployment](./how-to/kubernetes-deployment/)** - Deploy AssoCORE on Kubernetes with k3d (beginner-friendly guide)
 - **[Observability & Monitoring](./how-to/observability-monitoring/)** - Monitor your cluster with Prometheus and Grafana dashboards
+- **[Secrets Management](./how-to/secrets-management/)** - Securely manage passwords and credentials with .env files
 
 ### Development
 

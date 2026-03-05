@@ -31,6 +31,30 @@ Monitor your AssoCORE deployment with Prometheus and Grafana. Set up dashboards,
 
 ---
 
+### [Secrets Management](./secrets-management/)
+
+Securely manage passwords, database credentials, and other secrets using .env files and Kubernetes secrets. Includes password generation, best practices, and production recommendations.
+
+**Perfect for:** Setting up secure credentials for local development, understanding secrets management, and preparing for production deployments.
+
+---
+
+### [K3s Cluster Setup](./k3s-cluster-setup/)
+
+Complete guide to setting up Kubernetes with k3s - from development (k3d) to production high availability clusters. Includes hardware requirements, network configuration, and data sovereignty checklist.
+
+**Perfect for:** Setting up your own Kubernetes cluster with full data control, whether for development or production use.
+
+---
+
+### [Kubernetes App Deployment](./kubernetes-app-deployment/)
+
+Deploy the full AssoCORE application stack to Kubernetes. Covers MariaDB, Redis, Backend, Frontend, and NextCloud with secrets management, troubleshooting, and production checklist.
+
+**Perfect for:** Deploying all AssoCORE services to your Kubernetes cluster and understanding the complete architecture.
+
+---
+
 ## Coming Soon
 
 More guides are being added regularly. Topics will include:
