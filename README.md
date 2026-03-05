@@ -1,12 +1,13 @@
 # AssoCORE — Association Management Platform
 
-###### An <img src="https://newsroom.ionis-group.com/wp-content/uploads/2023/09/epitech-2023-logo-m.png" height=18/> Innovative project
+An <img src="https://newsroom.ionis-group.com/wp-content/uploads/2023/09/epitech-2023-logo-m.png" height=18/> Innovative project
 
 [Project](#project) • [Vision](#vision) • [Features](#features) • [Architecture](#architecture) • [Usage](#usage) • [Team](#team)
 
 ---
 
 <a name="project"></a>
+
 ## Project
 
 ### Overview
@@ -21,11 +22,13 @@ AssoCORE proposes a **unified, user-centered solution**, where usability and cla
 ---
 
 <a name="vision"></a>
+
 ## Vision
 
 AssoCORE aims to become a **digital backbone for associations**, simplifying daily operations while respecting organizational constraints.
 
 Our vision is built around the following principles:
+
 - Reduce administrative complexity
 - Centralize essential association tools
 - Improve internal and external communication
@@ -37,6 +40,7 @@ Every feature is designed to be reachable within **2 to 3 clicks**, using a modu
 ---
 
 <a name="features"></a>
+
 ## Features
 
 ### Core features
@@ -68,6 +72,7 @@ Every feature is designed to be reachable within **2 to 3 clicks**, using a modu
 ---
 
 <a name="architecture"></a>
+
 ## Architecture
 
 > Work in progress
@@ -75,6 +80,7 @@ Every feature is designed to be reachable within **2 to 3 clicks**, using a modu
 ### Global design
 
 AssoCORE is built around a **modular architecture**, allowing:
+
 - feature activation based on association needs
 - progressive scalability
 - easier maintenance and evolution
@@ -89,6 +95,7 @@ AssoCORE is built around a **modular architecture**, allowing:
 ---
 
 <a name="usage"></a>
+
 ## Getting Started & Deployment
 
 ### 📚 Documentation
@@ -142,6 +149,7 @@ kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
 ---
 
 <a name="usage"></a>
+
 ## Usage
 
 > Work in progress
@@ -149,10 +157,11 @@ kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
 ---
 
 <a name="team"></a>
+
 ## Team
 
 | <img src="https://avatars.githubusercontent.com/u/146708420?v=4" width=92> | <img src="https://avatars.githubusercontent.com/u/146721664?v=4" width=92> | <img src="https://avatars.githubusercontent.com/u/146714535?v=4" width=92> | <img src="https://avatars.githubusercontent.com/u/114913834?v=4" width=92> | <img src="https://avatars.githubusercontent.com/u/97297209?v=4" width=92> | <img src="https://avatars.githubusercontent.com/u/122123024?v=4" width=92> |
 |---|---|---|---|---|---|
-| [**Lilian BAZANTAY**](https://github.com/Lilianbazantay)<br/>lilian.bazantay@epitech.eu | [**Valentin ROQUEJOFRE**](https://github.com/Valentin22r)<br/>valentin.roquejofre@epitech.eu | [**Antoine QUILLET**](https://github.com/Touf272)<br/>antoine.quillet@epitech.eu | [**Thibaud LE CREURER**](https://github.com/leTLC)<br/>thibaud.le-creurer@epitech.eu | [**Julien BREGENT**](https://github.com/Fenriir42)<br/>julien.bregent@epitech.eu | [**Louis PERSIN**](https://github.com/ElectronicIV)<br/>louis.percin@epitech.eu |
+| [**Lilian BAZANTAY**](https://github.com/Lilianbazantay)<br/><lilian.bazantay@epitech.eu> | [**Valentin ROQUEJOFRE**](https://github.com/Valentin22r)<br/><valentin.roquejofre@epitech.eu> | [**Antoine QUILLET**](https://github.com/Touf272)<br/><antoine.quillet@epitech.eu> | [**Thibaud LE CREURER**](https://github.com/leTLC)<br/><thibaud.le-creurer@epitech.eu> | [**Julien BREGENT**](https://github.com/Fenriir42)<br/><julien.bregent@epitech.eu> | [**Louis PERSIN**](https://github.com/ElectronicIV)<br/><louis.percin@epitech.eu> |
 
 This project is developed as part of the **Epitech Innovative Project (EIP)**.

@@ -3,7 +3,6 @@
 This directory contains Kubernetes manifests for deploying AssoCORE to a Kubernetes cluster.
 
 > **📚 NEW TO KUBERNETES?** Check out our [Complete Kubernetes Deployment Guide](../docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx) with beginner-friendly explanations, examples, and troubleshooting tips!
-
 > **🐳 NEW TO DOCKER?** Start with our [Docker Basics Guide](../docs/src/content/docs/guides/how-to/docker-basics.mdx) first!
 
 ## Quick Start (TL;DR)
@@ -66,8 +65,26 @@ This will deploy:
 - ✅ Traefik Ingress Controller with CRDs
 - ✅ Traefik TLS termination (Let's Encrypt)
 - ✅ Watchtower for automated updates
+- ✅ Prometheus monitoring
+- ✅ Grafana dashboards
 
-### 2. Manual Deployment (Step-by-Step)
+### 2. Access Services
+
+```bash
+# Traefik Dashboard
+kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
+# http://localhost:9000/dashboard/
+
+# Prometheus
+kubectl port-forward -n assocore svc/prometheus 9090:9090
+# http://localhost:9090
+
+# Grafana
+kubectl port-forward -n assocore svc/grafana 3000:3000
+# http://localhost:3000 (admin/admin)
+```
+
+### 3. Manual Deployment (Step-by-Step)
 
 If you prefer to deploy services individually:
 
@@ -90,7 +107,18 @@ kubectl apply -f k8s/02-traefik/traefik-dashboard.yaml
 
 # Step 5: Deploy Watchtower
 kubectl apply -f k8s/03-watchtower/watchtower-deployment.yaml
+
+# Step 6: Deploy Prometheus (Monitoring)
+kubectl apply -f k8s/04-prometheus/
+
+# Step 7: Deploy Grafana (Dashboards)
+kubectl apply -f k8s/05-grafana/
+
+# Step 8: Deploy Ingress Routes
+kubectl apply -f k8s/06-ingress/observability-ingress.yaml
 ```
+
+📖 **See [OBSERVABILITY.md](./OBSERVABILITY.md) for detailed monitoring setup and dashboard configuration.**
 
 ## Configuration
 
@@ -308,16 +336,20 @@ kubectl delete clusterrole traefik
 
 ## Related Documentation
 
-**📖 Essential Guides (Read These First!)**
+### **📖 Essential Guides (Read These First!)**
+
 - [Docker Basics Guide](../docs/src/content/docs/guides/how-to/docker-basics.mdx) - Start here if you're new to Docker
 - [Kubernetes Deployment Guide](../docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx) - **Complete beginner's guide** with kubectl commands, troubleshooting, and examples
 - [Docker Deployment with GHCR](../docs/src/content/docs/guides/how-to/docker-deployment.mdx) - CI/CD and container registry setup
 
-**🏗️ Architecture**
+### **🏗️ Architecture**
+
 - [DevOps Infrastructure](../docs/src/content/docs/architecture/devops-infrastructure.mdx) - High-level overview of our infrastructure
 - [k3s Setup Guide](./K3S_SETUP.md) - Bare metal/production k3s installation
+- [Observability Stack](./OBSERVABILITY.md) - **Prometheus + Grafana monitoring and dashboards**
 
-**🔧 External Resources**
+### **🔧 External Resources**
+
 - [Traefik Documentation](https://doc.traefik.io/traefik/) - Official Traefik docs
 - [Watchtower Documentation](https://containrrr.dev/watchtower/) - Auto-updater docs
 - [k3d Documentation](https://k3d.io/) - k3d (k3s in Docker) docs

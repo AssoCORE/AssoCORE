@@ -1,0 +1,45 @@
+---
+# Prometheus IngressRoute
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prometheus
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`prometheus.assocore.local`) || Host(`prometheus.localhost`)
+      kind: Rule
+      services:
+        - name: prometheus
+          port: 9090
+  # Uncomment for production with real domain:
+  # tls:
+  #   certResolver: letsencrypt
+
+---
+# Grafana IngressRoute
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: grafana
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`grafana.assocore.local`) || Host(`grafana.localhost`)
+      kind: Rule
+      services:
+        - name: grafana
+          port: 3000
+  # Uncomment for production with real domain:
+  # tls:
+  #   certResolver: letsencrypt
