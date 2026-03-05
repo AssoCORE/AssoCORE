@@ -9,20 +9,20 @@ router = APIRouter(prefix="/event", tags=["event"])
 
 @router.get("/{event_id}", description="get all event")
 async def get_event(event_id):
-    pass
+    return JSONResponse(content={"Response":"OK"})
 
 @router.get("/", description="get a event")
 async def get_all_event():
-    pass
+    return JSONResponse(content={"Response":"OK"})
 
 @router.post("/", description="create a new event")
 async def post_event():
-    pass
+    return JSONResponse(content={"Response":"OK"})
 
 @router.put("/{event_id}", description="modify an event")
 async def modify_event(event_id):
-    pass
+    return JSONResponse(content={"Response":"OK"})
 
 @router.delete("/{event_id}", description="remove an event")
 async def remove_event(event_id):
-    pass
+    return JSONResponse(content={"Response":"OK"})
