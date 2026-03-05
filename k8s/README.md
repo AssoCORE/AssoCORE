@@ -11,15 +11,20 @@ This directory contains Kubernetes manifests for deploying AssoCORE to a Kuberne
 # 1. Install k3d cluster (easiest for local development)
 ./k8s/install-k3d.sh
 
-# 2. Deploy core services (Traefik, Watchtower, Secrets)
+# 2. Deploy core services (Traefik, Watchtower, Monitoring)
 ./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME YOUR_GITHUB_TOKEN
 
-# 3. Access Traefik dashboard
-kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
-# Open: http://localhost:9000/dashboard/
+# 3. Deploy applications (Backend, Frontend, NextCloud)
+./k8s/deploy-apps.sh
+
+# 4. Add to /etc/hosts
+echo "127.0.0.1 assocore.localhost api.assocore.localhost files.assocore.localhost" | sudo tee -a /etc/hosts
+
+# 5. Access your application
+# Open: http://assocore.localhost
 ```
 
-**That's it!** You now have a running Kubernetes cluster with ingress and auto-updates. 🎉
+**That's it!** You now have a fully running AssoCORE platform in Kubernetes! 🎉
 
 ---
 
@@ -31,9 +36,17 @@ k8s/
 ├── 01-secrets/            # Secrets management (GHCR, certificates)
 ├── 02-traefik/            # Traefik Ingress Controller
 ├── 03-watchtower/         # Watchtower for automated updates
-├── apps/                  # Application deployments (backend, frontend, mobile)
-├── ingress/               # Ingress routes configuration
-└── deploy-core-services.sh # One-command deployment script
+├── 04-prometheus/         # Prometheus monitoring
+├── 05-grafana/            # Grafana dashboards
+├── 06-ingress/            # Ingress routes for observability
+├── 07-database/           # MariaDB StatefulSet
+├── 08-redis/              # Redis cache
+├── 09-backend/            # FastAPI backend application
+├── 10-frontend/           # Next.js frontend application
+├── 11-nextcloud/          # NextCloud file storage
+├── 12-ingress-apps/       # Ingress routes for applications
+├── deploy-core-services.sh # Deploy infrastructure (Traefik, monitoring)
+└── deploy-apps.sh         # Deploy applications (backend, frontend, etc.)
 ```
 
 ## Prerequisites
@@ -118,7 +131,89 @@ kubectl apply -f k8s/05-grafana/
 kubectl apply -f k8s/06-ingress/observability-ingress.yaml
 ```
 
-📖 **See [OBSERVABILITY.md](./OBSERVABILITY.md) for detailed monitoring setup and dashboard configuration.**
+📖 **See [Observability & Monitoring Guide](../docs/src/content/docs/guides/how-to/observability-monitoring.mdx) for detailed monitoring setup and dashboard configuration.**
+
+---
+
+## Application Deployment
+
+Once core services are running, deploy the AssoCORE application stack:
+
+### Prerequisites: Configure Secrets
+
+Before deploying applications, you **must** create secrets for database and application credentials:
+
+```bash
+# 1. Copy the template
+cp k8s/.env.example k8s/.env
+
+# 2. Generate secure passwords
+openssl rand -base64 32  # Run multiple times
+
+# 3. Edit k8s/.env with your credentials
+nano k8s/.env
+
+# 4. Create Kubernetes secrets
+./k8s/01-secrets/create-app-secrets.sh
+```
+
+**⚠️ Never commit k8s/.env to version control!**
+
+📖 **See [Secrets Management Guide](../docs/src/content/docs/guides/how-to/secrets-management.mdx) for comprehensive beginner tutorial and [Secrets Technical Reference](../docs/src/content/docs/reference/secrets-technical-reference.mdx) for advanced topics.**
+
+### Quick Application Deployment
+
+```bash
+# Deploy all applications in one command
+./k8s/deploy-apps.sh
+```
+
+This will deploy:
+
+- ✅ **MariaDB** - Database (StatefulSet with 10Gi storage)
+- ✅ **Redis** - Cache for NextCloud
+- ✅ **Backend API** - FastAPI REST API (2 replicas)
+- ✅ **Frontend** - Next.js web application (2 replicas)
+- ✅ **NextCloud** - File storage and document management (StatefulSet with 20Gi storage)
+- ✅ **Ingress Routes** - HTTP/HTTPS routing for all services
+
+**Access your application:**
+
+- Frontend: <http://assocore.localhost>
+- Backend API: <http://api.assocore.localhost>
+- NextCloud: <http://files.assocore.localhost>
+
+📖 **See [Application Deployment Guide](../docs/src/content/docs/guides/how-to/kubernetes-app-deployment.mdx) for detailed application deployment guide, configuration, and troubleshooting.**
+
+### Manual Application Deployment
+
+```bash
+# Deploy in dependency order
+kubectl apply -f k8s/07-database/    # MariaDB
+kubectl apply -f k8s/08-redis/       # Redis
+kubectl apply -f k8s/09-backend/     # Backend API
+kubectl apply -f k8s/10-frontend/    # Frontend
+kubectl apply -f k8s/11-nextcloud/   # NextCloud
+kubectl apply -f k8s/12-ingress-apps/ # Ingress routes
+```
+
+### Application Architecture
+
+```txt
+Frontend (Next.js)  ─┐
+                     │
+Backend (FastAPI)   ─┼──▶ MariaDB
+                     │
+NextCloud           ─┴──▶ Redis
+```
+
+**Resource Requirements:**
+
+- Total CPU requests: ~1.5 cores
+- Total memory requests: ~2GB
+- Total storage: ~30GB (10GB MariaDB + 20GB NextCloud)
+
+---
 
 ## Configuration
 
@@ -345,10 +440,17 @@ kubectl delete clusterrole traefik
 ### **🏗️ Architecture**
 
 - [DevOps Infrastructure](../docs/src/content/docs/architecture/devops-infrastructure.mdx) - High-level overview of our infrastructure
-- [k3s Setup Guide](./K3S_SETUP.md) - Bare metal/production k3s installation
-- [Observability Stack](./OBSERVABILITY.md) - **Prometheus + Grafana monitoring and dashboards**
+- [K3s Cluster Setup Guide](../docs/src/content/docs/guides/how-to/k3s-cluster-setup.mdx) - Bare metal/production k3s installation (development with k3d)
+- [Observability & Monitoring Guide](../docs/src/content/docs/guides/how-to/observability-monitoring.mdx) - **Prometheus + Grafana monitoring and dashboards**
 
-### **🔧 External Resources**
+### **🔐 Security & Secrets**
+
+- [Secrets Management Guide](../docs/src/content/docs/guides/how-to/secrets-management.mdx) - **Complete tutorial** on managing passwords and credentials
+- [Secrets Technical Reference](../docs/src/content/docs/reference/secrets-technical-reference.mdx) - Advanced secrets management and production recommendations
+- [Security Audit Report](../docs/src/content/docs/reference/security-audit.mdx) - Comprehensive hardcoded secrets audit (January 2025)
+- [Application Deployment Guide](../docs/src/content/docs/guides/how-to/kubernetes-app-deployment.mdx) - Complete guide to deploying all AssoCORE services
+
+### **�🔧 External Resources**
 
 - [Traefik Documentation](https://doc.traefik.io/traefik/) - Official Traefik docs
 - [Watchtower Documentation](https://containrrr.dev/watchtower/) - Auto-updater docs

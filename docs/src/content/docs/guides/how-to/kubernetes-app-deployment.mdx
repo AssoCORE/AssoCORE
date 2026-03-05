@@ -1,0 +1,569 @@
+---
+title: Kubernetes Application Deployment
+description: Complete guide to deploying the AssoCORE application stack to Kubernetes
+---
+
+import { Card, CardGrid, Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide covers deploying the full AssoCORE application stack to Kubernetes.
+
+## Overview
+
+The AssoCORE application stack consists of:
+
+<CardGrid>
+  <Card title="Frontend" icon="seti:html">
+    Next.js web application  
+    **2 replicas** for high availability
+  </Card>
+  
+  <Card title="Backend" icon="seti:python">
+    FastAPI REST API  
+    **2 replicas** with health checks
+  </Card>
+  
+  <Card title="NextCloud" icon="document">
+    Document management & file storage  
+    **StatefulSet** with 20Gi storage
+  </Card>
+  
+  <Card title="MariaDB" icon="seti:db">
+    Primary database  
+    **StatefulSet** with 10Gi storage
+  </Card>
+  
+  <Card title="Redis" icon="seti:db">
+    Cache for NextCloud  
+    **1 replica** in-memory
+  </Card>
+</CardGrid>
+
+All services are exposed through **Traefik** ingress controller with automatic HTTPS.
+
+---
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+<Steps>
+1. **Kubernetes cluster running** (k3d or k3s)
+   ```bash
+   kubectl cluster-info
+   ```
+
+2. **Core services deployed**
+   - Namespace: `assocore`
+   - Traefik Ingress Controller
+   - GHCR pull secrets
+   - Prometheus & Grafana (optional but recommended)
+   
+   ```bash
+   # Deploy core services if not already done
+   ./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME $GITHUB_TOKEN
+   ```
+
+3. **Docker images built and pushed to GHCR**
+   ```bash
+   # Images should be available at:
+   # - ghcr.io/assocore/assocore/backend:latest
+   # - ghcr.io/assocore/assocore/frontend:latest
+   ```
+
+4. **Local DNS configured** (for localhost testing)
+   
+   Add to `/etc/hosts`:
+   ```txt
+   127.0.0.1 assocore.localhost
+   127.0.0.1 api.assocore.localhost
+   127.0.0.1 files.assocore.localhost
+   ```
+</Steps>
+
+---
+
+## Architecture
+
+### Service Dependencies
+
+```txt
+┌─────────────┐
+│  Frontend   │──┐
+│  (Next.js)  │  │
+└─────────────┘  │
+                 │
+┌─────────────┐  │     ┌─────────────┐     ┌─────────────┐
+│   Backend   │──┼────▶│   MariaDB   │     │    Redis    │
+│  (FastAPI)  │  │     │  (Database) │     │   (Cache)   │
+└─────────────┘  │     └─────────────┘     └─────────────┘
+                 │            ▲                    ▲
+┌─────────────┐  │            │                    │
+│  NextCloud  │──┘            └────────────────────┘
+│   (Files)   │
+└─────────────┘
+        │
+        ▼
+┌──────────────────────────┐
+│  Traefik Ingress         │
+│  - assocore.localhost    │
+│  - api.assocore.localhost│
+│  - files.assocore.localhost│
+└──────────────────────────┘
+```
+
+### Resource Allocation
+
+| Service    | CPU Request | CPU Limit | Memory Request | Memory Limit | Storage |
+|------------|-------------|-----------|----------------|--------------|---------|
+| Frontend   | 200m        | 500m      | 256Mi          | 512Mi        | -       |
+| Backend    | 200m        | 1000m     | 256Mi          | 512Mi        | -       |
+| NextCloud  | 500m        | 2000m     | 512Mi          | 2Gi          | 20Gi    |
+| MariaDB    | 250m        | 1000m     | 512Mi          | 1Gi          | 10Gi    |
+| Redis      | 100m        | 500m      | 128Mi          | 256Mi        | -       |
+
+---
+
+## Quick Deployment
+
+Deploy everything with one command:
+
+<Steps>
+1. **Configure your secrets**
+   ```bash
+   cp k8s/.env.example k8s/.env
+   nano k8s/.env  # Fill in secure passwords
+   ```
+
+2. **Deploy all services**
+   ```bash
+   cd k8s
+   ./deploy-apps.sh
+   ```
+</Steps>
+
+This script will:
+1. Create Kubernetes secrets from k8s/.env file
+2. Deploy MariaDB and wait for it to be ready
+3. Deploy Redis
+4. Deploy Backend API
+5. Deploy Frontend web app
+6. Deploy NextCloud
+7. Configure Ingress routes
+
+**Estimated deployment time:** 5-10 minutes  
+**Note:** The script will check for k8s/.env and guide you if it's missing.
+
+---
+
+## Manual Deployment
+
+If you prefer to deploy components individually:
+
+<Tabs>
+  <TabItem label="Step 1: Database">
+    ```bash
+    kubectl apply -f k8s/07-database/
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=mariadb \
+      -n assocore --timeout=300s
+    ```
+
+    **What this deploys:**
+    - ConfigMap: MariaDB configuration
+    - Secret: Database credentials
+    - StatefulSet: MariaDB 10.11
+    - Service: mariadb.assocore.svc.cluster.local:3306
+    - PVC: 10Gi persistent storage
+  </TabItem>
+  
+  <TabItem label="Step 2: Redis">
+    ```bash
+    kubectl apply -f k8s/08-redis/
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=redis \
+      -n assocore --timeout=120s
+    ```
+
+    **What this deploys:**
+    - Deployment: Redis 7 Alpine
+    - Service: redis.assocore.svc.cluster.local:6379
+  </TabItem>
+  
+  <TabItem label="Step 3: Backend">
+    ```bash
+    kubectl apply -f k8s/09-backend/
+    kubectl wait --for=condition=available deployment/backend \
+      -n assocore --timeout=300s
+    ```
+
+    **What this deploys:**
+    - ConfigMap: Backend environment variables
+    - Secret: Database connection string
+    - Deployment: FastAPI backend (2 replicas)
+    - Service: backend.assocore.svc.cluster.local:8000
+
+    **Features:**
+    - Init container waits for database
+    - Health checks on `/health`
+    - Auto-scaling ready
+    - Prometheus metrics exposed
+  </TabItem>
+  
+  <TabItem label="Step 4: Frontend">
+    ```bash
+    kubectl apply -f k8s/10-frontend/
+    kubectl wait --for=condition=available deployment/frontend \
+      -n assocore --timeout=300s
+    ```
+
+    **What this deploys:**
+    - ConfigMap: Frontend environment variables
+    - Deployment: Next.js frontend (2 replicas)
+    - Service: frontend.assocore.svc.cluster.local:3000
+
+    **Features:**
+    - Init container waits for backend
+    - Ready for load balancing
+    - Environment-aware configuration
+  </TabItem>
+  
+  <TabItem label="Step 5: NextCloud">
+    ```bash
+    kubectl apply -f k8s/11-nextcloud/
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=nextcloud \
+      -n assocore --timeout=600s
+    ```
+
+    **What this deploys:**
+    - ConfigMap: NextCloud configuration
+    - Secret: Admin credentials and database connection
+    - StatefulSet: NextCloud 28 Apache
+    - Service: nextcloud.assocore.svc.cluster.local:80
+    - PVC: 20Gi persistent storage
+
+    **Features:**
+    - Init container waits for database and Redis
+    - Integrated with MariaDB and Redis
+    - Configured for reverse proxy (Traefik)
+    - Health checks on `/status.php`
+  </TabItem>
+  
+  <TabItem label="Step 6: Ingress">
+    ```bash
+    kubectl apply -f k8s/12-ingress-apps/
+    ```
+
+    **What this deploys:**
+    - IngressRoutes for all public services
+    - Middlewares for security headers
+    - HTTP to HTTPS redirects
+    - Rate limiting for API
+  </TabItem>
+</Tabs>
+
+---
+
+## Configuration
+
+### Secrets Management
+
+<Aside type="danger" title="Security First">
+All secrets are managed through environment variables and **never committed to git!**
+</Aside>
+
+<Steps>
+1. **Copy the template**
+   ```bash
+   cp k8s/.env.example k8s/.env
+   ```
+
+2. **Generate secure passwords**
+   ```bash
+   openssl rand -base64 32  # Run this multiple times
+   ```
+
+3. **Edit k8s/.env with your credentials**
+   ```bash
+   nano k8s/.env
+   ```
+
+4. **Create Kubernetes secrets**
+   ```bash
+   ./k8s/01-secrets/create-app-secrets.sh
+   ```
+</Steps>
+
+**Required Environment Variables:**
+
+```bash
+# Database
+MARIADB_ROOT_PASSWORD=<your-secure-password>
+MARIADB_DATABASE=assocore
+MARIADB_USER=assocore
+MARIADB_PASSWORD=<your-secure-password>
+
+# NextCloud
+NEXTCLOUD_ADMIN_USER=admin
+NEXTCLOUD_ADMIN_PASSWORD=<your-secure-password>
+```
+
+<Aside type="note">
+📖 See [Secrets Management Guide](/guides/how-to/secrets-management/) for comprehensive guide including password generation best practices, production secret managers (Vault, Sealed Secrets), rotation strategies, and emergency procedures.
+</Aside>
+
+### Viewing Secrets
+
+```bash
+# List all secrets
+kubectl get secrets -n assocore
+
+# View NextCloud admin username
+kubectl get secret nextcloud-secret -n assocore \
+  -o jsonpath='{.data.nextcloud-admin-user}' | base64 -d
+
+# View NextCloud admin password
+kubectl get secret nextcloud-secret -n assocore \
+  -o jsonpath='{.data.nextcloud-admin-password}' | base64 -d
+```
+
+---
+
+## Verification
+
+### Check All Pods
+
+```bash
+kubectl get pods -n assocore
+```
+
+Expected output:
+
+```sh
+NAME                        READY   STATUS    RESTARTS   AGE
+backend-xxxxx-xxxxx         1/1     Running   0          5m
+backend-xxxxx-xxxxx         1/1     Running   0          5m
+frontend-xxxxx-xxxxx        1/1     Running   0          4m
+frontend-xxxxx-xxxxx        1/1     Running   0          4m
+mariadb-0                   1/1     Running   0          10m
+nextcloud-0                 1/1     Running   0          3m
+redis-xxxxx-xxxxx           1/1     Running   0          8m
+```
+
+### Check Services
+
+```bash
+kubectl get svc -n assocore
+```
+
+### Check Ingress Routes
+
+```bash
+kubectl get ingressroute -n assocore
+```
+
+### Check Logs
+
+```bash
+# Backend logs
+kubectl logs -f -n assocore deployment/backend
+
+# Frontend logs
+kubectl logs -f -n assocore deployment/frontend
+
+# NextCloud logs
+kubectl logs -f -n assocore statefulset/nextcloud
+
+# Database logs
+kubectl logs -f -n assocore statefulset/mariadb
+```
+
+---
+
+## Accessing Services
+
+### Via Ingress (Recommended)
+
+Once deployed, access services through their domains:
+
+- **Frontend**: http://assocore.localhost or https://assocore.localhost
+- **Backend API**: http://api.assocore.localhost or https://api.assocore.localhost
+- **NextCloud**: http://files.assocore.localhost or https://files.assocore.localhost
+
+### Via Port-Forward (Development)
+
+For direct access without ingress:
+
+```bash
+# Frontend
+kubectl port-forward -n assocore svc/frontend 3000:3000 &
+
+# Backend
+kubectl port-forward -n assocore svc/backend 8000:8000 &
+
+# NextCloud
+kubectl port-forward -n assocore svc/nextcloud 8080:80 &
+
+# Access at:
+# - http://localhost:3000 (frontend)
+# - http://localhost:8000 (backend)
+# - http://localhost:8080 (nextcloud)
+```
+
+### Testing Backend API
+
+```bash
+# Health check
+curl http://api.assocore.localhost/health
+
+# Or via port-forward
+curl http://localhost:8000/health
+```
+
+---
+
+## Troubleshooting
+
+<Aside type="tip">
+For detailed troubleshooting, see the [Kubernetes Deployment Guide](/guides/how-to/kubernetes-deployment/).
+</Aside>
+
+### Pod Not Starting
+
+```bash
+# Check pod status
+kubectl describe pod <pod-name> -n assocore
+
+# Check logs
+kubectl logs <pod-name> -n assocore
+
+# Check events
+kubectl get events -n assocore --sort-by='.lastTimestamp'
+```
+
+### Common Issues
+
+<CardGrid>
+  <Card title="ImagePullBackOff" icon="error">
+    **Problem:** Cannot pull images from GHCR
+    
+    **Solution:**
+    ```bash
+    # Recreate secret
+    kubectl delete secret ghcr-secret -n assocore
+    kubectl create secret docker-registry ghcr-secret \
+      --docker-server=ghcr.io \
+      --docker-username=YOUR_GITHUB_USERNAME \
+      --docker-password=YOUR_GITHUB_TOKEN \
+      --namespace=assocore
+    ```
+  </Card>
+  
+  <Card title="CrashLoopBackOff" icon="error">
+    **Problem:** Pod keeps restarting
+    
+    **Solutions:**
+    - Check logs: `kubectl logs <pod-name> -n assocore --previous`
+    - Verify database connection
+    - Check if secrets are properly configured
+    - Ensure init containers completed
+  </Card>
+  
+  <Card title="Database Connection Refused" icon="error">
+    **Problem:** Backend/NextCloud can't connect
+    
+    **Solution:**
+    ```bash
+    # Check if MariaDB is running
+    kubectl get pods -l app.kubernetes.io/name=mariadb -n assocore
+    
+    # Test database connection
+    kubectl exec -it mariadb-0 -n assocore -- mariadb -u root -p
+    ```
+  </Card>
+  
+  <Card title="Ingress Not Working" icon="error">
+    **Problem:** Can't access services via domain
+    
+    **Solutions:**
+    ```bash
+    # Check Traefik
+    kubectl get pods -n assocore -l app.kubernetes.io/name=traefik
+    
+    # Verify /etc/hosts
+    cat /etc/hosts | grep assocore
+    
+    # Test with curl
+    curl -v http://assocore.localhost
+    ```
+  </Card>
+</CardGrid>
+
+### Reset and Redeploy
+
+If you need to start fresh:
+
+```bash
+# Delete all application resources
+kubectl delete -f k8s/12-ingress-apps/
+kubectl delete -f k8s/11-nextcloud/
+kubectl delete -f k8s/10-frontend/
+kubectl delete -f k8s/09-backend/
+kubectl delete -f k8s/08-redis/
+kubectl delete -f k8s/07-database/
+
+# Delete PVCs (this will delete all data!)
+kubectl delete pvc -l app.kubernetes.io/name=mariadb -n assocore
+kubectl delete pvc -l app.kubernetes.io/name=nextcloud -n assocore
+
+# Redeploy
+./k8s/deploy-apps.sh
+```
+
+---
+
+## Production Checklist
+
+Before deploying to production:
+
+- [ ] Change all default passwords in secrets
+- [ ] Configure proper domain names (not .localhost)
+- [ ] Enable TLS with Let's Encrypt or custom certificates
+- [ ] Set up proper database backups
+- [ ] Configure resource limits based on load testing
+- [ ] Enable horizontal pod autoscaling
+- [ ] Set up monitoring alerts (Grafana)
+- [ ] Configure log aggregation
+- [ ] Review and harden security policies
+- [ ] Test disaster recovery procedures
+- [ ] Document custom configuration
+
+---
+
+## Next Steps
+
+<CardGrid>
+  <Card title="Monitor your deployment" icon="laptop">
+    [Observability Guide](/guides/how-to/observability-monitoring/)
+  </Card>
+  
+  <Card title="Scale your services" icon="rocket">
+    ```bash
+    kubectl scale deployment/backend --replicas=4 -n assocore
+    ```
+  </Card>
+  
+  <Card title="Set up backups" icon="document">
+    Create CronJobs for database and NextCloud backups
+  </Card>
+  
+  <Card title="Configure CI/CD" icon="github">
+    Automate deployments with GitHub Actions
+  </Card>
+</CardGrid>
+
+---
+
+## Getting Help
+
+- Check the [Kubernetes Deployment Guide](/guides/how-to/kubernetes-deployment/)
+- Review logs: `kubectl logs <pod-name> -n assocore`
+- Create a GitHub issue
+- Ask in the AssoCORE community

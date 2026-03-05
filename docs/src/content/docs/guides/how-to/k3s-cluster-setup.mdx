@@ -1,68 +1,116 @@
-# Kubernetes Cluster Setup Guide
+---
+title: K3s Cluster Setup Guide
+description: Complete guide to setting up Kubernetes with k3s for AssoCORE - from development to production high availability
+---
 
-Setup guide for AssoCORE with full data sovereignty.
+import { Card, CardGrid, Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Setup guide for AssoCORE with full data sovereignty using k3s lightweight Kubernetes.
 
 ## Choose Your Setup
 
-### k3d (Recommended for WSL/Development) ✨
+<CardGrid>
+  <Card title="k3d (Development)" icon="laptop">
+    **Perfect for:**
+    - Windows WSL2 + Docker Desktop
+    - MacOS development
+    - Quick setup without systemd
+    - Localhost port forwarding
 
-**Perfect for:**
-- Windows WSL2 + Docker Desktop
-- MacOS development
-- Quick setup without systemd
-- Localhost port forwarding
+    ✅ No systemd required
+    ✅ 2-minute setup
+    ✅ Multi-node in Docker
+    ✅ Easy cleanup
+  </Card>
 
-**Quick Start:**
-```bash
-# Ensure Docker is running
-docker ps
+  <Card title="k3s Native (Production)" icon="server">
+    **Perfect for:**
+    - Production servers
+    - VPS/Cloud instances
+    - Bare metal hardware
+    - Maximum performance
 
-# Install k3d cluster
-./k8s/install-k3d.sh
-
-# Deploy AssoCORE
-./k8s/deploy-core-services.sh fenrir42 $GITHUB_TOKEN
-
-# Access on http://localhost and https://localhost
-```
-
-**Advantages:**
-- ✅ No systemd required
-- ✅ 2-minute setup
-- ✅ Multi-node in Docker
-- ✅ Easy cleanup (`k3d cluster delete assocore`)
+    ✅ Production-ready
+    ✅ Full data control
+    ✅ High availability
+    ✅ Lightweight (~60MB)
+  </Card>
+</CardGrid>
 
 ---
 
-### k3s Native (Production/Bare Metal)
+## k3d (Recommended for WSL/Development)
 
-**Perfect for:**
-- Production servers
-- VPS/Cloud instances
-- Bare metal hardware
-- Maximum performance
+<Aside type="tip" title="Best for Development">
+k3d runs k3s inside Docker containers - perfect for development environments that don't have systemd.
+</Aside>
 
-## Quick Start (Single Node)
+### Quick Start
+
+<Steps>
+1. **Ensure Docker is running**
+   ```bash
+   docker ps
+   ```
+
+2. **Install k3d cluster**
+   ```bash
+   ./k8s/install-k3d.sh
+   ```
+
+3. **Deploy AssoCORE**
+   ```bash
+   ./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME $GITHUB_TOKEN
+   ```
+
+4. **Access services**
+   - Frontend: http://localhost
+   - HTTPS: https://localhost
+</Steps>
+
+### Advantages
+
+- ✅ No systemd required
+- ✅ 2-minute setup
+- ✅ Multi-node in Docker
+- ✅ Easy cleanup: `k3d cluster delete assocore`
+- ✅ Perfect for WSL2 + Docker Desktop
+
+---
+
+## k3s Native Setup
+
+### Quick Start (Single Node)
 
 Perfect for development or small deployments:
 
-```bash
-# Make script executable
-chmod +x k8s/install-k3s-single.sh
+<Steps>
+1. **Make script executable**
+   ```bash
+   chmod +x k8s/install-k3s-single.sh
+   ```
 
-# Install k3s
-./k8s/install-k3s-single.sh
+2. **Install k3s**
+   ```bash
+   ./k8s/install-k3s-single.sh
+   ```
 
-# Verify installation
-kubectl get nodes
+3. **Verify installation**
+   ```bash
+   kubectl get nodes
+   ```
 
-# Deploy AssoCORE
-./k8s/deploy-core-services.sh fenrir42 $GITHUB_TOKEN
-```
+4. **Deploy AssoCORE**
+   ```bash
+   ./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME $GITHUB_TOKEN
+   ```
+</Steps>
+
+---
 
 ## Production Setup (High Availability)
 
-For production with multiple nodes and high availability:
+For production with multiple nodes and high availability.
 
 ### Architecture
 
@@ -89,99 +137,111 @@ For production with multiple nodes and high availability:
 └────────────┘   └────────────┘  └────────────┘
 ```
 
-### Step 1: Initialize First Master
+### Deployment Steps
 
-On the first master node:
+<Steps>
+1. **Initialize First Master**
 
-```bash
-chmod +x k8s/install-k3s-ha.sh
-./k8s/install-k3s-ha.sh master-init
-```
+   On the first master node:
+   ```bash
+   chmod +x k8s/install-k3s-ha.sh
+   ./k8s/install-k3s-ha.sh master-init
+   ```
 
-**Save the output:**
-- Master IP: `192.168.1.11`
-- Node Token: `K10xxx::server:xxx`
+   **Save the output:**
+   - Master IP: `192.168.1.11`
+   - Node Token: `K10xxx::server:xxx`
 
-### Step 2: Join Additional Masters (Optional HA)
+2. **Join Additional Masters** (Optional HA)
 
-On each additional master node:
+   On each additional master node:
+   ```bash
+   ./k8s/install-k3s-ha.sh master-join 192.168.1.11 K10xxx::server:xxx
+   ```
 
-```bash
-./k8s/install-k3s-ha.sh master-join 192.168.1.11 K10xxx::server:xxx
-```
+3. **Join Worker Nodes**
 
-### Step 3: Join Worker Nodes
+   On each worker node:
+   ```bash
+   ./k8s/install-k3s-ha.sh worker 192.168.1.11 K10xxx::server:xxx
+   ```
 
-On each worker node:
+4. **Verify Cluster**
 
-```bash
-./k8s/install-k3s-ha.sh worker 192.168.1.11 K10xxx::server:xxx
-```
+   From any master node:
+   ```bash
+   kubectl get nodes
+   ```
 
-### Step 4: Verify Cluster
+   Expected output:
+   ```
+   NAME       STATUS   ROLES                       AGE   VERSION
+   master-1   Ready    control-plane,etcd,master   5m    v1.28.5+k3s1
+   master-2   Ready    control-plane,etcd,master   4m    v1.28.5+k3s1
+   master-3   Ready    control-plane,etcd,master   3m    v1.28.5+k3s1
+   worker-1   Ready    <none>                      2m    v1.28.5+k3s1
+   worker-2   Ready    <none>                      1m    v1.28.5+k3s1
+   ```
+</Steps>
 
-From any master node:
-
-```bash
-kubectl get nodes
-```
-
-Expected output:
-
-```
-NAME       STATUS   ROLES                       AGE   VERSION
-master-1   Ready    control-plane,etcd,master   5m    v1.28.5+k3s1
-master-2   Ready    control-plane,etcd,master   4m    v1.28.5+k3s1
-master-3   Ready    control-plane,etcd,master   3m    v1.28.5+k3s1
-worker-1   Ready    <none>                      2m    v1.28.5+k3s1
-worker-2   Ready    <none>                      1m    v1.28.5+k3s1
-```
+---
 
 ## Hardware Requirements
 
-### Minimum (Single Node)
+<Tabs>
+  <TabItem label="Minimum (Single Node)">
+    - **CPU**: 2 cores
+    - **RAM**: 4 GB
+    - **Disk**: 50 GB SSD
+    - **OS**: Ubuntu 20.04+, Debian 10+, or any systemd-based Linux
+  </TabItem>
 
-- **CPU**: 2 cores
-- **RAM**: 4 GB
-- **Disk**: 50 GB SSD
-- **OS**: Ubuntu 20.04+, Debian 10+, or any systemd-based Linux
+  <TabItem label="Recommended (Production HA)">
+    **Master Nodes** (3 nodes):
+    - CPU: 4 cores
+    - RAM: 8 GB
+    - Disk: 100 GB SSD
 
-### Recommended (Production HA)
+    **Worker Nodes** (3+ nodes):
+    - CPU: 8 cores
+    - RAM: 16 GB
+    - Disk: 200 GB SSD
+  </TabItem>
+</Tabs>
 
-**Master Nodes** (3 nodes):
-- CPU: 4 cores
-- RAM: 8 GB
-- Disk: 100 GB SSD
-
-**Worker Nodes** (3+ nodes):
-- CPU: 8 cores
-- RAM: 16 GB
-- Disk: 200 GB SSD
+---
 
 ## k3s Features for Self-Hosted Infrastructure
 
 ### Built-in Components
 
-✅ **No External Dependencies**
-- Embedded SQLite (single node) or etcd (HA)
-- Built-in container runtime (containerd)
-- Automatic TLS certificate management
+<CardGrid>
+  <Card title="No External Dependencies" icon="approve-check">
+    - Embedded SQLite (single node) or etcd (HA)
+    - Built-in container runtime (containerd)
+    - Automatic TLS certificate management
+  </Card>
 
-✅ **Lightweight**
-- Binary size: ~60 MB
-- Memory footprint: ~512 MB
-- Fast startup: <30 seconds
+  <Card title="Lightweight" icon="rocket">
+    - Binary size: ~60 MB
+    - Memory footprint: ~512 MB
+    - Fast startup: &lt;30 seconds
+  </Card>
 
-✅ **Production Ready**
-- CNCF certified Kubernetes
-- Same API as full Kubernetes
-- Regular security updates
+  <Card title="Production Ready" icon="star">
+    - CNCF certified Kubernetes
+    - Same API as full Kubernetes
+    - Regular security updates
+  </Card>
+</CardGrid>
 
 ### Disabled Components (We'll Deploy Our Own)
 
 We disabled these because we want more control:
 - ❌ Traefik (we deploy our custom Traefik configuration)
 - ❌ ServiceLB (we use MetalLB or external LB)
+
+---
 
 ## Network Configuration
 
@@ -210,6 +270,8 @@ sudo ufw allow 6443/tcp
 # Enable firewall
 sudo ufw enable
 ```
+
+---
 
 ## Post-Installation Configuration
 
@@ -265,12 +327,14 @@ EOF
 cd /home/julien/delivery/EIP/AssoCORE
 
 # Deploy Traefik, Watchtower, and create secrets
-./k8s/deploy-core-services.sh fenrir42 $GITHUB_TOKEN
+./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME $GITHUB_TOKEN
 
 # Check status
 kubectl get pods -n assocore
 kubectl get svc -n assocore
 ```
+
+---
 
 ## Cluster Management
 
@@ -308,6 +372,8 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="v1.29.0+k3s1" sh -
 # Worker node
 /usr/local/bin/k3s-agent-uninstall.sh
 ```
+
+---
 
 ## Troubleshooting
 
@@ -352,38 +418,65 @@ sudo systemctl status k3s
 sudo k3s kubectl get nodes
 ```
 
+---
+
 ## Data Sovereignty Checklist
 
-✅ **Infrastructure Control**
+<Aside type="note" title="Full Data Control">
+Use this checklist to ensure complete data sovereignty for your AssoCORE deployment.
+</Aside>
+
+### Infrastructure Control
 - [ ] All servers physically controlled by your organization
 - [ ] No cloud provider dependencies
 - [ ] Private network or VPN for inter-node communication
 
-✅ **Data Storage**
+### Data Storage
 - [ ] Persistent volumes on local disks or self-hosted storage
 - [ ] Database backups stored on-premises
 - [ ] No external object storage (S3, etc.)
 
-✅ **Network Isolation**
+### Network Isolation
 - [ ] Cluster nodes on private network
 - [ ] Firewall rules limiting external access
 - [ ] VPN for remote access
 
-✅ **Compliance**
+### Compliance
 - [ ] Data resides in required jurisdiction
 - [ ] Audit logs enabled and retained
 - [ ] Encryption at rest and in transit
 
+---
+
 ## Next Steps
 
-1. **Deploy AssoCORE applications**: See `k8s/apps/` directory
-2. **Configure DNS**: Point your domain to Traefik LoadBalancer IP
-3. **Setup monitoring**: Prometheus + Grafana
-4. **Configure backups**: Velero or custom scripts
-5. **Setup CI/CD**: GitHub Actions to deploy to your cluster
+<CardGrid>
+  <Card title="Deploy Applications" icon="rocket">
+    See the [Kubernetes App Deployment](/guides/how-to/kubernetes-app-deployment/) guide
+  </Card>
+
+  <Card title="Configure DNS" icon="setting">
+    Point your domain to Traefik LoadBalancer IP
+  </Card>
+
+  <Card title="Setup Monitoring" icon="laptop">
+    Deploy [Prometheus + Grafana](/guides/how-to/observability-monitoring/)
+  </Card>
+
+  <Card title="Configure Backups" icon="document">
+    Setup Velero or custom backup scripts
+  </Card>
+
+  <Card title="Setup CI/CD" icon="github">
+    Configure GitHub Actions to deploy to your cluster
+  </Card>
+</CardGrid>
+
+---
 
 ## Support & Resources
 
-- k3s Documentation: https://docs.k3s.io/
-- k3s GitHub: https://github.com/k3s-io/k3s
-- AssoCORE Kubernetes Guide: `k8s/README.md`
+- [k3s Documentation](https://docs.k3s.io/)
+- [k3s GitHub](https://github.com/k3s-io/k3s)
+- [AssoCORE Kubernetes Guide](https://github.com/AssoCORE/AssoCORE/blob/main/k8s/README.md)
+- [Kubernetes Deployment Guide](/guides/how-to/kubernetes-deployment/)

@@ -23,31 +23,11 @@ export default defineConfig({
         },
         {
           label: "Guides",
-          items: [
-            { label: "Overview", slug: "guides" },
-            {
-              label: "Tutorials",
-              autogenerate: { directory: "guides/tutorials" },
-            },
-            {
-              label: "How-To Guides",
-              autogenerate: { directory: "guides/how-to" },
-            },
-          ],
+          autogenerate: { directory: "guides" },
         },
         {
           label: "Reference",
-          items: [
-            { label: "Overview", slug: "reference" },
-            {
-              label: "API",
-              autogenerate: { directory: "reference/api" },
-            },
-            {
-              label: "Configuration",
-              autogenerate: { directory: "reference/configuration" },
-            },
-          ],
+          autogenerate: { directory: "reference" },
         },
         {
           label: "Architecture",

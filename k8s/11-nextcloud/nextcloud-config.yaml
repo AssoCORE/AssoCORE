@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nextcloud-config
+  namespace: assocore
+  labels:
+    app.kubernetes.io/name: nextcloud
+    app.kubernetes.io/component: storage
+data:
+  # NextCloud environment configuration
+  MYSQL_HOST: "mariadb.assocore.svc.cluster.local"
+  REDIS_HOST: "redis.assocore.svc.cluster.local"
+  NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.assocore.localhost files.assocore.localhost"
+  APACHE_DISABLE_REWRITE_IP: "1"
+  TRUSTED_PROXIES: "10.0.0.0/8"
+  OVERWRITEPROTOCOL: "https"

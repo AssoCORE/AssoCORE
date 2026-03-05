@@ -68,32 +68,32 @@ The workflow automatically creates the following tags:
 <Steps>
 
 1. **Push to main or develop branches**
-   
+
    ```bash
    git push origin main
    ```
-   
+
    <Aside type="note">
      Builds and pushes images with branch name + `latest` tag for main branch.
    </Aside>
 
 2. **Push a version tag**
-   
+
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
-   
+
    <Aside type="tip">
      Builds images with semantic version tags AND extracts mobile APK as artifact.
    </Aside>
 
 3. **Open/update a Pull Request**
-   
+
    ```bash
    gh pr create
    ```
-   
+
    <Aside>
      Builds images for validation only (doesn't push to registry).
    </Aside>
@@ -108,7 +108,7 @@ The workflow automatically creates the following tags:
 
     ```bash title="Local Development"
     # Build locally and run
-    docker compose up --build -d
+    docker compose up --build -d --remove-orphans
 
     # View logs
     docker compose logs -f backend frontend
@@ -152,14 +152,14 @@ The workflow automatically creates the following tags:
 <Steps>
 
 1. **Login to GHCR**
-   
+
    ```bash
    export GITHUB_TOKEN=ghp_your_token_here
    ./scripts/ghcr-login.sh fenrir42
    ```
 
 2. **Build and push backend**
-   
+
    ```bash
    docker build -f docker/backend.Dockerfile \
      -t ghcr.io/assocore/assocore/backend:latest .
@@ -167,7 +167,7 @@ The workflow automatically creates the following tags:
    ```
 
 3. **Build and push frontend**
-   
+
    ```bash
    docker build -f docker/frontend.Dockerfile \
      -t ghcr.io/assocore/assocore/frontend:latest .
@@ -175,7 +175,7 @@ The workflow automatically creates the following tags:
    ```
 
 4. **Build and push mobile** (optional)
-   
+
    ```bash
    docker build -f docker/mobile.Dockerfile \
      -t ghcr.io/assocore/assocore/mobile:latest .
@@ -214,7 +214,7 @@ docker pull ghcr.io/assocore/assocore/backend:latest
 <Tabs>
   <TabItem label="Quick Setup">
     <Steps>
-    
+
     1. Create a Personal Access Token at [GitHub Settings](https://github.com/settings/tokens/new)
        - Select scopes: `read:packages`, `write:packages`
 
@@ -227,13 +227,13 @@ docker pull ghcr.io/assocore/assocore/backend:latest
        ```bash
        ./scripts/ghcr-login.sh fenrir42
        ```
-    
+
     </Steps>
   </TabItem>
 
   <TabItem label="Manual Setup">
     <Steps>
-    
+
     1. Create a Personal Access Token (PAT) at [GitHub Settings](https://github.com/settings/tokens/new)
        - Select scopes: `read:packages`, `write:packages`, `delete:packages`
 
@@ -247,7 +247,7 @@ docker pull ghcr.io/assocore/assocore/backend:latest
        ```bash
        docker compose -f docker-compose.prod.yml pull
        ```
-    
+
     </Steps>
   </TabItem>
 </Tabs>
