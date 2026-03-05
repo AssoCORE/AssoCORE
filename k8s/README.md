@@ -94,7 +94,8 @@ kubectl port-forward -n assocore svc/prometheus 9090:9090
 
 # Grafana
 kubectl port-forward -n assocore svc/grafana 3000:3000
-# http://localhost:3000 (admin/admin)
+# http://localhost:3000
+# Credentials stored in k8s/.env (GRAFANA_ADMIN_USER / GRAFANA_ADMIN_PASSWORD)
 ```
 
 ### 3. Manual Deployment (Step-by-Step)
@@ -105,7 +106,12 @@ If you prefer to deploy services individually:
 # Step 1: Create namespace
 kubectl apply -f k8s/00-namespace/namespace.yaml
 
-# Step 2: Create GHCR secret
+# Step 2: Create application secrets from .env
+cp k8s/.env.example k8s/.env
+# Edit k8s/.env and set all required credentials
+./k8s/01-secrets/create-app-secrets.sh
+
+# Step 3: Create GHCR secret
 ./k8s/01-secrets/create-ghcr-secret.sh <username> <token>
 
 # Step 3: Install Traefik CRDs

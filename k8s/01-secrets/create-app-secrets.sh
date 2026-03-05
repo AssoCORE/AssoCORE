@@ -34,6 +34,10 @@ REQUIRED_VARS=(
     "MARIADB_PASSWORD"
     "NEXTCLOUD_ADMIN_USER"
     "NEXTCLOUD_ADMIN_PASSWORD"
+    "GRAFANA_ADMIN_USER"
+    "GRAFANA_ADMIN_PASSWORD"
+    "TRAEFIK_DASHBOARD_USER"
+    "TRAEFIK_DASHBOARD_PASSWORD"
 )
 
 MISSING_VARS=()
@@ -110,6 +114,39 @@ kubectl create secret generic nextcloud-secret \
     --dry-run=client -o yaml | kubectl apply -f -
 
 echo -e "${GREEN}✓ NextCloud secret created/updated${NC}"
+echo ""
+
+# Create Grafana secret
+echo -e "${YELLOW}Creating Grafana secret...${NC}"
+kubectl create secret generic grafana-admin \
+    --from-literal=admin-user="$GRAFANA_ADMIN_USER" \
+    --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
+    --namespace="$NAMESPACE" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+echo -e "${GREEN}✓ Grafana secret created/updated${NC}"
+echo ""
+
+# Create Traefik Dashboard Auth secret
+echo -e "${YELLOW}Creating Traefik Dashboard Auth secret...${NC}"
+
+# Check if htpasswd is available (preferred method)
+if command -v htpasswd &> /dev/null; then
+    # Generate htpasswd format
+    HTPASSWD_ENTRY=$(htpasswd -nb "$TRAEFIK_DASHBOARD_USER" "$TRAEFIK_DASHBOARD_PASSWORD")
+else
+    # Fallback to openssl
+    echo -e "${YELLOW}Note: htpasswd not found, using openssl (install apache2-utils for better security)${NC}"
+    PASSWORD_HASH=$(openssl passwd -apr1 "$TRAEFIK_DASHBOARD_PASSWORD")
+    HTPASSWD_ENTRY="${TRAEFIK_DASHBOARD_USER}:${PASSWORD_HASH}"
+fi
+
+kubectl create secret generic traefik-dashboard-auth-secret \
+    --from-literal=users="$HTPASSWD_ENTRY" \
+    --namespace="$NAMESPACE" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+echo -e "${GREEN}✓ Traefik Dashboard Auth secret created/updated${NC}"
 echo ""
 
 echo -e "${GREEN}========================================${NC}"

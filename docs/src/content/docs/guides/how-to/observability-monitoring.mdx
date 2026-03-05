@@ -47,7 +47,24 @@ import { Tabs, TabItem, Steps, Card, Aside, CardGrid } from '@astrojs/starlight/
    # Should show your k3d nodes as Ready
    ```
 
-2. **Deploy Prometheus and Grafana**
+2. **Setup secrets**
+
+   <Aside type="caution" title="Required Step">
+     Grafana requires credentials to be set via `.env` file before deployment.
+   </Aside>
+
+   ```bash
+   # Copy environment template
+   cp k8s/.env.example k8s/.env
+   
+   # Edit and set GRAFANA_ADMIN_PASSWORD
+   nano k8s/.env
+   
+   # Create Kubernetes secrets
+   ./k8s/01-secrets/create-app-secrets.sh
+   ```
+
+3. **Deploy Prometheus and Grafana**
 
    ```bash
    # Deploy Prometheus (metrics collection)
@@ -78,8 +95,12 @@ import { Tabs, TabItem, Steps, Card, Aside, CardGrid } from '@astrojs/starlight/
 
 5. **Open dashboards**
 
-   - **Grafana**: http://localhost:3000 (admin/admin)
+   - **Grafana**: http://localhost:3000 (credentials from `k8s/.env`)
    - **Prometheus**: http://localhost:9090
+   
+   <Aside type="tip">
+     Your Grafana credentials are set by `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` in `k8s/.env`.
+   </Aside>
 
 </Steps>
 

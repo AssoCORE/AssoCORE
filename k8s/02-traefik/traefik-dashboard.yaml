@@ -36,15 +36,28 @@ spec:
 
 ---
 # Dashboard Auth Secret
-# Change the password before deploying!
-# Generate with: echo "admin:$(openssl passwd -apr1 your-password)" | base64 -w0
-apiVersion: v1
-kind: Secret
-metadata:
-  name: traefik-dashboard-auth-secret
-  namespace: assocore
-type: Opaque
-data:
-  # Default: admin/admin (CHANGE THIS!)
-  # Generated with: htpasswd -nb admin admin | base64
-  users: YWRtaW46JGFwcjEkSDZ4dUw2TDgkSnNzU1NBbjFwY1h4YXBSOHIuUm5YLwoK
+# This secret is created automatically by create-app-secrets.sh
+# DO NOT create this secret manually!
+#
+# The secret is generated from credentials in k8s/.env:
+#   TRAEFIK_DASHBOARD_USER=admin
+#   TRAEFIK_DASHBOARD_PASSWORD=<your-secure-password>
+#
+# To create the secret, run:
+#   ./k8s/01-secrets/create-app-secrets.sh
+#
+# Manual creation (if needed):
+#   htpasswd -nb admin your-password | kubectl create secret generic traefik-dashboard-auth-secret \
+#     --from-file=users=/dev/stdin --namespace=assocore --dry-run=client -o yaml | kubectl apply -f -
+#
+# The secret should have this structure:
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: traefik-dashboard-auth-secret
+#   namespace: assocore
+# type: Opaque
+# data:
+#   users: <base64-encoded-htpasswd-entry>
+
