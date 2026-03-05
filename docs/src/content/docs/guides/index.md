@@ -15,4 +15,11 @@ Step-by-step tutorials to help you learn AssoCORE features:
 
 Practical guides for specific tasks:
 
-- [How-To Guides](./how-to/)
+### DevOps & Deployment
+
+- [Docker Deployment with GHCR](./how-to/docker-deployment/) - Build, push, and deploy Docker images using GitHub Container Registry
+
+### Development
+
+- [Development Setup](/contributing/development-setup/) - Set up your local development environment
+- [Code Guidelines](/contributing/code-guidelines/) - Follow our coding standards and best practices

@@ -1,0 +1,400 @@
+---
+title: Docker Deployment with GHCR
+description: Build, push, and deploy Docker images using GitHub Container Registry
+sidebar:
+  badge:
+    text: DevOps
+    variant: tip
+---
+
+import { Tabs, TabItem, Aside, Steps, Code, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="Quick Start">
+  This guide covers automated Docker image builds using GitHub Actions and GitHub Container Registry (GHCR) for production deployments.
+</Aside>
+
+## Overview
+
+AssoCORE uses GitHub Actions to automatically build and publish Docker images to GitHub Container Registry (GHCR). Images are built for three main services:
+
+<CardGrid>
+  <Card title="Backend" icon="rocket">
+    FastAPI application with uvicorn
+  </Card>
+  <Card title="Frontend" icon="seti:html">
+    Next.js 16 application
+  </Card>
+  <Card title="Mobile" icon="seti:android">
+    Flutter APK builder
+  </Card>
+</CardGrid>
+
+## Image Naming Convention
+
+Images are published to GHCR with the following pattern:
+
+```
+ghcr.io/assocore/assocore/{service}:{tag}
+```
+
+Where `{service}` is one of: `backend`, `frontend`, `mobile`
+
+## Available Tags
+
+The workflow automatically creates the following tags:
+
+<Tabs>
+  <TabItem label="Branch Tags">
+    - `main` - Latest commit from main branch (also tagged as `latest`)
+    - `develop` - Latest commit from develop branch
+    - `CI-abc123` - Commit SHA on specific branch
+  </TabItem>
+
+  <TabItem label="PR Tags">
+    - `pr-123` - Built from PR #123 (validation only, not pushed)
+  </TabItem>
+
+  <TabItem label="Release Tags">
+    - `v1.2.3` - Specific version (semantic versioning)
+    - `v1.2` - Minor version (latest patch)
+    - `v1` - Major version (latest minor)
+  </TabItem>
+</Tabs>
+
+## Triggering Builds
+
+### Automatic Triggers
+
+<Steps>
+
+1. **Push to main or develop branches**
+   
+   ```bash
+   git push origin main
+   ```
+   
+   <Aside type="note">
+     Builds and pushes images with branch name + `latest` tag for main branch.
+   </Aside>
+
+2. **Push a version tag**
+   
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+   
+   <Aside type="tip">
+     Builds images with semantic version tags AND extracts mobile APK as artifact.
+   </Aside>
+
+3. **Open/update a Pull Request**
+   
+   ```bash
+   gh pr create
+   ```
+   
+   <Aside>
+     Builds images for validation only (doesn't push to registry).
+   </Aside>
+
+</Steps>
+
+## Using Pre-built Images
+
+<Tabs>
+  <TabItem label="Development">
+    Build and run locally with hot-reload enabled:
+
+    ```bash title="Local Development"
+    # Build locally and run
+    docker compose up --build -d
+
+    # View logs
+    docker compose logs -f backend frontend
+    ```
+  </TabItem>
+
+  <TabItem label="Production">
+    Use pre-built images from GHCR:
+
+    ```bash title="Production Deployment"
+    # Pull latest images from GHCR
+    docker compose -f docker-compose.prod.yml pull
+
+    # Run with pre-built images
+    docker compose -f docker-compose.prod.yml up -d
+
+    # View logs
+    docker compose -f docker-compose.prod.yml logs -f
+    ```
+  </TabItem>
+</Tabs>
+
+## Building and Pushing Manually
+
+### Quick Method (Helper Script)
+
+<Aside type="tip">
+  Use our helper scripts for the easiest experience:
+</Aside>
+
+```bash title="Build and Push All Services"
+# Build and push all images
+./scripts/build-and-push.sh latest
+
+# Or with a specific tag
+./scripts/build-and-push.sh v1.0.0
+```
+
+### Manual Method
+
+<Steps>
+
+1. **Login to GHCR**
+   
+   ```bash
+   export GITHUB_TOKEN=ghp_your_token_here
+   ./scripts/ghcr-login.sh fenrir42
+   ```
+
+2. **Build and push backend**
+   
+   ```bash
+   docker build -f docker/backend.Dockerfile \
+     -t ghcr.io/assocore/assocore/backend:latest .
+   docker push ghcr.io/assocore/assocore/backend:latest
+   ```
+
+3. **Build and push frontend**
+   
+   ```bash
+   docker build -f docker/frontend.Dockerfile \
+     -t ghcr.io/assocore/assocore/frontend:latest .
+   docker push ghcr.io/assocore/assocore/frontend:latest
+   ```
+
+4. **Build and push mobile** (optional)
+   
+   ```bash
+   docker build -f docker/mobile.Dockerfile \
+     -t ghcr.io/assocore/assocore/mobile:latest .
+   docker push ghcr.io/assocore/assocore/mobile:latest
+   ```
+
+</Steps>
+
+### Pulling Specific Versions
+
+```bash title="Pull Specific Image Versions"
+# Pull a specific version
+docker pull ghcr.io/assocore/assocore/backend:v1.2.3
+
+# Pull from a specific branch
+docker pull ghcr.io/assocore/assocore/backend:develop
+
+# Pull latest (main branch)
+docker pull ghcr.io/assocore/assocore/backend:latest
+```
+
+## Authentication
+
+### For Public Images
+
+<Aside type="note">
+  If images are public, no authentication is needed:
+</Aside>
+
+```bash
+docker pull ghcr.io/assocore/assocore/backend:latest
+```
+
+### For Private Images or CI/CD
+
+<Tabs>
+  <TabItem label="Quick Setup">
+    <Steps>
+    
+    1. Create a Personal Access Token at [GitHub Settings](https://github.com/settings/tokens/new)
+       - Select scopes: `read:packages`, `write:packages`
+
+    2. Export the token
+       ```bash
+       export GITHUB_TOKEN=ghp_your_token_here
+       ```
+
+    3. Login using helper script
+       ```bash
+       ./scripts/ghcr-login.sh fenrir42
+       ```
+    
+    </Steps>
+  </TabItem>
+
+  <TabItem label="Manual Setup">
+    <Steps>
+    
+    1. Create a Personal Access Token (PAT) at [GitHub Settings](https://github.com/settings/tokens/new)
+       - Select scopes: `read:packages`, `write:packages`, `delete:packages`
+
+    2. Login to GHCR
+       ```bash
+       export GITHUB_TOKEN=ghp_your_token_here
+       echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+       ```
+
+    3. Pull images
+       ```bash
+       docker compose -f docker-compose.prod.yml pull
+       ```
+    
+    </Steps>
+  </TabItem>
+</Tabs>
+
+## Making Images Public
+
+<Aside type="caution">
+  By default, GHCR images are private. Follow these steps to make them public:
+</Aside>
+
+<Steps>
+
+1. Go to [GitHub Packages](https://github.com/orgs/AssoCORE/packages)
+2. Select the package (backend, frontend, or mobile)
+3. Click "Package settings"
+4. Scroll to "Change visibility"
+5. Select "Public"
+
+</Steps>
+
+## Build Cache
+
+<Aside type="tip" title="Performance">
+  The workflow uses GitHub Actions cache to speed up builds:
+</Aside>
+
+- **Dependencies cached** between builds
+- **Only changed layers** are rebuilt
+- **Typical build time**: 2-5 minutes (first build: 10-15 minutes)
+
+## Troubleshooting
+
+### "error: cannot perform an interactive login from a non-TTY device"
+
+<Aside type="caution">
+  This means `$GITHUB_TOKEN` is not set.
+</Aside>
+
+```bash
+# Check if token is set
+echo $GITHUB_TOKEN
+
+# If empty, export your token
+export GITHUB_TOKEN=ghp_your_token_here
+
+# Then login
+./scripts/ghcr-login.sh fenrir42
+```
+
+### "error from registry: denied"
+
+This can happen for several reasons:
+
+1. You're not logged in (see above)
+2. Your token doesn't have `write:packages` permission
+3. The repository doesn't exist yet (first push will create it)
+
+**Fix**: Create a new token with proper permissions at [GitHub Settings](https://github.com/settings/tokens/new)
+
+### "The 'VARIABLE' variable is not set"
+
+<Aside type="note">
+  Docker Compose couldn't find environment variables.
+</Aside>
+
+<Steps>
+
+1. Check that `.env` exists in the root directory
+2. Verify it contains the required variables:
+   ```bash
+   cat .env
+   ```
+3. Restart the docker compose command
+
+</Steps>
+
+If variables still aren't working:
+
+```bash
+# Source the env file manually
+set -a; source back/.env; set +a
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Build fails with "permission denied"
+
+- Check that `GITHUB_TOKEN` has `packages: write` permission
+- Verify the workflow file has `permissions: packages: write`
+
+### Image not found when pulling
+
+- Ensure the image was pushed (check GitHub Actions logs)
+- Verify you're using the correct image name and tag
+- Check if the package is private (requires authentication)
+
+### Build is slow
+
+<Aside type="tip">
+  - First builds are slower (no cache)
+  - Subsequent builds use layer caching
+  - Ensure `.dockerignore` files are optimized
+</Aside>
+
+### Environment variables not loading in containers
+
+Docker Compose loads variables in this order:
+
+1. **Shell environment**
+2. **`.env` file** in project root (for variable substitution in compose file)
+3. **`env_file:` directive** (loaded into containers)
+
+## Manual Workflow Dispatch
+
+<Steps>
+
+1. Go to **Actions** tab in GitHub
+2. Select **"Build and Push Docker Images"**
+3. Click **"Run workflow"**
+4. Select branch and run
+
+</Steps>
+
+## APK Artifacts
+
+<Aside type="tip" title="Mobile Releases">
+  When a version tag is pushed (e.g., `v1.0.0`), the mobile APK is automatically built and uploaded as an artifact.
+</Aside>
+
+The APK workflow:
+
+1. **Built** inside the Docker image
+2. **Extracted** from the container
+3. **Uploaded** as a GitHub Actions artifact
+4. **Available** for download for 90 days
+
+### Download APK
+
+<Steps>
+
+1. Go to the workflow run in **Actions** tab
+2. Scroll to **"Artifacts"** section
+3. Download **`mobile-apk.zip`**
+
+</Steps>
+
+## Related Resources
+
+- [DevOps & Infrastructure](/architecture/devops-infrastructure/)
+- [Development Setup](/contributing/development-setup/)
+- [GitHub Actions Workflow](https://github.com/AssoCORE/AssoCORE/blob/main/.github/workflows/docker-build.yml)

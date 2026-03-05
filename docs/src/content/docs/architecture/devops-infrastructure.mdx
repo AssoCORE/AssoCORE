@@ -92,6 +92,56 @@ AssoCORE uses modern DevOps practices with Docker, Kubernetes, and GitHub Action
   </TabItem>
 </Tabs>
 
+## GitHub Container Registry (GHCR)
+
+<Aside type="tip" title="Automated Image Registry">
+  AssoCORE uses GitHub Container Registry (GHCR) for storing and distributing Docker images with automated CI/CD integration.
+</Aside>
+
+### Image Distribution
+
+All production images are automatically built and published to GHCR:
+
+<CardGrid>
+  <Card title="Backend API" icon="rocket">
+    `ghcr.io/assocore/assocore/backend:latest`
+    
+    FastAPI + uvicorn server
+  </Card>
+  <Card title="Frontend App" icon="seti:html">
+    `ghcr.io/assocore/assocore/frontend:latest`
+    
+    Next.js 16 standalone build
+  </Card>
+  <Card title="Mobile APK" icon="seti:android">
+    `ghcr.io/assocore/assocore/mobile:latest`
+    
+    Flutter APK builder
+  </Card>
+</CardGrid>
+
+### Automated Builds
+
+GitHub Actions automatically builds and tags images:
+
+- **Branch pushes**: `main`, `develop`, `feature-xyz`
+- **Version tags**: `v1.2.3`, `v1.2`, `v1`, `latest`
+- **Pull requests**: Validation builds (not pushed)
+
+<Aside type="note">
+  See the complete [Docker Deployment Guide](/guides/how-to/docker-deployment/) for detailed instructions on building, pushing, and deploying images.
+</Aside>
+
+### Production Deployment
+
+```bash title="Deploy with Pre-built Images"
+# Pull latest images from GHCR
+docker compose -f docker-compose.prod.yml pull
+
+# Start services
+docker compose -f docker-compose.prod.yml up -d
+```
+
 ## Kubernetes Orchestration
 
 <Tabs>

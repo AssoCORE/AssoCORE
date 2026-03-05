@@ -9,10 +9,10 @@ services:
     env_file:
       - back/.env
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
-      - MYSQL_USER=${NEXTCLOUD_DB_USER}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME}
+      - MARIADB_USER=${NEXTCLOUD_DB_USER}
+      - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 5s
