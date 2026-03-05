@@ -10,3 +10,6 @@
 .direnv/
 result/
 .pre-commit-config.yaml
+
+# pnpm
+.pnpm-workspace.yaml
