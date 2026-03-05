@@ -35,10 +35,49 @@ check_cluster() {
     echo ""
 }
 
+# Function to check if app secrets exist
+check_app_secrets() {
+    echo "════════════════════════════════════════════════════════════════"
+    echo "Checking Application Secrets"
+    echo "════════════════════════════════════════════════════════════════"
+    
+    local missing_secrets=()
+    
+    # Check for required secrets
+    if ! kubectl get secret mariadb-secret -n "$NAMESPACE" &> /dev/null; then
+        missing_secrets+=("mariadb-secret")
+    fi
+    if ! kubectl get secret grafana-admin -n "$NAMESPACE" &> /dev/null; then
+        missing_secrets+=("grafana-admin")
+    fi
+    if ! kubectl get secret traefik-dashboard-auth-secret -n "$NAMESPACE" &> /dev/null; then
+        missing_secrets+=("traefik-dashboard-auth-secret")
+    fi
+    
+    if [ ${#missing_secrets[@]} -gt 0 ]; then
+        echo "⚠️  WARNING: Missing required secrets:"
+        for secret in "${missing_secrets[@]}"; do
+            echo "  - $secret"
+        done
+        echo ""
+        echo "Create secrets before deploying:"
+        echo "  1. Copy k8s/.env.example to k8s/.env"
+        echo "  2. Edit k8s/.env and set all required credentials"
+        echo "  3. Run: ./k8s/01-secrets/create-app-secrets.sh"
+        echo ""
+        echo "Press Enter to continue anyway, or Ctrl+C to abort..."
+        read
+    else
+        echo "✓ All required application secrets exist"
+    fi
+    echo ""
+}
+
 # Main deployment
 main() {
     check_kubectl
     check_cluster
+    check_app_secrets
 
     echo "════════════════════════════════════════════════════════════════"
     echo "Step 1: Creating Namespace"
@@ -108,8 +147,6 @@ main() {
     echo "════════════════════════════════════════════════════════════════"
     echo "Step 8: Deploying Grafana (Visualization)"
     echo "════════════════════════════════════════════════════════════════"
-    echo "WARNING: Default Grafana credentials are admin/admin"
-    echo "Change the password in k8s/05-grafana/grafana-config.yaml before production!"
     kubectl apply -f k8s/05-grafana/grafana-config.yaml
     kubectl apply -f k8s/05-grafana/grafana-dashboards.yaml
     kubectl apply -f k8s/05-grafana/grafana-deployment.yaml
@@ -150,11 +187,12 @@ main() {
     echo "   kubectl port-forward -n $NAMESPACE svc/grafana 3000:3000"
     echo "   http://localhost:3000"
     echo "   OR: http://grafana.localhost (if using k3d)"
-    echo "   Username: admin | Password: admin (CHANGE THIS!)"
+    echo "   Credentials: Set via k8s/.env (GRAFANA_ADMIN_USER / GRAFANA_ADMIN_PASSWORD)"
     echo ""
-    echo "4. Update default credentials:"
-    echo "   - Traefik: Update k8s/02-traefik/traefik-dashboard.yaml"
-    echo "   - Grafana: Update k8s/05-grafana/grafana-config.yaml (admin-password in secret)"
+    echo "4. Rotate credentials:"
+    echo "   - Update k8s/.env with new passwords"
+    echo "   - Run: ./k8s/01-secrets/create-app-secrets.sh"
+    echo "   - Restart affected pods: kubectl rollout restart deployment/<name> -n $NAMESPACE"
     echo ""
     echo "5. Deploy your applications:"
     echo "   kubectl apply -f k8s/apps/"

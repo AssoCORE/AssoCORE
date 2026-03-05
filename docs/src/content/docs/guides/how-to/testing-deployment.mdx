@@ -1,0 +1,791 @@
+---
+title: Complete Deployment Testing Guide
+description: Step-by-step guide to test your entire AssoCORE deployment from secrets to applications
+---
+
+import { Tabs, TabItem, Steps, Card, Aside, CardGrid } from '@astrojs/starlight/components';
+
+Complete verification guide for testing your AssoCORE Kubernetes deployment from start to finish.
+
+## Overview
+
+This guide covers testing:
+- ✅ Secret management configuration
+- ✅ Kubernetes cluster health
+- ✅ Core services (Traefik, Prometheus, Grafana)
+- ✅ Application stack (Backend, Frontend, Database, Nextcloud)
+- ✅ Networking and ingress
+- ✅ Observability and monitoring
+
+<Aside type="tip" title="Fresh Start">
+This guide assumes you're starting from a clean cluster. If you have existing deployments, [clean up first](#cleanup-before-testing).
+</Aside>
+
+---
+
+## Prerequisites
+
+<Steps>
+
+1. **Verify Tools Installation**
+
+   ```bash
+   # Check kubectl
+   kubectl version --client
+
+   # Check Docker
+   docker --version
+
+   # Check k3d (if using k3d)
+   k3d version
+   ```
+
+2. **Clone Repository**
+
+   ```bash
+   git clone https://github.com/AssoCORE/AssoCORE.git
+   cd AssoCORE
+   ```
+
+3. **Verify File Structure**
+
+   ```bash
+   # Check k8s directory exists
+   ls -la k8s/
+
+   # Verify core directories
+   ls k8s/0*/ k8s/01-secrets/ k8s/02-traefik/
+   ```
+
+</Steps>
+
+---
+
+## Phase 1: Secrets Configuration
+
+### Step 1: Create .env File
+
+<Steps>
+
+1. **Copy template**
+
+   ```bash
+   cp k8s/.env.example k8s/.env
+   ```
+
+2. **Generate secure passwords**
+
+   ```bash
+   # Generate passwords
+   echo "MARIADB_ROOT_PASSWORD=$(openssl rand -base64 32)"
+   echo "MARIADB_PASSWORD=$(openssl rand -base64 32)"
+   echo "NEXTCLOUD_ADMIN_PASSWORD=$(openssl rand -base64 32)"
+   echo "GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 32)"
+   ```
+
+3. **Edit .env file**
+
+   ```bash
+   nano k8s/.env
+   ```
+
+   Set these required values:
+   ```bash
+   MARIADB_ROOT_PASSWORD=<generated-password-1>
+   MARIADB_DATABASE=assocore
+   MARIADB_USER=assocore
+   MARIADB_PASSWORD=<generated-password-2>
+
+   NEXTCLOUD_ADMIN_USER=admin
+   NEXTCLOUD_ADMIN_PASSWORD=<generated-password-3>
+
+   GRAFANA_ADMIN_USER=admin
+   GRAFANA_ADMIN_PASSWORD=<generated-password-4>
+   ```
+
+4. **Verify .env is ignored by git**
+
+   ```bash
+   git status
+   # Should NOT show k8s/.env
+
+   # Check gitignore
+   grep -r "\.env" .gitignore
+   # Should show .env patterns
+   ```
+
+</Steps>
+
+### Step 2: Test Secret Generation
+
+<Aside type="note">
+Don't create secrets yet - we'll do this after the cluster is ready.
+</Aside>
+
+```bash
+# Verify the script exists
+ls -la k8s/01-secrets/create-app-secrets.sh
+
+# Make it executable if needed
+chmod +x k8s/01-secrets/create-app-secrets.sh
+
+# Verify GHCR script
+ls -la k8s/01-secrets/create-ghcr-secret.sh
+chmod +x k8s/01-secrets/create-ghcr-secret.sh
+```
+
+**✅ Phase 1 Complete**: Secrets configuration ready
+
+---
+
+## Phase 2: Cluster Setup
+
+Choose your cluster type:
+
+<Tabs>
+<TabItem label="k3d (Recommended for Dev)">
+
+### Deploy k3d Cluster
+
+```bash
+# Make script executable
+chmod +x k8s/install-k3d.sh
+
+# Install k3d cluster
+./k8s/install-k3d.sh
+```
+
+**Expected output:**
+```
+INFO[0000] Prep: Network
+INFO[0000] Created network 'k3d-assocore'
+INFO[0000] Created image volume k3d-assocore-images
+INFO[0000] Creating node 'k3d-assocore-server-0'
+INFO[0003] Pulling image 'ghcr.io/k3d-io/k3d-tools:5.6.0'
+...
+INFO[0010] Cluster 'assocore' created successfully!
+```
+
+</TabItem>
+
+<TabItem label="k3s Native">
+
+### Deploy k3s
+
+```bash
+# For single node
+chmod +x k8s/install-k3s-single.sh
+./k8s/install-k3s-single.sh
+
+# For HA cluster
+chmod +x k8s/install-k3s-ha.sh
+./k8s/install-k3s-ha.sh master-init
+```
+
+See [K3s Cluster Setup Guide](/guides/how-to/k3s-cluster-setup/) for detailed instructions.
+
+</TabItem>
+</Tabs>
+
+### Verify Cluster
+
+```bash
+# Check nodes
+kubectl get nodes
+```
+
+**Expected output:**
+```
+NAME                    STATUS   ROLES                  AGE   VERSION
+k3d-assocore-server-0   Ready    control-plane,master   2m    v1.28.5+k3s1
+```
+
+**✅ Phase 2 Complete**: Cluster is running
+
+---
+
+## Phase 3: Core Services Deployment
+
+### Step 1: Create Secrets
+
+```bash
+# Create namespace first
+kubectl apply -f k8s/00-namespace/namespace.yaml
+
+# Verify namespace
+kubectl get namespace assocore
+```
+
+**Expected output:**
+```
+NAME       STATUS   AGE
+assocore   Active   5s
+```
+
+### Step 2: Create Application Secrets
+
+```bash
+# Create secrets from .env
+./k8s/01-secrets/create-app-secrets.sh
+```
+
+**Expected output:**
+```
+Loading credentials from k8s/.env...
+========================================
+Creating Kubernetes Secrets
+========================================
+
+Creating MariaDB secret...
+✓ MariaDB secret created/updated
+
+Creating Backend database secret...
+✓ Backend database secret created/updated
+
+Creating NextCloud secret...
+✓ NextCloud secret created/updated
+
+Creating Grafana secret...
+✓ Grafana secret created/updated
+
+========================================
+Secrets Created Successfully!
+========================================
+```
+
+### Step 3: Verify Secrets
+
+```bash
+# List all secrets
+kubectl get secrets -n assocore
+
+# Check specific secrets exist
+kubectl get secret mariadb-secret -n assocore
+kubectl get secret backend-db-secret -n assocore
+kubectl get secret nextcloud-secret -n assocore
+kubectl get secret grafana-admin -n assocore
+```
+
+**Expected output:**
+```
+NAME                TYPE     DATA   AGE
+mariadb-secret      Opaque   4      30s
+backend-db-secret   Opaque   1      28s
+nextcloud-secret    Opaque   5      26s
+grafana-admin       Opaque   2      24s
+```
+
+### Step 4: Create GHCR Secret
+
+<Aside type="caution">
+You need a GitHub Personal Access Token with `read:packages` permission.
+</Aside>
+
+```bash
+# Create GHCR pull secret
+./k8s/01-secrets/create-ghcr-secret.sh <your-github-username> <your-token>
+```
+
+**Or skip for now:**
+```bash
+# You can deploy core services without GHCR (uses public images)
+echo "Skipping GHCR secret - will add later for applications"
+```
+
+### Step 5: Deploy Core Services
+
+```bash
+# Deploy all core services
+./k8s/deploy-core-services.sh
+```
+
+**Expected output:**
+```
+╔════════════════════════════════════════════════════════════════╗
+║  AssoCORE Kubernetes Cluster Core Services Deployment         ║
+╚════════════════════════════════════════════════════════════════╝
+
+✓ kubectl found
+✓ Connected to cluster: k3d-assocore
+Checking Application Secrets
+✓ All required application secrets exist
+...
+✓ Core services deployment complete!
+```
+
+### Step 6: Wait for Pods to Start
+
+```bash
+# Watch pods start
+kubectl get pods -n assocore -w
+```
+
+**Wait until all pods show `1/1 Running`:**
+```
+NAME                          READY   STATUS    RESTARTS   AGE
+traefik-7b8d9c8f9d-abc12      1/1     Running   0          2m
+watchtower-6f8d5c7b9d-xyz34   1/1     Running   0          2m
+prometheus-5d9c8b7f6d-def56   1/1     Running   0          2m
+grafana-8c7d6b5f4d-ghi78      1/1     Running   0          2m
+```
+
+Press `Ctrl+C` to stop watching.
+
+**✅ Phase 3 Complete**: Core services deployed and running
+
+---
+
+## Phase 4: Core Services Verification
+
+### Test 1: Traefik Ingress Controller
+
+```bash
+# Check Traefik deployment
+kubectl get deployment traefik -n assocore
+kubectl get svc traefik -n assocore
+
+# View Traefik logs
+kubectl logs -n assocore deployment/traefik --tail=50
+```
+
+**Expected:** No errors, service has EXTERNAL-IP (or LoadBalancer pending)
+
+### Test 2: Prometheus Metrics
+
+```bash
+# Port-forward to Prometheus
+kubectl port-forward -n assocore svc/prometheus 9090:9090
+```
+
+Open browser: **http://localhost:9090**
+
+**Verify:**
+- ✅ Prometheus UI loads
+- ✅ Status > Targets shows endpoints
+- ✅ Query `up` returns results
+
+### Test 3: Grafana Dashboards
+
+```bash
+# Port-forward to Grafana
+kubectl port-forward -n assocore svc/grafana 3000:3000
+```
+
+Open browser: **http://localhost:3000**
+
+**Login with:**
+- Username: `admin` (or from your `GRAFANA_ADMIN_USER`)
+- Password: From your `k8s/.env` (`GRAFANA_ADMIN_PASSWORD`)
+
+**Verify:**
+- ✅ Grafana UI loads
+- ✅ Login successful
+- ✅ Prometheus datasource connected (Configuration > Data Sources)
+- ✅ Dashboards exist (Dashboards > Browse)
+
+### Test 4: Watchtower Auto-Updater
+
+```bash
+# Check Watchtower logs
+kubectl logs -n assocore deployment/watchtower --tail=50
+```
+
+**Expected:** Logs showing container monitoring activity
+
+**✅ Phase 4 Complete**: All core services verified
+
+---
+
+## Phase 5: Application Stack Deployment
+
+### Step 1: Deploy Database
+
+```bash
+# Deploy MariaDB
+kubectl apply -f k8s/07-database/mariadb-config.yaml
+kubectl apply -f k8s/07-database/mariadb-statefulset.yaml
+kubectl apply -f k8s/07-database/mariadb-service.yaml
+
+# Wait for database to be ready
+kubectl wait --for=condition=ready pod/mariadb-0 -n assocore --timeout=300s
+```
+
+### Step 2: Deploy Redis
+
+```bash
+# Deploy Redis cache
+kubectl apply -f k8s/08-redis/redis-deployment.yaml
+kubectl apply -f k8s/08-redis/redis-service.yaml
+
+# Wait for Redis
+kubectl wait --for=condition=available deployment/redis -n assocore --timeout=180s
+```
+
+### Step 3: Deploy Backend API
+
+```bash
+# Deploy FastAPI backend
+kubectl apply -f k8s/09-backend/backend-config.yaml
+kubectl apply -f k8s/09-backend/backend-deployment.yaml
+kubectl apply -f k8s/09-backend/backend-service.yaml
+
+# Wait for backend
+kubectl wait --for=condition=available deployment/backend -n assocore --timeout=180s
+```
+
+### Step 4: Deploy Frontend
+
+```bash
+# Deploy Next.js frontend
+kubectl apply -f k8s/10-frontend/frontend-deployment.yaml
+kubectl apply -f k8s/10-frontend/frontend-service.yaml
+
+# Wait for frontend
+kubectl wait --for=condition=available deployment/frontend -n assocore --timeout=180s
+```
+
+### Step 5: Deploy Nextcloud
+
+```bash
+# Deploy Nextcloud
+kubectl apply -f k8s/11-nextcloud/nextcloud-config.yaml
+kubectl apply -f k8s/11-nextcloud/nextcloud-statefulset.yaml
+kubectl apply -f k8s/11-nextcloud/nextcloud-service.yaml
+
+# Wait for Nextcloud (may take a few minutes)
+kubectl wait --for=condition=ready pod/nextcloud-0 -n assocore --timeout=600s
+```
+
+### Step 6: Deploy Ingress Routes
+
+```bash
+# Deploy application ingress
+kubectl apply -f k8s/12-ingress-apps/app-ingress.yaml
+
+# Check ingress routes
+kubectl get ingressroute -n assocore
+```
+
+**✅ Phase 5 Complete**: Application stack deployed
+
+---
+
+## Phase 6: Application Verification
+
+### Check All Pods
+
+```bash
+# Get all pods
+kubectl get pods -n assocore
+```
+
+**Expected:** All pods should be `Running` with `1/1` or `2/2` Ready
+
+```
+NAME                          READY   STATUS    RESTARTS   AGE
+traefik-...                   1/1     Running   0          10m
+watchtower-...                1/1     Running   0          10m
+prometheus-...                1/1     Running   0          10m
+grafana-...                   1/1     Running   0          10m
+mariadb-0                     1/1     Running   0          5m
+redis-...                     1/1     Running   0          5m
+backend-...                   1/1     Running   0          4m
+frontend-...                  1/1     Running   0          4m
+nextcloud-0                   1/1     Running   0          3m
+```
+
+### Test Backend API
+
+```bash
+# Port-forward to backend
+kubectl port-forward -n assocore svc/backend 8000:8000
+```
+
+**Test endpoints:**
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# API docs
+curl http://localhost:8000/docs
+```
+
+**Expected:** JSON responses, no errors
+
+### Test Frontend
+
+```bash
+# Port-forward to frontend
+kubectl port-forward -n assocore svc/frontend 3001:3000
+```
+
+Open browser: **http://localhost:3001**
+
+**Expected:** AssoCORE web interface loads
+
+### Test Database Connection
+
+```bash
+# Connect to MariaDB
+kubectl exec -it mariadb-0 -n assocore -- mysql -u root -p
+
+# Enter root password from k8s/.env (MARIADB_ROOT_PASSWORD)
+```
+
+**Inside MySQL:**
+```sql
+-- Show databases
+SHOW DATABASES;
+
+-- Should see 'assocore' database
+USE assocore;
+
+-- Show tables (may be empty if migrations not run)
+SHOW TABLES;
+
+-- Exit
+EXIT;
+```
+
+### Test Nextcloud
+
+```bash
+# Port-forward to Nextcloud
+kubectl port-forward -n assocore svc/nextcloud 8080:80
+```
+
+Open browser: **http://localhost:8080**
+
+**Login with:**
+- Username: From `NEXTCLOUD_ADMIN_USER` in `k8s/.env`
+- Password: From `NEXTCLOUD_ADMIN_PASSWORD` in `k8s/.env`
+
+**Expected:** Nextcloud dashboard loads
+
+**✅ Phase 6 Complete**: All applications verified
+
+---
+
+## Phase 7: Network & Ingress Testing
+
+### Test k3d Ingress (if using k3d)
+
+```bash
+# These should work if you used install-k3d.sh
+curl http://localhost/
+curl http://api.localhost/health
+curl http://grafana.localhost
+```
+
+### Test Traefik Dashboard
+
+```bash
+# Port-forward to Traefik dashboard
+kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
+```
+
+Open browser: **http://localhost:9000/dashboard/**
+
+**Login with:**
+- Username: From `TRAEFIK_DASHBOARD_USER` in `k8s/.env` (default: `admin`)
+- Password: From `TRAEFIK_DASHBOARD_PASSWORD` in `k8s/.env`
+
+<Aside type="tip">
+Traefik dashboard credentials are configured in `k8s/.env` and deployed via `create-app-secrets.sh`.
+</Aside>
+
+**Expected:** Traefik dashboard showing all routes
+
+**✅ Phase 7 Complete**: Networking verified
+
+---
+
+## Phase 8: Observability Testing
+
+### Check Metrics in Prometheus
+
+1. Open Prometheus: http://localhost:9090 (if port-forwarded)
+
+2. **Test queries:**
+   ```promql
+   # All targets up
+   up
+
+   # Pod CPU usage
+   rate(container_cpu_usage_seconds_total[5m])
+
+   # Pod memory usage
+   container_memory_working_set_bytes
+
+   # HTTP requests
+   traefik_service_requests_total
+   ```
+
+### Monitor in Grafana
+
+1. Open Grafana: http://localhost:3000 (if port-forwarded)
+
+2. **Check dashboards:**
+   - Home > Dashboards > Browse
+   - Look for Kubernetes dashboards
+   - View pod resources, cluster health
+
+3. **Create test alert:**
+   - Alerting > Alert rules
+   - New alert rule
+   - Test notification
+
+**✅ Phase 8 Complete**: Monitoring verified
+
+---
+
+## Troubleshooting
+
+### Pod Not Starting
+
+```bash
+# Check pod status
+kubectl describe pod <pod-name> -n assocore
+
+# Check logs
+kubectl logs <pod-name> -n assocore
+
+# Common issues:
+# - ImagePullBackOff: Check GHCR secret
+# - CrashLoopBackOff: Check logs for errors
+# - Pending: Check resource requests
+```
+
+### Secret Not Found Errors
+
+```bash
+# Recreate secret
+./k8s/01-secrets/create-app-secrets.sh
+
+# Verify secret exists
+kubectl get secret <secret-name> -n assocore -o yaml
+
+# Restart pod to pick up secret
+kubectl rollout restart deployment/<deployment-name> -n assocore
+```
+
+### Grafana Login Issues
+
+```bash
+# Check Grafana logs
+kubectl logs -n assocore deployment/grafana
+
+# Verify secret
+kubectl get secret grafana-admin -n assocore -o jsonpath='{.data.admin-user}' | base64 -d
+kubectl get secret grafana-admin -n assocore -o jsonpath='{.data.admin-password}' | base64 -d
+
+# Restart Grafana
+kubectl rollout restart deployment/grafana -n assocore
+```
+
+### Database Connection Errors
+
+```bash
+# Check MariaDB logs
+kubectl logs mariadb-0 -n assocore
+
+# Test connection
+kubectl exec -it mariadb-0 -n assocore -- mysql -u assocore -p
+
+# Verify secret
+kubectl get secret mariadb-secret -n assocore -o yaml
+```
+
+### Port Forward Issues
+
+```bash
+# Kill all port forwards
+pkill -f "kubectl port-forward"
+
+# Restart specific port-forward
+kubectl port-forward -n assocore svc/<service-name> <local-port>:<service-port>
+```
+
+---
+
+## Cleanup Before Testing
+
+If you need to start fresh:
+
+```bash
+# Delete everything in namespace
+kubectl delete namespace assocore
+
+# Or delete specific resources
+kubectl delete all --all -n assocore
+kubectl delete pvc --all -n assocore
+kubectl delete secrets --all -n assocore
+
+# Delete cluster (k3d only)
+k3d cluster delete assocore
+```
+
+---
+
+## Success Criteria
+
+Your deployment is successful when:
+
+<CardGrid>
+  <Card title="✅ Secrets" icon="password">
+    - All secrets created
+    - No hardcoded credentials
+    - .env file not in git
+  </Card>
+
+  <Card title="✅ Core Services" icon="setting">
+    - Traefik running
+    - Prometheus collecting metrics
+    - Grafana showing dashboards
+    - Watchtower monitoring
+  </Card>
+
+  <Card title="✅ Applications" icon="rocket">
+    - Database accessible
+    - Backend API responding
+    - Frontend loading
+    - Nextcloud functional
+  </Card>
+
+  <Card title="✅ Networking" icon="approve-check">
+    - Ingress routes working
+    - Port forwards accessible
+    - No network errors
+  </Card>
+</CardGrid>
+
+---
+
+## Next Steps
+
+<CardGrid>
+  <Card title="Production Readiness" icon="star">
+    Follow the [Production Checklist](/guides/how-to/kubernetes-app-deployment/#production-checklist) to secure your deployment.
+  </Card>
+
+  <Card title="Configure DNS" icon="setting">
+    Set up real domain names and certificates for production access.
+  </Card>
+
+  <Card title="Setup Backups" icon="document">
+    Implement database backups and disaster recovery procedures.
+  </Card>
+
+  <Card title="CI/CD Pipeline" icon="github">
+    Configure GitHub Actions to automate deployments.
+  </Card>
+</CardGrid>
+
+---
+
+## Related Documentation
+
+- [Secrets Management Guide](/guides/how-to/secrets-management/) - Detailed secrets management
+- [K3s Cluster Setup](/guides/how-to/k3s-cluster-setup/) - Advanced cluster configuration
+- [Kubernetes App Deployment](/guides/how-to/kubernetes-app-deployment/) - Application deployment details
+- [Observability & Monitoring](/guides/how-to/observability-monitoring/) - Prometheus & Grafana setup

@@ -1,18 +1,28 @@
 ---
 # Grafana Admin Password Secret
-# Default password: admin (CHANGE THIS IN PRODUCTION!)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: grafana-admin
-  namespace: assocore
-  labels:
-    app.kubernetes.io/name: grafana
-    app.kubernetes.io/instance: grafana
-type: Opaque
-stringData:
-  admin-user: admin
-  admin-password: admin  # CHANGE THIS!
+# This secret is created by k8s/01-secrets/create-app-secrets.sh from .env file
+# DO NOT manually create this secret with kubectl apply
+#
+# To create this secret:
+# 1. Copy k8s/.env.example to k8s/.env
+# 2. Set GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD
+# 3. Run: ./k8s/01-secrets/create-app-secrets.sh
+#
+# For reference, the secret structure is:
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: grafana-admin
+#   namespace: assocore
+#   labels:
+#     app.kubernetes.io/name: grafana
+#     app.kubernetes.io/instance: grafana
+# type: Opaque
+# stringData:
+#   admin-user: "${GRAFANA_ADMIN_USER}"
+#   admin-password: "${GRAFANA_ADMIN_PASSWORD}"
+# ---
 
 ---
 # Grafana Datasources Configuration
