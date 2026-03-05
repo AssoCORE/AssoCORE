@@ -1,15 +1,25 @@
-# Dependencies
-node_modules
+# Dependencies (will be installed in container)
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
 
-# Next.js
-.next
-out
+# Next.js build outputs
+.next/
+out/
+.swc/
 
 # Testing
-coverage
-.nyc_output
+coverage/
+.nyc_output/
+**/*.test.js
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.js
+**/*.spec.ts
+**/*.spec.tsx
 
-# Development
+# Development files
 .dev-notes.json
 *.log
 npm-debug.log*
@@ -17,24 +27,37 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Editor directories and files
-.vscode
-.idea
+# IDE and editors
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Environment files
 .env*.local
+.env.development
+.env.test
 
 # Git
-.git
+.git/
 .gitignore
 .gitattributes
 
-# README and docs
+# Documentation
 README.md
+*.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Storybook
+.storybook/
+storybook-static/
