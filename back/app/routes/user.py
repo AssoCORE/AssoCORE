@@ -36,7 +36,7 @@ async def get_all_user(user_id):
 
 # NOTIFICATIONS
 @router.get("/notification", description="get every notification")
-async def get_notification():
+async def get_notifications():
     return JSONResponse(content={"Response":"OK"})
 
 @router.delete("/notification/{notification_id}", description="delete a specific notification")
@@ -48,8 +48,8 @@ async def change_status_notification(notification_id):
     return JSONResponse(content={"Response":"OK"})
 
 
-@router.get("/notifications/{notification_id}", description="get specific notification")
-async def get_notifications(notification_id):
+@router.get("/notification/{notification_id}", description="get specific notification")
+async def get_notification(notification_id):
     return JSONResponse(content={"Response":"OK"})
 
 
