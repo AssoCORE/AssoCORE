@@ -37,6 +37,7 @@ kubectl get pods -n assocore
 ```
 
 You should see only:
+
 - ✅ traefik (2/2 Running)
 - ✅ prometheus (1/1 Running)
 - ✅ grafana (1/1 Running)
@@ -56,6 +57,7 @@ git pull
 ## What is Watchtower?
 
 Watchtower **automatically updates** Docker container images. It's useful for production but:
+
 - ❌ Not necessary for development
 - ❌ Doesn't work with k3s containerd
 - ❌ Causes CrashLoopBackOff errors

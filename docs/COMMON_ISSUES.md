@@ -7,23 +7,27 @@ This guide covers the **most common errors** your team will encounter when deplo
 ## Issue 1: Watchtower CrashLoopBackOff ⚠️
 
 ### Symptoms
+
 ```bash
 watchtower-xxx    0/1     CrashLoopBackOff   3 (21s ago)   69s
 # OR stuck in ContainerCreating
 ```
 
 ### Root Cause
+
 - Watchtower is designed for **Docker**
 - k3s/k3d uses **containerd** (not Docker)
 - Watchtower tries to mount Docker socket → Volume mount fails → Pod crashes
 
 ### Quick Fix
+
 ```bash
 # Disable Watchtower (it's not essential)
 kubectl scale deployment/watchtower --replicas=0 -n assocore
 ```
 
 **OR** pull the latest code where it's already disabled:
+
 ```bash
 git pull
 ./k8s/deploy-core-services.sh
@@ -36,14 +40,17 @@ git pull
 ## Issue 2: Traefik Middleware Not Found 🚫
 
 ### Symptoms
-```
+
+```sh
 middleware "assocore-traefik-dashboard-auth@kubernetescrd" does not exist
 ```
 
 ### Root Cause
+
 Traefik was deployed **before** secrets were created.
 
 ### Quick Fix
+
 ```bash
 # Create secrets FIRST
 ./k8s/01-secrets/create-app-secrets.sh
@@ -60,18 +67,22 @@ kubectl rollout restart deployment/traefik -n assocore
 ## Issue 3: Let's Encrypt Certificate Failures 🔒
 
 ### Symptoms
-```
+
+```sh
 DNS problem: NXDOMAIN looking up A for traefik.assocore.org
 Cannot issue for "prometheus.assocore.local": Domain name does not end with a valid public suffix (TLD)
 ```
 
 ### Root Cause
+
 Let's Encrypt **cannot** issue certificates for:
+
 - ❌ `.local` domains
 - ❌ `localhost` domains
 - ❌ Domains without public DNS
 
 ### Quick Fix (Local Development)
+
 Use **HTTP instead of HTTPS**:
 
 ```bash
@@ -86,6 +97,185 @@ curl http://traefik.localhost/dashboard/
 ```
 
 ✅ **[Full details: TRAEFIK_ERRORS_FIX.md](TRAEFIK_ERRORS_FIX.md)**
+
+---
+
+## Issue 4: kubectl Connection Refused (localhost:8080) 🔌
+
+### Symptoms
+
+```bash
+The connection to the server localhost:8080 was refused - did you specify the right host or port?
+
+error validating data: failed to download openapi: Get "http://localhost:8080/openapi/v2?timeout=32s": dial tcp [::1]:8080: connect: connection refused
+```
+
+### Root Cause
+
+kubectl is not configured to connect to your k3d cluster. The `KUBECONFIG` environment variable isn't set in your shell.
+
+This happens when:
+
+- k3d installation script couldn't write to `.zshrc` (permission denied)
+- You opened a new terminal without sourcing the config
+- KUBECONFIG wasn't exported
+
+### Quick Fix
+
+```bash
+# For current session (temporary)
+export KUBECONFIG=~/.kube/config
+
+# Or add permanently to shell
+echo 'export KUBECONFIG=~/.kube/config' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify
+kubectl cluster-info
+kubectl get nodes
+```
+
+✅ **[Full details: KUBECTL_CONNECTION_FIX.md](KUBECTL_CONNECTION_FIX.md)**
+
+---
+
+## Issue 5: Frontend Pod Stuck in Init (ContainerCreating) ⏳
+
+### Symptoms
+
+```bash
+kubectl get pods -n assocore
+NAME                        READY   STATUS              AGE
+frontend-xxx                0/1     Init:0/1            5m
+# Pod stays in Init state, never becomes Running
+```
+
+Also, Backend might fail to deploy with:
+
+```bash
+kubectl get pods -n assocore
+NAME                        READY   STATUS                       AGE
+backend-xxx                 0/2     CreateContainerConfigError   5m
+```
+
+### Root Cause
+
+**Most common: Backend deployment fails due to missing secrets.**
+
+The Backend deployment requires these to exist:
+- `ghcr-secret` (GitHub Container Registry credentials)
+- `backend-db-secret` (Database connection URL)  
+- `backend-config` (ConfigMap with environment)
+
+If secrets don't exist, Backend cannot deploy → Frontend's initContainer waits forever for Backend.
+
+**Secondary cause: Wrong deployment order.**
+
+Even if secrets exist, deploying Frontend before Backend causes the same symptom.
+
+**Dependency chain:**
+
+1. **Secrets** ← MUST create first!
+2. MariaDB (database) ← Backend needs this
+3. Redis (cache) ← Backend needs this
+4. **Backend API** ← Frontend needs this
+5. **Frontend** ← Depends on Backend
+6. Nextcloud ← Independent
+
+### Quick Fix
+
+**Step 1: Ensure secrets exist (CRITICAL!)**
+
+```bash
+# Check if secrets exist
+kubectl get secrets -n assocore | grep -E 'ghcr-secret|backend-db-secret'
+
+# If missing, create them:
+./k8s/01-secrets/create-app-secrets.sh
+
+# Verify they exist
+kubectl get secrets -n assocore
+```
+
+**Step 2: Deploy in correct order**
+
+```bash
+# Deploy database
+kubectl apply -f k8s/07-database/mariadb-config.yaml
+kubectl apply -f k8s/07-database/mariadb-statefulset.yaml
+kubectl wait --for=condition=ready pod/mariadb-0 -n assocore --timeout=300s
+
+# Deploy cache
+kubectl apply -f k8s/08-redis/redis-deployment.yaml
+kubectl wait --for=condition=available deployment/redis -n assocore --timeout=180s
+
+# Deploy Backend BEFORE Frontend (secrets must exist!)
+kubectl apply -f k8s/09-backend/backend-config.yaml
+kubectl apply -f k8s/09-backend/backend-deployment.yaml
+kubectl wait --for=condition=available deployment/backend -n assocore --timeout=300s
+
+# NOW deploy Frontend (it will find Backend and start)
+kubectl apply -f k8s/10-frontend/frontend-deployment.yaml
+```
+
+**Or just use the script (handles secrets check + correct order):**
+
+```bash
+# Assumes secrets already created
+./k8s/deploy-apps.sh
+```
+
+### Debugging
+
+**Check if secrets exist:**
+
+```bash
+kubectl get secrets -n assocore
+
+# Required secrets:
+# - ghcr-secret
+# - backend-db-secret
+# - grafana-admin-secret
+# - traefik-dashboard-auth-secret
+```
+
+**Check Backend pod status:**
+
+```bash
+kubectl get pods -n assocore | grep backend
+
+# If showing CreateContainerConfigError:
+kubectl describe pod <backend-pod-name> -n assocore
+
+# Look for events like:
+# Error: secret "backend-db-secret" not found
+# Error: secret "ghcr-secret" not found
+# Error: configmap "backend-config" not found
+```
+
+**Check what Frontend initContainer is waiting for:**
+
+```bash
+# See what the frontend is waiting for
+kubectl logs -n assocore <frontend-pod-name> -c wait-for-backend
+
+# You'll see:
+# Waiting for Backend API to be ready...
+# (repeating until Backend is up)
+```
+
+**Fix missing secrets:**
+
+```bash
+# Ensure .env is configured
+ls -la k8s/.env
+
+# Create secrets
+./k8s/01-secrets/create-app-secrets.sh
+
+# Verify
+kubectl get secrets -n assocore
+```
 
 ---
 
@@ -160,6 +350,58 @@ Before going to production:
 
 ---
 
+## Frequently Asked Questions
+
+### Q: Where are the Service YAML files?
+
+**A:** Services are **embedded** in the same files as their Deployments/StatefulSets, not separate files.
+
+**File structure:**
+
+- `mariadb-statefulset.yaml` → Contains **both** Service and StatefulSet
+- `redis-deployment.yaml` → Contains **both** Service and Deployment  
+- `backend-deployment.yaml` → Contains **both** Service and Deployment
+- `frontend-deployment.yaml` → Contains **both** Service and Deployment
+- `nextcloud-statefulset.yaml` → Contains **both** Service and StatefulSet
+
+**This is intentional** - keeping related resources together makes deployment easier.
+
+### Q: Can I deploy applications without core services?
+
+**A:** No! Applications depend on core services:
+
+- Backend needs **Prometheus** for metrics
+- All services need **Traefik** for ingress
+- Monitoring needs **Grafana** and **Prometheus**
+
+**Always deploy in this order:**
+
+1. ✅ Core services (`./deploy-core-services.sh`)
+2. ✅ Applications (`./deploy-apps.sh`)
+
+### Q: What's the difference between deploy-core-services.sh and deploy-apps.sh?
+
+**Core Services** (infrastructure):
+
+- Namespace
+- Secrets
+- Traefik (Ingress Controller)
+- Watchtower (Auto-updater, disabled by default)
+- Prometheus (Metrics)
+- Grafana (Dashboards)
+- Observability ingress routes
+
+**Application Services** (your app):
+
+- MariaDB Database
+- Redis Cache
+- Backend API (FastAPI)
+- Frontend Web (Next.js)
+- Nextcloud
+- Application ingress routes
+
+---
+
 ## Get Help
 
 - **Full Testing Guide**: [testing-deployment.mdx](../src/content/docs/guides/how-to/testing-deployment.mdx)
@@ -183,8 +425,19 @@ kubectl rollout restart deployment/traefik -n assocore
 kubectl apply -f k8s/06-ingress/observability-ingress-dev.yaml
 kubectl apply -f k8s/02-traefik/traefik-dashboard-dev.yaml
 
+# Fix 4: kubectl connection refused (localhost:8080)
+export KUBECONFIG=~/.kube/config
+# Or permanently: echo 'export KUBECONFIG=~/.kube/config' >> ~/.zshrc && source ~/.zshrc
+
+# Fix 5: Backend deployment fails / Frontend stuck waiting
+# CREATE SECRETS FIRST (required for Backend to deploy)
+./k8s/01-secrets/create-app-secrets.sh
+kubectl get secrets -n assocore  # Verify they exist
+# Then deploy apps in correct order:
+./k8s/deploy-apps.sh
+
 # Verify everything is healthy
 kubectl get pods -n assocore
 ```
 
-**Remember: Secrets FIRST, then deploy services!** 🎯
+**Remember: Secrets FIRST, then deploy Core Services, then Applications!** 🎯

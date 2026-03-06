@@ -408,13 +408,29 @@ kubectl logs -n assocore deployment/watchtower --tail=50
 
 ## Phase 5: Application Stack Deployment
 
+<Aside type="caution" title="Critical: Deployment Order Matters!">
+**Applications have dependencies - deploy in this exact order:**
+
+1. ✅ MariaDB (database)
+2. ✅ Redis (cache)
+3. ✅ **Backend API** (depends on MariaDB + Redis)
+4. ✅ **Frontend** (has initContainer waiting for Backend)
+5. ✅ Nextcloud (independent)
+
+**Frontend will NOT start** until Backend is running because it has an initContainer that waits for Backend API to be available. If you deploy Frontend before Backend, it will stay stuck in `Init:0/1` state.
+
+**Use the automated script** to avoid ordering issues:
+```bash
+./k8s/deploy-apps.sh
+```
+</Aside>
+
 ### Step 1: Deploy Database
 
 ```bash
-# Deploy MariaDB
+# Deploy MariaDB (includes Service and StatefulSet)
 kubectl apply -f k8s/07-database/mariadb-config.yaml
 kubectl apply -f k8s/07-database/mariadb-statefulset.yaml
-kubectl apply -f k8s/07-database/mariadb-service.yaml
 
 # Wait for database to be ready
 kubectl wait --for=condition=ready pod/mariadb-0 -n assocore --timeout=300s
@@ -423,9 +439,8 @@ kubectl wait --for=condition=ready pod/mariadb-0 -n assocore --timeout=300s
 ### Step 2: Deploy Redis
 
 ```bash
-# Deploy Redis cache
+# Deploy Redis cache (includes Service and Deployment)
 kubectl apply -f k8s/08-redis/redis-deployment.yaml
-kubectl apply -f k8s/08-redis/redis-service.yaml
 
 # Wait for Redis
 kubectl wait --for=condition=available deployment/redis -n assocore --timeout=180s
@@ -433,11 +448,28 @@ kubectl wait --for=condition=available deployment/redis -n assocore --timeout=18
 
 ### Step 3: Deploy Backend API
 
+<Aside type="caution" title="Backend Requires Secrets!">
+**Before deploying Backend**, ensure these secrets exist:
+- `ghcr-secret` (GitHub Container Registry credentials)
+- `backend-db-secret` (Database connection URL)
+
+Check if secrets exist:
 ```bash
-# Deploy FastAPI backend
+kubectl get secrets -n assocore | grep -E 'ghcr-secret|backend-db-secret'
+```
+
+If missing, create them:
+```bash
+./k8s/01-secrets/create-app-secrets.sh
+```
+
+Without these secrets, Backend deployment will fail with `CreateContainerConfigError`.
+</Aside>
+
+```bash
+# Deploy FastAPI backend (includes Service and Deployment)  
 kubectl apply -f k8s/09-backend/backend-config.yaml
 kubectl apply -f k8s/09-backend/backend-deployment.yaml
-kubectl apply -f k8s/09-backend/backend-service.yaml
 
 # Wait for backend
 kubectl wait --for=condition=available deployment/backend -n assocore --timeout=180s
@@ -446,21 +478,28 @@ kubectl wait --for=condition=available deployment/backend -n assocore --timeout=
 ### Step 4: Deploy Frontend
 
 ```bash
-# Deploy Next.js frontend
+# Deploy Next.js frontend (includes Service and Deployment)
 kubectl apply -f k8s/10-frontend/frontend-deployment.yaml
-kubectl apply -f k8s/10-frontend/frontend-service.yaml
 
 # Wait for frontend
 kubectl wait --for=condition=available deployment/frontend -n assocore --timeout=180s
 ```
 
+<Aside type="note">
+**Frontend has an initContainer** that waits for Backend API to be ready before starting. If the wait times out or Backend isn't deployed, you'll see the pod stuck in `Init:0/1` state.
+
+Check initContainer logs:
+```bash
+kubectl logs <frontend-pod-name> -n assocore -c wait-for-backend
+```
+</Aside>
+
 ### Step 5: Deploy Nextcloud
 
 ```bash
-# Deploy Nextcloud
+# Deploy Nextcloud (includes Service and StatefulSet)
 kubectl apply -f k8s/11-nextcloud/nextcloud-config.yaml
 kubectl apply -f k8s/11-nextcloud/nextcloud-statefulset.yaml
-kubectl apply -f k8s/11-nextcloud/nextcloud-service.yaml
 
 # Wait for Nextcloud (may take a few minutes)
 kubectl wait --for=condition=ready pod/nextcloud-0 -n assocore --timeout=600s
