@@ -1,8 +1,14 @@
 #!/bin/bash
 # Install k3d (k3s in Docker) for WSL
 # Perfect for development in WSL/Docker Desktop
+#
+# Usage: ./install-k3d.sh [cluster-name]
+# Default cluster name: assocore
 
 set -e
+
+# Get cluster name from parameter or use default
+CLUSTER_NAME="${1:-assocore}"
 
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║  k3d Installation (k3s in Docker for WSL)                      ║"
@@ -34,10 +40,10 @@ echo ""
 
 # Create cluster
 echo "════════════════════════════════════════════════════════════════"
-echo "Creating k3d cluster 'assocore'..."
-echo "════════════════════════════════════════════════════════════════"
+echo "Creating k3d cluster '$CLUSTER_NAME'..."
+echo "═══════════════════════════════════════════════════════════════="
 
-k3d cluster create assocore \
+k3d cluster create "$CLUSTER_NAME" \
     --api-port 6443 \
     --servers 1 \
     --agents 2 \
@@ -56,7 +62,7 @@ echo "Configuring kubectl..."
 echo "════════════════════════════════════════════════════════════════"
 
 mkdir -p ~/.kube
-k3d kubeconfig get assocore > ~/.kube/config
+k3d kubeconfig get "$CLUSTER_NAME" > ~/.kube/config
 chmod 600 ~/.kube/config
 export KUBECONFIG=~/.kube/config
 
@@ -127,7 +133,7 @@ echo "════════════════════════�
 echo "Installation Complete!"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "Cluster: assocore"
+echo "Cluster: $CLUSTER_NAME"
 echo "Servers: 1"
 echo "Agents: 2"
 echo ""
@@ -142,8 +148,8 @@ echo "   - HTTPS: https://localhost"
 echo ""
 echo "Useful commands:"
 echo "  - List clusters: k3d cluster list"
-echo "  - Stop cluster: k3d cluster stop assocore"
-echo "  - Start cluster: k3d cluster start assocore"
-echo "  - Delete cluster: k3d cluster delete assocore"
-echo "  - View logs: k3d cluster logs assocore"
+echo "  - Stop cluster: k3d cluster stop $CLUSTER_NAME"
+echo "  - Start cluster: k3d cluster start $CLUSTER_NAME"
+echo "  - Delete cluster: k3d cluster delete $CLUSTER_NAME"
+echo "  - View logs: k3d cluster logs $CLUSTER_NAME"
 echo ""

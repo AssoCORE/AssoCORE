@@ -152,7 +152,75 @@ kubectl port-forward -n assocore svc/traefik-dashboard 9000:9000
 
 ## Usage
 
-> Work in progress
+### 🚀 Quick Start: One-Command Deployment
+
+Deploy the entire AssoCORE platform with a single command:
+
+```bash
+./k8s/deploy-all.sh
+```
+
+The script will:
+- ✅ Guide you through cluster setup (k3d or k3s)
+- ✅ Prompt for configuration (with secure password generation)
+- ✅ Deploy all services automatically
+- ✅ Show access URLs and credentials
+
+**Time:** ~5-10 minutes  
+**Difficulty:** Beginner-friendly
+
+**📖 [Complete One-Command Deployment Guide](docs/ONE_COMMAND_DEPLOYMENT.md)**
+
+---
+
+### Manual Deployment
+
+For step-by-step control:
+
+1. **Setup Kubernetes cluster:**
+   ```bash
+   ./k8s/install-k3d.sh  # Or install k3s
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp k8s/.env.example k8s/.env
+   # Edit k8s/.env with your credentials
+   ```
+
+3. **Deploy:**
+   ```bash
+   kubectl apply -f k8s/00-namespace/
+   ./k8s/01-secrets/create-app-secrets.sh
+   ./k8s/deploy-core-services.sh
+   ./k8s/deploy-apps.sh
+   ```
+
+**📖 [Complete Testing Guide](docs/src/content/docs/guides/how-to/testing-deployment.mdx)**
+
+---
+
+### Troubleshooting
+
+Common issues and fixes:
+
+- **kubectl connection errors:** [docs/KUBECTL_CONNECTION_FIX.md](docs/KUBECTL_CONNECTION_FIX.md)
+- **All deployment issues:** [docs/COMMON_ISSUES.md](docs/COMMON_ISSUES.md)
+- **Recent issues:** [docs/NEW_ISSUES_MARCH_2026.md](docs/NEW_ISSUES_MARCH_2026.md)
+
+### Cleanup
+
+Remove all AssoCORE resources:
+
+```bash
+./k8s/cleanup.sh
+```
+
+Or force cleanup without prompts:
+
+```bash
+./k8s/cleanup.sh --force
+```
 
 ---
 

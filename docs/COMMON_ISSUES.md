@@ -4,6 +4,27 @@ This guide covers the **most common errors** your team will encounter when deplo
 
 ---
 
+## 🚀 Avoid These Issues: Use Automated Deployment
+
+**Want to skip manual configuration and avoid these errors?**
+
+```bash
+./k8s/deploy-all.sh
+```
+
+This automated script handles:
+- ✅ Correct deployment order
+- ✅ Secrets creation before deployments
+- ✅ Secure password generation
+- ✅ Environment configuration
+- ✅ All common pitfalls
+
+**📖 [One-Command Deployment Guide](ONE_COMMAND_DEPLOYMENT.md)**
+
+**Still prefer manual deployment?** Continue reading for troubleshooting help.
+
+---
+
 ## Issue 1: Watchtower CrashLoopBackOff ⚠️
 
 ### Symptoms
