@@ -35,20 +35,21 @@ async def get_all_user(user_id):
 
 
 # NOTIFICATIONS
-@router.get("/notification", description="get notifications of user")
+@router.get("/notification", description="get every notification")
 async def get_notification():
     return JSONResponse(content={"Response":"OK"})
 
-@router.delete("/notification", description="delete a specific notification")
-async def delete_notification():
+@router.delete("/notification/{notification_id}", description="delete a specific notification")
+async def delete_notification(notification_id):
     return JSONResponse(content={"Response":"OK"})
 
-@router.post("/{user_id}/notification", description="create new notification")
-async def create_notification(user_id: str):
+@router.put("/notification/{notification_id}", description="read/unread a specific notification")
+async def change_status_notification(notification_id):
     return JSONResponse(content={"Response":"OK"})
 
-@router.get("/notifications", description="get user notifications")
-async def get_notifications():
+
+@router.get("/notifications/{notification_id}", description="get specific notification")
+async def get_notifications(notification_id):
     return JSONResponse(content={"Response":"OK"})
 
 
