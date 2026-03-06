@@ -58,7 +58,7 @@ class User(BaseSchema):
     phone: str = Field(
         ..., regex=r"^\+?[1-9]\d{1,14}$", description="Phone number in E.164 format"
     )
-    age: int = Field(..., ge=0, le=150, description="Age (0-150)")
+    birth_date: datetime
     id: int = Field(..., gt=0, description="User ID (positive integer)")
 
 
