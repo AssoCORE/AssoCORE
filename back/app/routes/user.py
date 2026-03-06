@@ -35,15 +35,11 @@ async def get_all_user(user_id):
 
 
 # NOTIFICATIONS
-@router.post("/notification", description="send a new notification to all targets")
-async def create_get_notification():
-    return JSONResponse(content={"Response":"OK"})
-
-@router.get("/notification", description="send a new notification to all targets")
+@router.get("/notification", description="get notifications of user")
 async def get_notification():
     return JSONResponse(content={"Response":"OK"})
 
-@router.delete("/notification", description="send a new notification to all targets")
+@router.delete("/notification", description="delete a specific notification")
 async def delete_notification():
     return JSONResponse(content={"Response":"OK"})
 
@@ -70,7 +66,7 @@ async def delete_reminder(reminder_id):
     return JSONResponse(content={"Response":"OK"})
 
 @router.get("/reminder/", description="get every reminder")
-async def get_reminder():
+async def get_every_reminder():
     return JSONResponse(content={"Response":"OK"})
 
 @router.delete("/reminder/", description="delete every reminder")
