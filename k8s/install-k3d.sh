@@ -60,14 +60,40 @@ k3d kubeconfig get assocore > ~/.kube/config
 chmod 600 ~/.kube/config
 export KUBECONFIG=~/.kube/config
 
-# Add to shell profile
-if ! grep -q "KUBECONFIG" ~/.bashrc 2>/dev/null; then
-    echo "export KUBECONFIG=~/.kube/config" >> ~/.bashrc
+# Add to shell profile (with error handling)
+echo "Adding KUBECONFIG to shell configuration..."
+
+# Try to add to .bashrc if it exists
+if [ -f ~/.bashrc ]; then
+    if ! grep -q "KUBECONFIG" ~/.bashrc 2>/dev/null; then
+        if [ -w ~/.bashrc ]; then
+            echo "export KUBECONFIG=~/.kube/config" >> ~/.bashrc && echo "  ✓ Added to ~/.bashrc"
+        else
+            echo "  ⚠️  Cannot write to ~/.bashrc (permission denied)"
+        fi
+    else
+        echo "  ✓ Already in ~/.bashrc"
+    fi
 fi
 
-if [ -f ~/.zshrc ] && ! grep -q "KUBECONFIG" ~/.zshrc; then
-    echo "export KUBECONFIG=~/.kube/config" >> ~/.zshrc
+# Try to add to .zshrc if it exists
+if [ -f ~/.zshrc ]; then
+    if ! grep -q "KUBECONFIG" ~/.zshrc 2>/dev/null; then
+        if [ -w ~/.zshrc ]; then
+            echo "export KUBECONFIG=~/.kube/config" >> ~/.zshrc && echo "  ✓ Added to ~/.zshrc"
+        else
+            echo "  ⚠️  Cannot write to ~/.zshrc (permission denied - you may need to add it manually)"
+        fi
+    else
+        echo "  ✓ Already in ~/.zshrc"
+    fi
 fi
+
+echo ""
+echo "ℹ️  If KUBECONFIG was not added automatically, run this command:"
+echo "   echo 'export KUBECONFIG=~/.kube/config' >> ~/.zshrc"
+echo "   source ~/.zshrc"
+echo ""
 
 echo "✓ Kubeconfig configured"
 echo ""
@@ -77,9 +103,24 @@ echo "════════════════════════�
 echo "Verifying cluster..."
 echo "════════════════════════════════════════════════════════════════"
 
-kubectl get nodes
-echo ""
-kubectl cluster-info
+if kubectl get nodes 2>/dev/null; then
+    echo "✓ kubectl connected to cluster successfully"
+    echo ""
+    kubectl cluster-info
+else
+    echo "⚠️  kubectl could not connect to cluster"
+    echo ""
+    echo "This usually means KUBECONFIG is not set in your current session."
+    echo ""
+    echo "Run this command now:"
+    echo "  export KUBECONFIG=~/.kube/config"
+    echo ""
+    echo "Then verify:"
+    echo "  kubectl get nodes"
+    echo ""
+    echo "See docs/KUBECTL_CONNECTION_FIX.md for more help"
+    echo ""
+fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"

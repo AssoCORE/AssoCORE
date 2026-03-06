@@ -49,6 +49,21 @@ k8s/
 └── deploy-apps.sh         # Deploy applications (backend, frontend, etc.)
 ```
 
+### Important Note: Service Definitions
+
+**Services are embedded in deployment files, not separate.**
+
+Many Kubernetes manifests combine Service and Deployment in a single file:
+- `mariadb-statefulset.yaml` → Contains **both** Service and StatefulSet
+- `redis-deployment.yaml` → Contains **both** Service and Deployment
+- `backend-deployment.yaml` → Contains **both** Service and Deployment
+- `frontend-deployment.yaml` → Contains **both** Service and Deployment
+- `nextcloud-statefulset.yaml` → Contains **both** Service and StatefulSet
+
+This is intentional - keeping related resources together makes deployment and management easier.
+
+---
+
 ## Prerequisites
 
 - Kubernetes cluster (v1.24+)

@@ -1,6 +1,14 @@
 #!/bin/bash
 # AssoCORE Application Deployment Script
 # Deploy all application workloads to Kubernetes cluster
+#
+# NOTE: Services are embedded in deployment/statefulset files, not separate.
+# Example: mariadb-statefulset.yaml contains both Service and StatefulSet definitions
+#
+# Prerequisites:
+#   1. Core services must be running (run ./deploy-core-services.sh first)
+#   2. k8s/.env file must exist with all credentials
+#   3. Secrets must be created (done automatically by this script)
 
 set -e
 
