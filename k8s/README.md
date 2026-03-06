@@ -5,24 +5,55 @@ This directory contains Kubernetes manifests for deploying AssoCORE to a Kuberne
 > **📚 NEW TO KUBERNETES?** Check out our [Complete Kubernetes Deployment Guide](../docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx) with beginner-friendly explanations, examples, and troubleshooting tips!
 > **🐳 NEW TO DOCKER?** Start with our [Docker Basics Guide](../docs/src/content/docs/guides/how-to/docker-basics.mdx) first!
 
-## Quick Start (TL;DR)
+---
+
+## 🚀 Quick Start: One Command Deployment (Recommended)
+
+**Deploy everything automatically with interactive prompts:**
+
+```bash
+./k8s/deploy-all.sh
+```
+
+**What it does:**
+- ✅ Installs Kubernetes cluster (k3d or k3s)
+- ✅ Prompts for configuration with secure password generation
+- ✅ Creates all secrets
+- ✅ Deploys all services in correct order
+- ✅ Shows access URLs and credentials
+
+**Time:** 5-10 minutes | **Difficulty:** Beginner-friendly
+
+**📖 [Complete Guide: ONE_COMMAND_DEPLOYMENT.md](../docs/ONE_COMMAND_DEPLOYMENT.md)**
+
+---
+
+## Manual Deployment (Advanced)
+
+For step-by-step control:
 
 ```bash
 # 1. Install k3d cluster (easiest for local development)
 ./k8s/install-k3d.sh
 
-# 2. Deploy core services (Traefik, Watchtower, Monitoring)
-./k8s/deploy-core-services.sh YOUR_GITHUB_USERNAME YOUR_GITHUB_TOKEN
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your credentials
 
-# 3. Deploy applications (Backend, Frontend, NextCloud)
-./k8s/deploy-apps.sh
+# 3. Create namespace
+kubectl apply -f 00-namespace/
 
-# 4. Add to /etc/hosts
-echo "127.0.0.1 assocore.localhost api.assocore.localhost files.assocore.localhost" | sudo tee -a /etc/hosts
+# 4. Create secrets
+./01-secrets/create-app-secrets.sh
 
-# 5. Access your application
-# Open: http://assocore.localhost
+# 5. Deploy core services (Traefik, Prometheus, Grafana)
+./deploy-core-services.sh
+
+# 6. Deploy applications (MariaDB, Redis, Backend, Frontend, Nextcloud)
+./deploy-apps.sh
 ```
+
+**📖 [Step-by-Step Manual Guide](../docs/src/content/docs/guides/how-to/testing-deployment.mdx)**
 
 **That's it!** You now have a fully running AssoCORE platform in Kubernetes! 🎉
 

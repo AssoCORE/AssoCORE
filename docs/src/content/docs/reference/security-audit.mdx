@@ -5,8 +5,8 @@ description: Comprehensive security audit of hardcoded secrets and credentials i
 
 import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
 
-**Date:** January 2025  
-**Scope:** Full project scan for hardcoded secrets and credentials  
+**Date:** January 2025
+**Scope:** Full project scan for hardcoded secrets and credentials
 **Status:** ✅ PASSED - No critical hardcoded secrets found
 
 ## Executive Summary
@@ -35,21 +35,21 @@ A comprehensive security audit was performed across the entire AssoCORE codebase
     password\s*=\s*['"]\w+['"]
     ```
   </Card>
-  
+
   <Card title="API Keys & Tokens">
     ```regex
     api[-_]?key\s*=\s*['"]\w+['"]
     token\s*=\s*['"]\w+['"]
     ```
   </Card>
-  
+
   <Card title="Database Credentials">
     ```regex
     DATABASE_URL\s*=\s*['"](mysql|postgresql):\/\/
     POSTGRES_PASSWORD|MYSQL_ROOT_PASSWORD
     ```
   </Card>
-  
+
   <Card title="Secret Keys">
     ```regex
     JWT_SECRET|SECRET_KEY
@@ -293,27 +293,27 @@ NEXTCLOUD_ADMIN_PASSWORD=test-admin-L3nQ5tW7xY1zB4cD6fG8hJ0kL2mN4oP
     - `.env.example` templates provided
     - Automated secret creation scripts
   </Card>
-  
+
   <Card title="Git Protection" icon="github">
     - Comprehensive `.gitignore` coverage
     - `.env` files excluded from all directories
     - Only templates (`.env.example`) committed
   </Card>
-  
+
   <Card title="Kubernetes Secrets Management" icon="seti:lock">
     - Automated script with validation: `create-app-secrets.sh`
     - Base64 encoding handled automatically
     - YAML manifests are documentation-only
     - Secrets stored in Kubernetes Secret objects
   </Card>
-  
+
   <Card title="Documentation" icon="document">
     - Comprehensive secrets management guide
     - Technical reference documentation
     - Step-by-step tutorials included
     - Security best practices documented
   </Card>
-  
+
   <Card title="CI/CD Security" icon="rocket">
     - GitHub Actions use native `secrets.GITHUB_TOKEN`
     - No personal access tokens hardcoded
@@ -458,8 +458,8 @@ The AssoCORE project demonstrates **excellent security practices** for credentia
 
 ## Audit Trail
 
-**Performed by:** GitHub Copilot (Automated Security Agent)  
-**Date:** January 2025  
+**Performed by:** GitHub Copilot (Automated Security Agent)
+**Date:** January 2025
 **Tools Used:**
 
 - grep (regex pattern matching)
