@@ -63,12 +63,20 @@ async def delete_notification(notification_id):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/notification/{notification_id}", description="read/unread a specific notification")
-async def change_status_notification(notification_id):
+@router.put("/notification/read/{notification_id}", description="read a specific notification")
+async def read_notification(notification_id):
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/notification/unread/{notification_id}", description="unread a specific notification")
+async def unread_notification(notification_id):
+    try:
+        return JSONResponse(content={"Response":"OK"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/notification/{notification_id}", description="get specific notification")
 async def get_notification(notification_id):
