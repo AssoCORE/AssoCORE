@@ -8,8 +8,8 @@ export default function Home() {
     <SidebarProvider>
       <div className="flex">
         <AppSidebar />
-        <Header />
         <main className="flex-1">
+          <Header />
           <h1>Page Event</h1>
         </main>
       </div>

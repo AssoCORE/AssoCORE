@@ -35,7 +35,8 @@ function BreadCrumbElement({ link }: HeaderProps) {
         const href = "/" + paths.slice(0, i + 1).join("/");
         const url = getPathTo(href);
 
-        if (href === "/")
+        if (href === "/") {
+          console.log(paths);
           return (
             <React.Fragment key={i}>
               <button>
@@ -43,9 +44,12 @@ function BreadCrumbElement({ link }: HeaderProps) {
                   <BreadcrumbLink href={url}>home</BreadcrumbLink>
                 </BreadcrumbItem>
               </button>
-              {i < paths.length - 1 && <BreadcrumbSeparator />}
+              {i < paths.length - 1 && paths[1] !== "" && (
+                <BreadcrumbSeparator />
+              )}
             </React.Fragment>
           );
+        }
 
         return (
           <React.Fragment key={i}>
