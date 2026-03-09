@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/event", tags=["event"])
 
-@router.get("/{event_id}", description="get all event")
+@router.get("/{event_id}", description="get a specific event")
 async def get_event(event_id):
     try:
         return JSONResponse(content={"Response":"OK"})
@@ -11,12 +11,14 @@ async def get_event(event_id):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/", description="get a event")
+
+@router.get("/", description="get all event")
 async def get_all_event():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("/", description="create a new event")
