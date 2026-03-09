@@ -34,6 +34,7 @@ async def get_ns__specific_file(dir, file):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
 # FILE VIEWER
 @router.get("/file/{id}", description="send an address toward Nextcloud's file viewer")
 async def get_ns_file_viewer(id):
@@ -41,6 +42,7 @@ async def get_ns_file_viewer(id):
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # CALENDAR
@@ -57,6 +59,7 @@ async def get_ns_specific_calendar(viewType):
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # CONTACTS

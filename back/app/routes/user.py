@@ -25,8 +25,8 @@ async def update_user():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/delete", description="delete user")
-async def delete_user():
+@router.delete("/delete/{user_id}", description="delete user")
+async def delete_user(user_id):
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
@@ -39,8 +39,8 @@ async def get_user(user_id):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", description="get an user")
-async def get_all_user(user_id):
+@router.get("/", description="get all user")
+async def get_all_user():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
@@ -70,13 +70,13 @@ async def change_status_notification(notification_id):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/notification/{notification_id}", description="get specific notification")
 async def get_notification(notification_id):
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # REMINDERS
