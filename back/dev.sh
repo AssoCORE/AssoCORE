@@ -52,18 +52,18 @@ wait_for_service() {
     local check_command=$2
     local max_wait=${3:-60}
     local elapsed=0
-    
+
     while ! eval "$check_command" >/dev/null 2>&1; do
         if [ $elapsed -ge $max_wait ]; then
             print_error "Timeout waiting for $service after ${max_wait}s"
             return 1
         fi
-        
+
         echo -ne "${YELLOW}⏳${NC} Waiting for $service... ${elapsed}s / ${max_wait}s\r"
         sleep 2
         elapsed=$((elapsed + 2))
     done
-    
+
     echo -e "\r${GREEN}✓${NC} $service is ready! (${elapsed}s)                    "
     return 0
 }
@@ -129,27 +129,27 @@ fi
 if [ "$start_infrastructure" = true ]; then
     echo ""
     print_header "🚢 Starting Infrastructure"
-    
+
     print_step "Starting database, Redis, and Nextcloud..."
     docker compose up -d db redis nextcloud --remove-orphans
-    
+
     # Wait for services
     echo ""
     DB_CONTAINER=$(docker compose ps -q db)
     wait_for_service "MariaDB" \
         "docker exec $DB_CONTAINER mariadb-admin ping -h localhost --silent" \
         90 || exit 1
-    
+
     REDIS_CONTAINER=$(docker compose ps -q redis)
     wait_for_service "Redis" \
         "docker exec $REDIS_CONTAINER redis-cli ping | grep -q PONG" \
         30 || exit 1
-    
+
     NEXTCLOUD_CONTAINER=$(docker compose ps -q nextcloud)
     wait_for_service "Nextcloud" \
         "docker exec $NEXTCLOUD_CONTAINER curl -sf http://localhost:80/status.php" \
         120 || print_warning "Nextcloud might still be starting (continuing anyway)"
-    
+
     print_success "Infrastructure services ready"
 else
     print_success "Infrastructure services already running"

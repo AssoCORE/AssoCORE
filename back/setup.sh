@@ -54,20 +54,20 @@ wait_for_service() {
     local check_command=$2
     local max_wait=${3:-120}
     local elapsed=0
-    
+
     print_step "Waiting for $service to be ready..."
-    
+
     while ! eval "$check_command" >/dev/null 2>&1; do
         if [ $elapsed -ge $max_wait ]; then
             print_error "Timeout waiting for $service after ${max_wait}s"
             return 1
         fi
-        
+
         echo -ne "${YELLOW}⏳${NC} Elapsed: ${elapsed}s / ${max_wait}s\r"
         sleep 2
         elapsed=$((elapsed + 2))
     done
-    
+
     echo -e "\r${GREEN}✓${NC} $service is ready! (took ${elapsed}s)"
     return 0
 }
@@ -104,11 +104,11 @@ if ! docker info &> /dev/null; then
     print_error "Docker daemon is not running"
     echo ""
     print_step "Attempting to start Docker..."
-    
+
     if command -v systemctl &> /dev/null; then
         sudo systemctl start docker
         sleep 3
-        
+
         if ! docker info &> /dev/null; then
             print_error "Failed to start Docker daemon"
             echo "  Please start Docker manually"
@@ -162,7 +162,7 @@ print_success ".env file found"
 # ------------------------------------------------------------------------------
 if command -v uv &> /dev/null; then
     echo ""
-    read -p "$(echo -e ${CYAN}?)${NC} Setup local Python environment with uv? [Y/n]: " -n 1 -r
+    read -p "$(echo -e ${CYAN})> Setup local Python environment with uv? [Y/n]: $(echo -e ${NC})" -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         print_step "Setting up Python environment..."
@@ -183,14 +183,14 @@ if [ -d "data" ]; then
     echo "  🗄️  Database data: $(du -sh data/db 2>/dev/null | cut -f1 || echo 'N/A')"
     echo "  ☁️  Nextcloud data: $(du -sh data/nextcloud 2>/dev/null | cut -f1 || echo 'N/A')"
     echo ""
-    read -p "$(echo -e ${YELLOW}⚠)${NC} Start fresh (delete all data)? [y/N]: " -n 1 -r
+    read -p "$(echo -e ${YELLOW})⚠ Start fresh (delete all data)? [y/N]: $(echo -e ${NC})" -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_step "Stopping existing services..."
         docker compose down -v --remove-orphans 2>/dev/null || true
-        
+
         print_step "Deleting data directory..."
-        rm -rf data/
+        sudo rm -rf data/
         print_success "Data directory cleaned"
     fi
 fi
@@ -239,7 +239,7 @@ wait_for_service "Nextcloud" \
 API_CONTAINER=$(docker compose ps -q api)
 if [ -n "$API_CONTAINER" ]; then
     wait_for_service "API" \
-        "docker exec $API_CONTAINER curl -sf http://localhost:8000/health" \
+        "docker exec $API_CONTAINER curl -sf http://localhost:8000/" \
         60 || print_warning "API health check failed (might be starting)"
 fi
 
@@ -252,25 +252,25 @@ print_header "🔧 Configuring Nextcloud"
 # Check if Nextcloud is installed
 if docker exec -u www-data $NEXTCLOUD_CONTAINER php occ status 2>/dev/null | grep -q "installed: true"; then
     print_success "Nextcloud is already installed"
-    
+
     print_step "Configuring trusted domains..."
     docker exec -u www-data $NEXTCLOUD_CONTAINER php occ config:system:set trusted_domains 0 --value=localhost:8081 2>/dev/null || true
     docker exec -u www-data $NEXTCLOUD_CONTAINER php occ config:system:set trusted_domains 1 --value=nextcloud 2>/dev/null || true
     print_success "Trusted domains configured"
-    
+
     echo ""
-    read -p "$(echo -e ${CYAN}?)${NC} Install recommended Nextcloud apps? [Y/n]: " -n 1 -r
+    read -p "$(echo -e ${CYAN})> Install recommended Nextcloud apps? [Y/n]: $(echo -e ${NC})" -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         print_step "Installing calendar..."
         docker exec -u www-data $NEXTCLOUD_CONTAINER php occ app:install calendar 2>/dev/null || print_warning "Calendar already installed or unavailable"
-        
+
         print_step "Installing contacts..."
         docker exec -u www-data $NEXTCLOUD_CONTAINER php occ app:install contacts 2>/dev/null || print_warning "Contacts already installed or unavailable"
-        
+
         print_step "Installing notes..."
         docker exec -u www-data $NEXTCLOUD_CONTAINER php occ app:install notes 2>/dev/null || print_warning "Notes already installed or unavailable"
-        
+
         print_success "Apps installation complete"
     fi
 else
