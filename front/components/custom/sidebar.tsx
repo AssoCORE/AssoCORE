@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Sidebar,
@@ -9,21 +9,38 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
-import { useState } from "react"
+import { useState } from "react";
 
-import { Home, User, Settings, Mail, FileText } from "lucide-react"
-import Link from "next/link"
+import { Home, User, Settings, Mail, FileText } from "lucide-react";
+import Link from "next/link";
+
+type HeaderProps = {
+  link: string;
+  name: string;
+};
 
 export function AppSidebar() {
-  const [search, setSearch] = useState("")
-  const [administrator, setAdministrator] = useState(false)
+  const [search, setSearch] = useState("");
+  const [administrator, setAdministrator] = useState(false);
+
+  function SideBarHelper({ link, name }: HeaderProps) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild>
+          <Link href={link}>
+            <Home />
+            <span>{name}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent className="flex flex-col justify-center">
-
         {/* Search + checkbox admin */}
         <SidebarGroup>
           <div>
@@ -40,88 +57,28 @@ export function AppSidebar() {
         {/* Public pages */}
         <SidebarGroup>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/">
-                  <Home />
-                  <span>Acceuil</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/profile">
-                  <User />
-                  <span>Profile</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/event">
-                  <Mail />
-                  <span>Évènement</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/calendar">
-                  <FileText />
-                  <span>Calendrier</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/file">
-                  <Settings />
-                  <span>Dossiers</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
+            <SideBarHelper link="/" name="Acceuil" />
+            <SideBarHelper link="/profile" name="Profile" />
+            <SideBarHelper link="/event" name="Évènement" />
+            <SideBarHelper link="/calendar" name="Calendrier" />
+            <SideBarHelper link="/file" name="Dossiers" />
           </SidebarMenu>
         </SidebarGroup>
 
         {/* Admin pages */}
         {administrator && (
           <SidebarGroup>
-            <SidebarGroupLabel>
-              Administrateur
-            </SidebarGroupLabel>
+            <SidebarGroupLabel>Administrateur</SidebarGroupLabel>
 
             <SidebarMenu>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="/adminUser">
-                    <User />
-                    <span>Adhérents</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="/adminEvent">
-                    <Mail />
-                    <span>Gestion des évènements</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
+              <SideBarHelper link="/adminUser" name="Adhérents" />
+              <SideBarHelper link="/adminEvent" name="Gestion des évènements" />
             </SidebarMenu>
           </SidebarGroup>
         )}
 
         {/* BONUS*/}
         <SidebarGroup>
-
           {/* Checkbox pour activer admin */}
           <div>
             <label className="flex items-center gap-2">
@@ -134,10 +91,9 @@ export function AppSidebar() {
             </label>
           </div>
         </SidebarGroup>
-
       </SidebarContent>
 
       <SidebarTrigger />
     </Sidebar>
-  )
+  );
 }
