@@ -91,7 +91,7 @@ if [ ! -f ".env" ]; then
     print_error ".env file not found"
     echo ""
     echo "Please run setup first:"
-    echo "  ${YELLOW}./setup.sh${NC}"
+    echo -e "  ${YELLOW}./setup.sh${NC}"
     exit 1
 fi
 print_success ".env file found"
