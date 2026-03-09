@@ -1,9 +1,5 @@
-from http import HTTPStatus
-from typing import Any, Optional
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 router = APIRouter(prefix="/event", tags=["event"])
 
