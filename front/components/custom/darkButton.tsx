@@ -17,9 +17,7 @@ export default function DarkButton() {
   };
 
   if (!mounted) {
-    return (
-      <div className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700"></div>
-    );
+    return <div className="w-10 h-10" />;
   }
 
   const currentIcon =
@@ -32,7 +30,7 @@ export default function DarkButton() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-full flex items-center justify-center transition-colors bg-[--bg-light] hover:bg-[--bg-light] dark:hover:bg-[--bg-light]"
+      className="px-4 py-2 text-white rounded"
       aria-label={
         resolvedTheme === "dark"
           ? "Switch to light theme"
@@ -45,7 +43,7 @@ export default function DarkButton() {
       }
     >
       {currentIcon}
-      <span className="sr-only">Theme switcher button</span>
+      <span className="sr-only">Day/Night switch button</span>
     </button>
   );
 }
