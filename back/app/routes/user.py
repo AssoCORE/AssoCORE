@@ -127,3 +127,25 @@ async def get_ns_iframe():
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/calendar/", description="send an address toward NextCloud's calendar system")
+async def get_ns_iframe():
+    try:
+        return JSONResponse(content={"Response":"OK"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/calendar/", description="send an address toward NextCloud's calendar system")
+async def get_ns_iframe():
+    try:
+        return JSONResponse(content={"Response":"OK"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/notes/", description="send an address toward NextCloud's notes system")
+async def get_ns_iframe():
+    try:
+        return JSONResponse(content={"Response":"OK"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
