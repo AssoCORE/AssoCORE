@@ -118,30 +118,30 @@ RUNNING_SERVICES=$(docker compose ps --services --filter "status=running" 2>/dev
 if [ -z "$RUNNING_SERVICES" ]; then
     print_warning "No services are currently running"
     echo ""
-    
+
     if [ -d "data" ]; then
         echo "Data directory exists:"
         echo "  🗄️  Database: $(du -sh data/db 2>/dev/null | cut -f1 || echo 'N/A')"
         echo "  ☁️  Nextcloud: $(du -sh data/nextcloud 2>/dev/null | cut -f1 || echo 'N/A')"
         echo ""
-        
+
         if [ "$CLEAN_MODE" = "clean" ]; then
             print_step "Deleting data directory..."
-            rm -rf data/
+            sudo rm -rf data/
             print_success "Data directory deleted"
         elif [ "$CLEAN_MODE" != "keep" ]; then
-            read -p "$(echo -e ${YELLOW}?)${NC} Delete data directory? [y/N]: " -n 1 -r
+            read -p "$(echo -e ${YELLOW})> Delete data directory? [y/N]: $(echo -e ${NC})" -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
                 print_step "Deleting data directory..."
-                rm -rf data/
+                sudo rm -rf data/
                 print_success "Data directory deleted"
             else
                 print_success "Data directory preserved"
             fi
         fi
     fi
-    
+
     exit 0
 fi
 
@@ -165,10 +165,10 @@ if [ -z "$CLEAN_MODE" ]; then
     echo "  1) Stop containers (keep data)"
     echo "  2) Stop containers and delete all data"
     echo ""
-    read -p "$(echo -e ${CYAN}?)${NC} Choose option [1-2]: " -n 1 -r OPTION
+    read -p "$(echo -e ${CYAN})> Choose option [1-2]: $(echo -e ${NC})" -n 1 -r OPTION
     echo
     echo ""
-    
+
     case $OPTION in
         1)
             CLEAN_MODE="keep"
@@ -176,7 +176,7 @@ if [ -z "$CLEAN_MODE" ]; then
         2)
             CLEAN_MODE="clean"
             print_warning "This will DELETE all data!"
-            read -p "$(echo -e ${RED}!)${NC} Are you sure? Type 'yes' to confirm: " CONFIRM
+            read -p "$(echo -e ${RED})⚠ Are you sure? Type 'yes' to confirm: $(echo -e ${NC})" CONFIRM
             if [ "$CONFIRM" != "yes" ]; then
                 echo ""
                 print_success "Shutdown cancelled"
@@ -200,10 +200,10 @@ if [ "$CLEAN_MODE" = "clean" ]; then
     print_step "Stopping containers and removing volumes..."
     docker compose down -v --remove-orphans
     print_success "Containers stopped and volumes removed"
-    
+
     if [ -d "data" ]; then
         print_step "Deleting data directory..."
-        rm -rf data/
+        sudo rm -rf data/
         print_success "Data directory deleted"
     fi
 else
