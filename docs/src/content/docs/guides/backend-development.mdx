@@ -1,0 +1,735 @@
+---
+title: Backend Development Guide
+description: Complete guide for AssoCORE FastAPI backend development with Nextcloud integration
+sidebar:
+  badge:
+    text: Guide
+    variant: tip
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="Quick Start">
+  The backend includes three interactive scripts for complete setup, development, and shutdown. All scripts feature proper health checks and colored output.
+</Aside>
+
+## Stack Overview
+
+<CardGrid>
+  <Card title="FastAPI" icon="seti:python">
+    Modern Python web framework with automatic API documentation
+  </Card>
+  <Card title="MariaDB" icon="seti:db">
+    Relational database with SQLAlchemy async ORM
+  </Card>
+  <Card title="Nextcloud" icon="puzzle">
+    File management and collaboration platform integration
+  </Card>
+  <Card title="uv" icon="rocket">
+    Fast Python package manager for dependency management
+  </Card>
+</CardGrid>
+
+## Quick Start Scripts
+
+The `back/` directory includes three interactive scripts:
+
+### 🚀 setup.sh - Complete Setup
+
+First-time setup or clean install with all services.
+
+```bash
+cd back
+./setup.sh
+```
+
+<Steps>
+
+1. **Checks prerequisites**
+   - Docker and Docker Compose availability
+   - Environment configuration validation
+   
+2. **Optional Python environment**
+   - Prompts to setup local env with uv
+   
+3. **Clean start option**
+   - Shows current data size
+   - Option to delete and start fresh
+   
+4. **Starts all services**
+   - MariaDB, Redis, Nextcloud, API
+   - **Proper health checks** (no more sleep timers!)
+   
+5. **Configures Nextcloud**
+   - Sets trusted domains
+   - Optional app installation (calendar, contacts, notes)
+   
+6. **Post-deployment summary**
+   - Service URLs
+   - Quick commands
+   - Access information
+
+</Steps>
+
+<Aside type="note">
+  **Health Checks Included:**
+  - MariaDB: `mariadb-admin ping` (90s timeout)
+  - Redis: `redis-cli ping` (30s timeout)
+  - Nextcloud: `curl status.php` (120s timeout)
+  - API: `curl /health` (60s timeout)
+</Aside>
+
+---
+
+### 💻 dev.sh - Development Mode
+
+Quick start for daily development with hot-reload.
+
+```bash
+cd back
+./dev.sh
+```
+
+**Features:**
+- 🔥 Hot-reload enabled (code changes apply instantly)
+- 📁 Source code mounted as volume
+- 🔍 Detailed logging
+- ⚡ Smart infrastructure detection (only starts what's needed)
+
+**What it does:**
+
+<Steps>
+
+1. Checks prerequisites
+2. Detects running services
+3. Starts infrastructure if needed (DB, Redis, Nextcloud)
+4. Waits for services with health checks
+5. Stops production API if running
+6. Starts development API with live logs
+
+</Steps>
+
+---
+
+### 🛑 shutdown.sh - Interactive Shutdown
+
+Stop services with data preservation options.
+
+<Tabs>
+  <TabItem label="Interactive">
+    ```bash
+    cd back
+    ./shutdown.sh
+    ```
+    
+    Prompts you to choose:
+    1. Stop containers (keep data)
+    2. Stop and delete all data
+  </TabItem>
+  
+  <TabItem label="Keep Data">
+    ```bash
+    ./shutdown.sh --keep-data
+    ```
+    
+    Quick shutdown preserving all data
+  </TabItem>
+  
+  <TabItem label="Clean All">
+    ```bash
+    ./shutdown.sh --clean
+    ```
+    
+    Stop and delete all data (requires confirmation)
+  </TabItem>
+  
+  <TabItem label="Help">
+    ```bash
+    ./shutdown.sh --help
+    ```
+    
+    Show usage and options
+  </TabItem>
+</Tabs>
+
+## Scripts Comparison
+
+| Script | Purpose | When to Use | Interactive |
+|--------|---------|-------------|-------------|
+| `setup.sh` | Complete setup and deployment | First time, after cleanup, config changes | ✅ Yes |
+| `dev.sh` | Quick development start | Daily development, API changes | Minimal |
+| `shutdown.sh` | Stop services | End of work, cleanup, restart | ✅ Yes |
+
+## Access Points
+
+After setup, services are available at:
+
+<CardGrid>
+  <Card title="API" icon="rocket">
+    **http://localhost:8000**
+    
+    Main FastAPI application
+  </Card>
+  
+  <Card title="API Docs (Swagger)" icon="document">
+    **http://localhost:8000/docs**
+    
+    Interactive API documentation
+  </Card>
+  
+  <Card title="API Docs (ReDoc)" icon="open-book">
+    **http://localhost:8000/redoc**
+    
+    Alternative documentation view
+  </Card>
+  
+  <Card title="Nextcloud" icon="puzzle">
+    **http://localhost:8081**
+    
+    Nextcloud web interface
+  </Card>
+</CardGrid>
+
+## Environment Configuration
+
+Configuration is stored in `back/.env` (gitignored).
+
+### Required Variables
+
+```bash
+# Database Configuration
+MYSQL_ROOT_PASSWORD=your_root_password
+MYSQL_DATABASE=assocore_db
+MYSQL_USER=assocore_user
+MYSQL_PASSWORD=your_db_password
+MYSQL_HOST=db
+MYSQL_PORT=3306
+
+# Nextcloud Database
+NEXTCLOUD_DB_NAME=nextcloud
+NEXTCLOUD_DB_USER=nextcloud_user
+NEXTCLOUD_DB_PASSWORD=your_nextcloud_db_password
+
+# Nextcloud Admin
+NEXTCLOUD_ADMIN_USER=admin
+NEXTCLOUD_ADMIN_PASSWORD=your_admin_password
+
+# API Configuration (Optional)
+DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}
+```
+
+<Aside type="caution">
+  **Security Note:** Never commit `.env` to version control. Use `.env.example` as a template.
+</Aside>
+
+### Creating `.env`
+
+<Tabs>
+  <TabItem label="Automatic (Recommended)">
+    ```bash
+    # Let setup.sh guide you
+    ./setup.sh
+    # Script will detect missing .env and provide instructions
+    ```
+  </TabItem>
+  
+  <TabItem label="Manual">
+    ```bash
+    # Copy from example
+    cp .env.example .env
+    
+    # Edit with your values
+    nano .env
+    ```
+  </TabItem>
+</Tabs>
+
+## Project Structure
+
+```
+back/
+├── app/
+│   ├── main.py              # FastAPI application entry point
+│   ├── routes/              # API endpoint routes
+│   │   ├── __init__.py
+│   │   └── nextcloud.py     # Nextcloud integration endpoints
+│   ├── db/                  # Database layer
+│   │   ├── __init__.py
+│   │   └── database.py      # SQLAlchemy async setup
+│   ├── schemas/             # Pydantic models
+│   │   └── __init__.py
+│   └── models/              # SQLAlchemy models (if any)
+├── data/                    # Docker volume data (gitignored)
+│   ├── db/                  # MariaDB data
+│   └── nextcloud/           # Nextcloud files
+├── pyproject.toml           # uv dependencies
+├── uv.lock                  # Dependency lock file
+├── docker-compose.yml       # Production services
+├── docker-compose.dev.yml   # Development overrides
+├── Dockerfile               # API container build
+├── setup.sh                 # Complete setup script
+├── dev.sh                   # Development mode script
+└── shutdown.sh              # Shutdown script
+```
+
+## API Endpoints
+
+### Health & Documentation
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Root health check |
+| `/health` | GET | Service health status |
+| `/docs` | GET | Swagger UI (interactive) |
+| `/redoc` | GET | ReDoc (alternative docs) |
+
+### Nextcloud Integration
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/nextcloud/users` | GET | List all Nextcloud users |
+| `/api/nextcloud/users` | POST | Create new Nextcloud user |
+| `/api/nextcloud/files/{user_id}` | GET | List user's files |
+
+## Development Workflows
+
+### Typical Development Day
+
+<Steps>
+
+1. **Start development environment**
+   ```bash
+   cd back
+   ./dev.sh
+   ```
+
+2. **Make code changes**
+   - Edit files in `app/`
+   - Hot-reload applies changes automatically
+   - View logs in terminal
+
+3. **Test endpoints**
+   - Open http://localhost:8000/docs
+   - Use Swagger UI to test APIs
+   - Check logs for errors
+
+4. **View service logs** (if needed)
+   ```bash
+   # In another terminal
+   docker compose logs -f api-dev
+   docker compose logs -f db
+   docker compose logs -f nextcloud
+   ```
+
+5. **Stop when done**
+   ```bash
+   # Press Ctrl+C to stop API
+   ./shutdown.sh --keep-data
+   ```
+
+</Steps>
+
+---
+
+### Fresh Start Workflow
+
+When you need to start completely fresh (clean database, etc.):
+
+<Steps>
+
+1. **Clean everything**
+   ```bash
+   ./shutdown.sh --clean
+   ```
+
+2. **Start fresh setup**
+   ```bash
+   ./setup.sh
+   ```
+
+3. **Complete Nextcloud setup** (if needed)
+   - Visit http://localhost:8081
+   - Use credentials from `.env`
+
+</Steps>
+
+---
+
+### Adding New Endpoints
+
+<Steps>
+
+1. **Create route file** (if needed)
+   ```bash
+   touch app/routes/users.py
+   ```
+
+2. **Define endpoints**
+   ```python
+   from fastapi import APIRouter, HTTPException
+   
+   router = APIRouter(prefix="/api/users", tags=["users"])
+   
+   @router.get("/")
+   async def list_users():
+       return {"users": []}
+   ```
+
+3. **Register router** in `app/main.py`
+   ```python
+   from app.routes import users
+   
+   app.include_router(users.router)
+   ```
+
+4. **Test in Swagger UI**
+   - Visit http://localhost:8000/docs
+   - Hot-reload applied automatically
+
+</Steps>
+
+## Docker Compose
+
+### Services
+
+<CardGrid>
+  <Card title="db" icon="seti:db">
+    **MariaDB 10.11**
+    
+    - Health checks enabled
+    - Data persisted to `./data/db`
+    - Port: 3306 (internal)
+  </Card>
+  
+  <Card title="redis" icon="seti:db">
+    **Redis Alpine**
+    
+    - In-memory cache
+    - Port: 6379 (internal)
+  </Card>
+  
+  <Card title="nextcloud" icon="puzzle">
+    **Nextcloud Latest**
+    
+    - Web interface on port 8081
+    - Data persisted to `./data/nextcloud`
+    - Integrated with MariaDB
+  </Card>
+  
+  <Card title="api" icon="rocket">
+    **FastAPI (Production)**
+    
+    - Production mode
+    - Port: 8000
+    - Using docker-compose.yml
+  </Card>
+  
+  <Card title="api-dev" icon="rocket">
+    **FastAPI (Development)**
+    
+    - Hot-reload enabled
+    - Source mounted as volume
+    - Using docker-compose.dev.yml
+  </Card>
+</CardGrid>
+
+### Manual Commands
+
+<Tabs>
+  <TabItem label="Production">
+    ```bash
+    # Start all services
+    docker compose up -d
+    
+    # View logs
+    docker compose logs -f
+    
+    # Stop services
+    docker compose down
+    ```
+  </TabItem>
+  
+  <TabItem label="Development">
+    ```bash
+    # Start dev API
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up api-dev
+    
+    # View dev logs
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f api-dev
+    ```
+  </TabItem>
+  
+  <TabItem label="Specific Service">
+    ```bash
+    # Start only database
+    docker compose up -d db
+    
+    # View database logs
+    docker compose logs -f db
+    
+    # Restart service
+    docker compose restart api
+    ```
+  </TabItem>
+  
+  <TabItem label="Clean">
+    ```bash
+    # Stop and remove volumes
+    docker compose down -v
+    
+    # Remove data directory
+    rm -rf data/
+    ```
+  </TabItem>
+</Tabs>
+
+## Troubleshooting
+
+### Services Not Starting
+
+<Tabs>
+  <TabItem label="Check Docker">
+    ```bash
+    # Verify Docker is running
+    docker info
+    
+    # Check running containers
+    docker compose ps
+    
+    # View all logs
+    docker compose logs -f
+    ```
+  </TabItem>
+  
+  <TabItem label="Check Ports">
+    ```bash
+    # Check what's using ports
+    sudo lsof -i :8000  # API
+    sudo lsof -i :8081  # Nextcloud
+    sudo lsof -i :3306  # MariaDB
+    
+    # Kill process if needed
+    kill -9 <PID>
+    ```
+  </TabItem>
+  
+  <TabItem label="Clean Restart">
+    ```bash
+    # Complete cleanup and restart
+    ./shutdown.sh --clean
+    ./setup.sh
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+### Database Issues
+
+**Database not ready:**
+- Scripts include proper health checks
+- No more arbitrary sleep timers
+- Automatic retry with 90s timeout
+
+**Connection errors:**
+```bash
+# Check database health
+docker compose exec db mariadb-admin ping -h localhost
+
+# Connect to database
+docker compose exec db mariadb -u root -p
+
+# Check DATABASE_URL in .env
+cat .env | grep DATABASE_URL
+```
+
+---
+
+### Nextcloud Issues
+
+**Nextcloud slow to start:**
+- First start can take 2-3 minutes
+- Health check timeout is 120s
+- Check logs: `docker compose logs -f nextcloud`
+
+**Trusted domain errors:**
+```bash
+# Reconfigure trusted domains
+docker compose exec -u www-data nextcloud php occ config:system:set trusted_domains 0 --value=localhost:8081
+docker compose exec -u www-data nextcloud php occ config:system:set trusted_domains 1 --value=nextcloud
+```
+
+---
+
+### API Issues
+
+**Hot-reload not working:**
+```bash
+# Ensure using dev.sh or docker-compose.dev.yml
+./dev.sh
+
+# Check mounted volumes
+docker compose -f docker-compose.yml -f docker-compose.dev.yml config | grep volumes
+```
+
+**Import errors:**
+```bash
+# Rebuild image
+docker compose build api-dev
+
+# Check Python environment
+docker compose exec api-dev uv pip list
+```
+
+## Advanced Usage
+
+### Local Development (No Docker)
+
+For API development without Docker:
+
+<Steps>
+
+1. **Setup Python environment**
+   ```bash
+   uv sync
+   ```
+
+2. **Start external services**
+   ```bash
+   # Start only infrastructure
+   docker compose up -d db redis nextcloud
+   ```
+
+3. **Run API locally**
+   ```bash
+   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+</Steps>
+
+<Aside type="note">
+  You still need MariaDB, Redis, and Nextcloud running (via Docker or natively).
+</Aside>
+
+---
+
+### Custom Docker Image
+
+Build a custom backend image:
+
+```bash
+# Build with custom tag
+docker build -t assocore-backend:custom .
+
+# Use in docker-compose.yml
+# Change `build: .` to `image: assocore-backend:custom`
+```
+
+---
+
+### Database Migrations
+
+<Aside type="caution">
+  Alembic migrations are not yet implemented. This is a future enhancement.
+</Aside>
+
+If using Alembic in the future:
+
+```bash
+# Generate migration
+docker compose exec api alembic revision --autogenerate -m "Add users table"
+
+# Apply migrations
+docker compose exec api alembic upgrade head
+
+# Rollback
+docker compose exec api alembic downgrade -1
+```
+
+## Performance Tips
+
+### Development
+
+- Use `dev.sh` for instant hot-reload
+- Keep infrastructure services running between coding sessions
+- Use `shutdown.sh --keep-data` to preserve database state
+
+### Production
+
+- Use production mode: `docker compose up -d`
+- Monitor logs: `docker compose logs -f api`
+- Set proper resource limits in docker-compose.yml
+
+## CI/CD Integration
+
+### GitHub Actions Example
+
+```yaml
+name: Backend Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Environment
+        run: |
+          cd back
+          cp .env.example .env
+          
+      - name: Start Services
+        run: |
+          cd back
+          docker compose up -d --wait
+          
+      - name: Run Tests
+        run: |
+          cd back
+          docker compose exec -T api pytest
+```
+
+## Related Documentation
+
+<CardGrid>
+  <Card title="Docker Dev/Prod Guide" icon="open-book">
+    [Complete Docker workflows](/guides/how-to/docker-dev-prod/)
+  </Card>
+  
+  <Card title="Scripts Reference" icon="document">
+    [Automation scripts documentation](/reference/scripts/)
+  </Card>
+  
+  <Card title="Architecture" icon="puzzle">
+    [Backend architecture overview](/architecture/backend-architecture/)
+  </Card>
+  
+  <Card title="API Reference" icon="rocket">
+    [API endpoints documentation](/reference/api/)
+  </Card>
+</CardGrid>
+
+## Next Steps
+
+<Steps>
+
+1. **Setup your backend**
+   ```bash
+   cd back && ./setup.sh
+   ```
+
+2. **Explore the API**
+   - Visit http://localhost:8000/docs
+   - Try out the endpoints
+
+3. **Start developing**
+   - Use `./dev.sh` for hot-reload
+   - Add new routes in `app/routes/`
+
+4. **Read architecture docs**
+   - [Backend Architecture](/architecture/backend-architecture/)
+   - [Tech Stack](/architecture/tech-stack/)
+
+</Steps>

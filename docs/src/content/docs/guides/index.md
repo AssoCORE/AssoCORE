@@ -25,5 +25,7 @@ Practical guides for specific tasks:
 
 ### Development
 
+- **[Backend Development](./backend-development/)** - Complete guide to FastAPI backend development with interactive scripts
+- **[Docker Dev/Prod Guide](./how-to/docker-dev-prod/)** - Development and production Docker workflows
 - [Development Setup](/contributing/development-setup/) - Set up your local development environment
 - [Code Guidelines](/contributing/code-guidelines/) - Follow our coding standards and best practices
