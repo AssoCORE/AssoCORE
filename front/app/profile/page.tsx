@@ -31,7 +31,7 @@ export default function Home() {
 
   // Image upload
   const [image, setImage] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>("/defaut_image.png")
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -77,17 +77,16 @@ export default function Home() {
               {/* Picture profile */}
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="w-24 h-24">
-                  {preview && (
-                    <AvatarImage
-                      src={preview}
-                      alt="Photo de profil"
-                    />
-                  )}
+                  <AvatarImage
+                    src={preview || "/defaut_image.png"}
+                    alt="Photo de profil"
+                  />
                   <AvatarFallback>
                     {name?.[0]}
                     {surname?.[0]}
                   </AvatarFallback>
                 </Avatar>
+
                 <Input
                   type="file"
                   accept="image/*"
