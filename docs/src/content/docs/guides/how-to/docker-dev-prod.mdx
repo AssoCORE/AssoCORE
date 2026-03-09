@@ -1,0 +1,762 @@
+---
+title: Docker Development and Production Environments
+description: Complete guide for Docker development and production workflows with profiles
+sidebar:
+  badge:
+    text: Docker
+    variant: tip
+---
+
+import { Tabs, TabItem, Aside, Steps, Code, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="Quick Start">
+  AssoCORE uses Docker Compose profiles to manage separate development and production environments. Run `docker compose up` for development with hot-reload, or `docker compose --profile prod up` for optimized production builds.
+</Aside>
+
+## Overview
+
+The project uses a **profile-based Docker setup** with three types of services:
+
+<CardGrid>
+  <Card title="Shared Services" icon="puzzle">
+    MariaDB, Redis, and Nextcloud - used by both dev and prod
+  </Card>
+  <Card title="Development Profile" icon="laptop">
+    Hot-reload enabled, volumes mounted, debug builds
+  </Card>
+  <Card title="Production Profile" icon="rocket">
+    Optimized builds, no volumes, release artifacts
+  </Card>
+</CardGrid>
+
+## Quick Commands
+
+### Development (Default Profile)
+
+```bash
+# Start all dev services
+docker compose up
+
+# Start specific service
+docker compose up backend
+
+# Build and start
+docker compose up --build
+
+# View logs
+docker compose logs -f backend
+
+# Stop services
+docker compose down
+```
+
+### Production Profile
+
+```bash
+# Start all production services
+docker compose --profile prod up
+
+# Build and start prod services
+docker compose --profile prod up --build
+
+# Start in background
+docker compose --profile prod up -d
+
+# View logs
+docker compose --profile prod logs -f
+
+# Stop prod services
+docker compose --profile prod down
+```
+
+## Service Architecture
+
+### Shared Infrastructure
+
+These services are used by both development and production environments:
+
+<Tabs>
+  <TabItem label="Database">
+    **MariaDB 10.11**
+    
+    ```yaml
+    Service: db
+    Port: 3306 (internal)
+    Volume: ./data/db:/var/lib/mysql
+    Health Check: mariadb-admin ping
+    ```
+    
+    Used for both Nextcloud and application data.
+  </TabItem>
+
+  <TabItem label="Cache">
+    **Redis Alpine**
+    
+    ```yaml
+    Service: redis
+    Port: 6379 (internal)
+    Image: redis:alpine
+    ```
+    
+    Provides caching for Nextcloud and application sessions.
+  </TabItem>
+
+  <TabItem label="File Storage">
+    **Nextcloud Latest**
+    
+    ```yaml
+    Service: nextcloud
+    Port: 8081 (exposed)
+    Volume: ./data/nextcloud:/var/www/html
+    Trusted Domains: localhost:8081, nextcloud
+    ```
+    
+    File storage and collaboration platform.
+  </TabItem>
+</Tabs>
+
+### Development Services
+
+Development services include hot-reload and mounted volumes for rapid iteration:
+
+<Steps>
+
+1. **Backend (FastAPI)**
+
+   ```bash
+   docker compose up backend
+   ```
+
+   <Aside type="note">
+     - **Profile**: `dev` (default)
+     - **Port**: 8000
+     - **Target**: `development` stage in Dockerfile
+     - **Features**: 
+       - Auto-reload on code changes
+       - Volume mount: `./back:/app`
+       - Development dependencies included
+   </Aside>
+
+2. **Frontend (Next.js)**
+
+   ```bash
+   docker compose up frontend
+   ```
+
+   <Aside type="note">
+     - **Profile**: `dev` (default)
+     - **Port**: 3000
+     - **Target**: `development` stage in Dockerfile
+     - **Features**:
+       - Hot Module Replacement (HMR)
+       - Volume mount: `./front:/app`
+       - Dev server with fast refresh
+   </Aside>
+
+3. **Mobile (Flutter)**
+
+   ```bash
+   docker compose up mobile
+   ```
+
+   <Aside type="note">
+     - **Profile**: `dev` (default)
+     - **Output**: `./build/mobile/app-debug.apk`
+     - **Features**:
+       - Debug APK build
+       - Flutter hot-reload ready
+       - Volume mount: `./mobile:/app`
+   </Aside>
+
+</Steps>
+
+### Production Services
+
+Production services are optimized for performance and security:
+
+<Steps>
+
+1. **Backend Production**
+
+   ```bash
+   docker compose --profile prod up backend_prod
+   ```
+
+   <Aside type="caution">
+     - **Service**: `backend_prod`
+     - **Port**: 8000
+     - **Target**: `production` stage in Dockerfile
+     - **Optimizations**:
+       - No reload, faster startup
+       - Minimal dependencies
+       - Python 3.11-slim base
+       - No source volumes
+   </Aside>
+
+2. **Frontend Production**
+
+   ```bash
+   docker compose --profile prod up frontend_prod
+   ```
+
+   <Aside type="caution">
+     - **Service**: `frontend_prod`
+     - **Port**: 3000
+     - **Target**: `production` stage in Dockerfile
+     - **Optimizations**:
+       - Standalone Next.js build
+       - Static assets optimized
+       - Node.js Alpine base
+       - Runs as non-root user
+   </Aside>
+
+3. **Mobile Production**
+
+   ```bash
+   docker compose --profile prod up mobile_prod
+   ```
+
+   <Aside type="caution">
+     - **Service**: `mobile_prod`
+     - **Output**: `./build/mobile/assocore.apk`
+     - **Optimizations**:
+       - Release APK (signed)
+       - Code obfuscation enabled
+       - Optimized for size
+   </Aside>
+
+</Steps>
+
+## Multi-Stage Dockerfiles
+
+Each service uses multi-stage builds to support both development and production:
+
+### Backend Dockerfile Structure
+
+```dockerfile
+# Development stage - hot-reload enabled
+FROM python:3.11-slim AS development
+WORKDIR /app
+RUN pip install --no-cache-dir uv
+COPY back/pyproject.toml back/uv.lock ./
+RUN uv pip install --system --no-cache -r pyproject.toml
+ENV PYTHONUNBUFFERED=1
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--reload"]
+
+# Production dependencies stage
+FROM python:3.11-slim AS deps
+# ... install dependencies
+
+# Production runtime stage
+FROM python:3.11-slim AS production
+COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY back/app ./app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
+```
+
+<Aside type="tip">
+  The `target` parameter in docker-compose.yml selects which stage to build:
+  - `target: development` for dev profile
+  - `target: production` for prod profile
+</Aside>
+
+### Frontend Dockerfile Structure
+
+```dockerfile
+# Development stage - HMR enabled
+FROM node:20-alpine AS development
+RUN npm install -g pnpm
+ENV NODE_ENV=development
+CMD ["sh", "-c", "pnpm install && pnpm dev"]
+
+# Build dependencies
+FROM nixos/nix:latest AS deps
+# ... Nix + pnpm setup
+
+# Build stage
+FROM nixos/nix:latest AS builder
+# ... build Next.js
+
+# Production runtime
+FROM node:20-alpine AS production
+COPY --from=builder /app/.next/standalone ./
+USER nextjs
+CMD ["node", "server.js"]
+```
+
+## Automated Scripts
+
+Use the provided scripts for common workflows:
+
+### Development Setup
+
+```bash
+# Quick start development environment
+./scripts/docker-dev.sh
+```
+
+<Aside>
+  This script:
+  - Checks prerequisites (Docker, env files)
+  - Creates necessary directories
+  - Starts dev services with live logs
+  - Opens services in browser
+</Aside>
+
+### Production Build
+
+```bash
+# Build and test production images
+./scripts/docker-prod.sh
+```
+
+<Aside>
+  This script:
+  - Validates environment configuration
+  - Builds production images
+  - Runs health checks
+  - Provides access URLs
+</Aside>
+
+### Complete Deployment
+
+```bash
+# One-command deployment (interactive)
+./scripts/docker-deploy.sh
+```
+
+<Aside type="tip">
+  Similar to `k8s/deploy-all.sh`, this script provides:
+  - Interactive environment selection
+  - Configuration validation
+  - Step-by-step deployment
+  - Health monitoring
+  - Clean colored output
+</Aside>
+
+## Environment Configuration
+
+### Development Environment
+
+Create `back/.env` for development:
+
+```bash
+# Database
+MARIADB_ROOT_PASSWORD=dev_root_password
+NEXTCLOUD_DB_NAME=nextcloud_dev
+NEXTCLOUD_DB_USER=nextcloud_user
+NEXTCLOUD_DB_PASSWORD=dev_password
+
+# Backend
+DATABASE_URL=mysql+aiomysql://nextcloud_user:dev_password@db:3306/nextcloud_dev
+ENVIRONMENT=development
+
+# Optional: API Keys for development
+STRIPE_SECRET_KEY=sk_test_...
+JWT_SECRET_KEY=$(openssl rand -hex 32)
+```
+
+<Aside type="caution">
+  Never commit `.env` files to Git! They're included in `.gitignore`.
+</Aside>
+
+### Production Environment
+
+For production, use stronger credentials:
+
+```bash
+# Generate secure passwords
+openssl rand -base64 32  # For database passwords
+openssl rand -hex 32     # For JWT secrets
+
+# Production .env
+MARIADB_ROOT_PASSWORD=$(openssl rand -base64 32)
+NEXTCLOUD_DB_NAME=nextcloud_prod
+NEXTCLOUD_DB_USER=nextcloud_prod
+NEXTCLOUD_DB_PASSWORD=$(openssl rand -base64 32)
+DATABASE_URL=mysql+aiomysql://nextcloud_prod:${NEXTCLOUD_DB_PASSWORD}@db:3306/nextcloud_prod
+ENVIRONMENT=production
+```
+
+## Networking
+
+All services communicate via the `assocore` bridge network:
+
+```yaml
+networks:
+  assocore:
+    driver: bridge
+```
+
+### Service Communication
+
+<Tabs>
+  <TabItem label="Internal">
+    Services reach each other by service name:
+    
+    ```bash
+    # Backend connects to database
+    DATABASE_URL=mysql://user:pass@db:3306/dbname
+    
+    # Backend connects to Redis
+    REDIS_URL=redis://redis:6379
+    
+    # Frontend connects to Backend
+    NEXT_PUBLIC_API_URL=http://backend:8000
+    ```
+  </TabItem>
+
+  <TabItem label="External">
+    Host machine accesses via published ports:
+    
+    ```bash
+    # Frontend
+    http://localhost:3000
+    
+    # Backend API
+    http://localhost:8000
+    
+    # Backend API Docs
+    http://localhost:8000/docs
+    
+    # Nextcloud
+    http://localhost:8081
+    ```
+  </TabItem>
+</Tabs>
+
+## Volume Management
+
+### Development Volumes
+
+```yaml
+volumes:
+  # Source code (hot-reload)
+  - ./back:/app              # Backend source
+  - ./front:/app             # Frontend source
+  - ./mobile:/app            # Mobile source
+  
+  # Data persistence
+  - ./data/db:/var/lib/mysql           # Database
+  - ./data/nextcloud:/var/www/html     # Nextcloud
+  
+  # Build outputs
+  - ./build/mobile:/output   # APK files
+```
+
+### Production Volumes
+
+```yaml
+volumes:
+  # Data persistence only
+  - ./data/db:/var/lib/mysql
+  - ./data/nextcloud:/var/www/html
+  - ./build/mobile:/output
+  
+  # No source code volumes - code is baked into images
+```
+
+<Aside type="caution">
+  Always back up `./data` directory regularly in production!
+</Aside>
+
+## Common Tasks
+
+### Rebuilding Services
+
+<Tabs>
+  <TabItem label="Development">
+    ```bash
+    # Rebuild specific service
+    docker compose build backend
+    docker compose up backend
+    
+    # Rebuild all dev services
+    docker compose build
+    docker compose up
+    
+    # Force rebuild without cache
+    docker compose build --no-cache backend
+    ```
+  </TabItem>
+
+  <TabItem label="Production">
+    ```bash
+    # Rebuild specific prod service
+    docker compose --profile prod build backend_prod
+    docker compose --profile prod up backend_prod
+    
+    # Rebuild all prod services
+    docker compose --profile prod build
+    docker compose --profile prod up
+    
+    # Force rebuild
+    docker compose --profile prod build --no-cache
+    ```
+  </TabItem>
+</Tabs>
+
+### Viewing Logs
+
+```bash
+# All services logs
+docker compose logs -f
+
+# Specific service
+docker compose logs -f backend
+
+# Last 100 lines
+docker compose logs --tail=100 backend
+
+# Since timestamp
+docker compose logs --since 2024-03-01T00:00:00
+```
+
+### Executing Commands
+
+```bash
+# Shell into backend container
+docker compose exec backend sh
+
+# Run Django migrations (example)
+docker compose exec backend uv run python manage.py migrate
+
+# Install new package (dev)
+docker compose exec backend uv add fastapi-utils
+
+# Check backend Python version
+docker compose exec backend python --version
+```
+
+### Database Management
+
+```bash
+# Connect to MySQL
+docker compose exec db mysql -u root -p
+
+# Backup database
+docker compose exec db mysqldump -u root -p nextcloud_db > backup.sql
+
+# Restore database
+docker compose exec -T db mysql -u root -p nextcloud_db < backup.sql
+
+# Check database status
+docker compose exec db mariadb-admin ping -h localhost
+```
+
+## Troubleshooting
+
+### Service Won't Start
+
+<Steps>
+
+1. Check logs for errors:
+   ```bash
+   docker compose logs backend
+   ```
+
+2. Verify environment file exists:
+   ```bash
+   ls -la back/.env
+   ```
+
+3. Check Docker daemon:
+   ```bash
+   docker info
+   systemctl status docker
+   ```
+
+4. Rebuild without cache:
+   ```bash
+   docker compose down -v
+   docker compose build --no-cache
+   docker compose up
+   ```
+
+</Steps>
+
+### Database Connection Errors
+
+```bash
+# Check database is running
+docker compose ps db
+
+# Check database health
+docker compose exec db mariadb-admin ping -h localhost
+
+# View database logs
+docker compose logs db
+
+# Reset database (⚠️ DESTROYS DATA)
+docker compose down -v
+docker volume rm $(docker volume ls -q | grep mariadb)
+docker compose up db
+```
+
+### Port Already in Use
+
+```bash
+# Find process using port 8000
+sudo lsof -i :8000
+
+# Kill process
+kill -9 <PID>
+
+# Or change port in docker-compose.yml
+ports:
+  - "8001:8000"  # Changed from 8000:8000
+```
+
+### Out of Disk Space
+
+```bash
+# Remove unused images
+docker image prune -a
+
+# Remove unused volumes
+docker volume prune
+
+# Remove all stopped containers
+docker container prune
+
+# Clean everything
+docker system prune -a --volumes
+```
+
+### Frontend Won't Hot-Reload
+
+<Tabs>
+  <TabItem label="Linux">
+    Increase inotify watches:
+    ```bash
+    echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+    ```
+  </TabItem>
+
+  <TabItem label="Docker Desktop">
+    Ensure file sharing is enabled for project directory in Docker Desktop settings.
+  </TabItem>
+
+  <TabItem label="WSL2">
+    ```bash
+    # In WSL2
+    echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+    
+    # Restart Docker Desktop
+    ```
+  </TabItem>
+</Tabs>
+
+## Performance Optimization
+
+### Development
+
+```yaml
+# Use BuildKit for faster builds
+DOCKER_BUILDKIT=1 docker compose build
+
+# Use layer caching
+docker compose build --build-arg BUILDKIT_INLINE_CACHE=1
+```
+
+### Production
+
+```yaml
+# Multi-stage builds already optimized
+# Additional optimizations:
+
+# 1. Use specific base image versions
+FROM python:3.11.8-slim AS production  # Instead of :latest
+
+# 2. Minimize layers
+RUN apt-get update && apt-get install -y \
+    package1 package2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. Use .dockerignore
+# Exclude unnecessary files from build context
+```
+
+## Security Best Practices
+
+<CardGrid>
+  <Card title="Non-Root Users" icon="shield">
+    Production images run as non-root users (nextjs, www-data)
+  </Card>
+  <Card title="Minimal Images" icon="box">
+    Use Alpine or slim variants to reduce attack surface
+  </Card>
+  <Card title="Secrets" icon="key">
+    Never hardcode secrets - use .env files (gitignored)
+  </Card>
+  <Card title="Updates" icon="refresh">
+    Regularly update base images and dependencies
+  </Card>
+</CardGrid>
+
+### Scanning Images
+
+```bash
+# Install trivy
+brew install trivy  # or apt-get install trivy
+
+# Scan development image
+docker compose build backend
+docker scan $(docker compose images -q backend)
+
+# Scan production image
+docker compose --profile prod build backend_prod
+docker scan $(docker compose --profile prod images -q backend_prod)
+```
+
+## Migration Path
+
+### From Development to Production
+
+<Steps>
+
+1. **Test Production Locally**
+   ```bash
+   docker compose --profile prod up
+   ```
+
+2. **Verify Health Checks**
+   ```bash
+   curl http://localhost:8000/health
+   curl http://localhost:3000/api/health
+   ```
+
+3. **Push to Registry**
+   ```bash
+   ./scripts/build-and-push.sh v1.0.0
+   ```
+
+4. **Deploy to Kubernetes**
+   ```bash
+   ./k8s/deploy-all.sh
+   ```
+
+</Steps>
+
+## Related Documentation
+
+- [Docker Basics](/guides/how-to/docker-basics) - Fundamental Docker concepts
+- [Docker Deployment](/guides/how-to/docker-deployment) - GHCR deployment guide
+- [Kubernetes Deployment](/guides/how-to/kubernetes-deployment) - K8s setup
+- [Development Setup](/contributing/development-setup) - Complete dev environment
+
+## Next Steps
+
+<CardGrid>
+  <Card title="Try Development" icon="laptop">
+    Run `./scripts/docker-dev.sh` to start developing immediately
+  </Card>
+  <Card title="Test Production" icon="rocket">
+    Run `./scripts/docker-prod.sh` to test prod builds locally
+  </Card>
+  <Card title="Full Deployment" icon="star">
+    Run `./scripts/docker-deploy.sh` for complete guided setup
+  </Card>
+</CardGrid>

@@ -7,46 +7,81 @@ set -e
 TAG=${1:-latest}
 REPO="ghcr.io/assocore/assocore"
 
-echo "Building and pushing Docker images..."
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}Building and Pushing Docker Images to GHCR${NC}"
+echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
+echo ""
 echo "Tag: $TAG"
 echo "Repository: $REPO"
 echo ""
 
 # Check if logged in
 if ! docker info | grep -q "ghcr.io"; then
-    echo "Not logged in to GHCR. Running login script..."
+    echo -e "${YELLOW}Not logged in to GHCR. Running login script...${NC}"
     ./scripts/ghcr-login.sh
+    echo ""
 fi
 
+# Enable BuildKit
+export DOCKER_BUILDKIT=1
+
 # Backend
-echo "📦 Building backend..."
-docker build -f docker/backend.Dockerfile -t "$REPO/backend:$TAG" .
-echo "⬆️  Pushing backend..."
+echo -e "${BLUE}📦 Building backend...${NC}"
+docker build \
+    -f docker/backend.Dockerfile \
+    --target production \
+    -t "$REPO/backend:$TAG" \
+    .
+echo -e "${BLUE}⬆️  Pushing backend...${NC}"
 docker push "$REPO/backend:$TAG"
-echo "✓ Backend pushed"
+echo -e "${GREEN}✓ Backend pushed${NC}"
 echo ""
 
 # Frontend
-echo "📦 Building frontend..."
-docker build -f docker/frontend.Dockerfile -t "$REPO/frontend:$TAG" .
-echo "⬆️  Pushing frontend..."
+echo -e "${BLUE}📦 Building frontend...${NC}"
+docker build \
+    -f docker/frontend.Dockerfile \
+    --target production \
+    -t "$REPO/frontend:$TAG" \
+    .
+echo -e "${BLUE}⬆️  Pushing frontend...${NC}"
 docker push "$REPO/frontend:$TAG"
-echo "✓ Frontend pushed"
+echo -e "${GREEN}✓ Frontend pushed${NC}"
 echo ""
 
 # Mobile (optional - only build, don't push as it's just for APK generation)
-read -p "Build mobile image? (y/N) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "📦 Building mobile..."
-    docker build -f docker/mobile.Dockerfile -t "$REPO/mobile:$TAG" .
-    echo "⬆️  Pushing mobile..."
+if [ "$2" = "--with-mobile" ]; then
+    echo -e "${BLUE}📦 Building mobile...${NC}"
+    docker build \
+        -f docker/mobile.Dockerfile \
+        --target production \
+        -t "$REPO/mobile:$TAG" \
+        .
+    echo -e "${BLUE}⬆️  Pushing mobile...${NC}"
     docker push "$REPO/mobile:$TAG"
-    echo "✓ Mobile pushed"
+    echo -e "${GREEN}✓ Mobile pushed${NC}"
+    echo ""
 fi
 
 echo ""
-echo "✓ All images built and pushed successfully!"
+echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}✓ All images built and pushed successfully!${NC}"
+echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+echo ""
+echo "Images tagged as:"
+echo "  - $REPO/backend:$TAG"
+echo "  - $REPO/frontend:$TAG"
+if [ "$2" = "--with-mobile" ]; then
+    echo "  - $REPO/mobile:$TAG"
+fi
 echo ""
 echo "Images:"
 echo "  - $REPO/backend:$TAG"

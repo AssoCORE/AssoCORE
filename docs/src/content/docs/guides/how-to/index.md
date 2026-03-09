@@ -15,6 +15,22 @@ Complete beginner's guide to Docker concepts and commands. Learn about container
 
 ---
 
+### [Docker Development and Production](./docker-dev-prod/)
+
+Master Docker development and production workflows with profiles. Learn to use hot-reload for development, build optimized production images, and use interactive deployment scripts.
+
+**Perfect for:** Daily development work, testing production builds locally, and understanding multi-stage Dockerfiles.
+
+---
+
+### [Docker Deployment with GHCR](./docker-deployment/)
+
+Automated Docker image builds using GitHub Actions and GitHub Container Registry (GHCR). Learn to publish container images for production deployments.
+
+**Perfect for:** CI/CD pipelines, publishing releases, and container registry workflows.
+
+---
+
 ### [Kubernetes Deployment](./kubernetes-deployment/)
 
 Deploy AssoCORE on Kubernetes using k3d. Includes complete kubectl reference and troubleshooting guide.
