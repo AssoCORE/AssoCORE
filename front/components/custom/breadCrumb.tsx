@@ -69,12 +69,12 @@ function BreadCrumbElement({ link }: HeaderProps) {
 export default function BreadCrumb() {
   const pathName = usePathname();
   return (
-    <>
+    <div>
       <Breadcrumb>
         <BreadcrumbList>
           <BreadCrumbElement link={pathName} />
         </BreadcrumbList>
       </Breadcrumb>
-    </>
+    </div>
   );
 }

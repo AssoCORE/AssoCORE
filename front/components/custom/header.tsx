@@ -12,9 +12,9 @@ export default function header() {
   const pathName = usePathname();
 
   return (
-    <>
-      <DarkButton />
+    <div className="flex items-center justify-between w-full">
       <BreadCrumb />
-    </>
+      <DarkButton />
+    </div>
   );
 }
