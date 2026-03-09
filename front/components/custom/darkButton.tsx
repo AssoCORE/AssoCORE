@@ -21,10 +21,10 @@ export default function DarkButton() {
   }
 
   const currentIcon =
-    resolvedTheme === "dark" ? (
-      <Sun size={24} className="text-yellow-500" />
+    resolvedTheme === "light" ? (
+      <Sun size={24} className="text-gray-500" />
     ) : (
-      <Moon size={24} strokeWidth={2} className="text-gray-700" />
+      <Moon size={24} strokeWidth={2} className="text-golden-700" />
     );
 
   return (
