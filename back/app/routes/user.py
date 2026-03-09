@@ -122,21 +122,21 @@ async def delete_reminder():
 
 # CLOUD
 @router.get("/cloud/", description="send an address toward NextCloud's file system")
-async def get_ns_iframe():
+async def get_ns_cloud():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/calendar/", description="send an address toward NextCloud's calendar system")
-async def get_ns_iframe():
+async def get_ns_calendar():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/calendar/", description="send an address toward NextCloud's calendar system")
-async def get_ns_iframe():
+@router.get("/contact/", description="send an address toward NextCloud's contact system")
+async def get_ns_contacts():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
@@ -144,7 +144,7 @@ async def get_ns_iframe():
 
 
 @router.get("/notes/", description="send an address toward NextCloud's notes system")
-async def get_ns_iframe():
+async def get_ns_notes():
     try:
         return JSONResponse(content={"Response":"OK"})
     except Exception as e:
