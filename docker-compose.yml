@@ -1,4 +1,8 @@
 services:
+  # ============================================================================
+  # SHARED SERVICES (used by both dev and prod)
+  # ============================================================================
+
   # Database for Nextcloud
   db:
     image: mariadb:10.11
@@ -18,11 +22,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - assocore
 
   # Redis cache
   redis:
     image: redis:alpine
     restart: unless-stopped
+    networks:
+      - assocore
 
   # Nextcloud instance
   nextcloud:
@@ -44,12 +52,20 @@ services:
       - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
     volumes:
       - ./data/nextcloud:/var/www/html
+    networks:
+      - assocore
 
-  # Backend API
+  # ============================================================================
+  # DEVELOPMENT SERVICES (default profile)
+  # ============================================================================
+
+  # Backend API - Development
   backend:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: development
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -60,22 +76,104 @@ services:
       - back/.env
     environment:
       - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      - ENVIRONMENT=development
+    volumes:
+      - ./back:/app
+    networks:
+      - assocore
 
-  # Frontend
+  # Frontend - Development
   frontend:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
+      target: development
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./front:/app
+      - /app/node_modules
+    networks:
+      - assocore
 
-  # Mobile APK builder
+  # Mobile APK builder - Development
   mobile:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: docker/mobile.Dockerfile
+      target: development
     volumes:
       - ./build/mobile:/output
+      - ./mobile:/app
+    networks:
+      - assocore
+
+  # ============================================================================
+  # PRODUCTION SERVICES (prod profile)
+  # ============================================================================
+
+  # Backend API - Production
+  backend_prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: production
+      args:
+        - BUILD_ENV=production
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - nextcloud
+    env_file:
+      - back/.env
+    environment:
+      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      - ENVIRONMENT=production
+    networks:
+      - assocore
+
+  # Frontend - Production
+  frontend_prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      target: production
+      args:
+        - BUILD_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend_prod
+    environment:
+      - NODE_ENV=production
+    networks:
+      - assocore
+
+  # Mobile APK builder - Production (Release build)
+  mobile_prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: docker/mobile.Dockerfile
+      target: production
+      args:
+        - BUILD_ENV=production
+    volumes:
+      - ./build/mobile:/output
+    networks:
+      - assocore
+
+networks:
+  assocore:
+    driver: bridge
 

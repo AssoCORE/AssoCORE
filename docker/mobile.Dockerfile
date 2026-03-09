@@ -1,3 +1,37 @@
+# ==============================================================================
+# DEVELOPMENT STAGE
+# ==============================================================================
+FROM ghcr.io/cirruslabs/flutter:stable AS development
+WORKDIR /app
+
+# Install OpenJDK 17 for Android builds
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jdk && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+# Disable Flutter analytics
+ENV FLUTTER_TELEMETRY_DISABLED=1
+ENV PUB_CACHE=/root/.pub-cache
+
+# Accept Android licenses
+RUN yes | flutter doctor --android-licenses || true && \
+    flutter config --no-analytics
+
+# Expose ports for Flutter debugging
+EXPOSE 5000
+
+# Build debug APK and keep container running for incremental builds
+CMD ["sh", "-c", "flutter pub get && flutter build apk --debug && echo 'Debug APK built at /app/build/app/outputs/flutter-apk/app-debug.apk' && tail -f /dev/null"]
+
+# ==============================================================================
+# PRODUCTION STAGE
+# ==============================================================================
+
 # Stage 1: Build APK with minimal Flutter setup
 FROM ghcr.io/cirruslabs/flutter:stable AS builder
 WORKDIR /app
@@ -28,7 +62,7 @@ RUN yes | flutter doctor --android-licenses || true && \
 RUN flutter build apk --release
 
 # Stage 2: Extract APK
-FROM alpine:latest AS runner
+FROM alpine:latest AS production
 WORKDIR /output
 
 # Copy built APK from builder

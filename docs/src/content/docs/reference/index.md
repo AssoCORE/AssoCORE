@@ -21,6 +21,20 @@ Detailed documentation of all APIs:
 - Deployment Settings
 - Integration Configuration
 
+## Docker & Deployment
+
+### [Docker Quick Reference](./docker-quick-reference/)
+
+Quick reference for Docker commands, profiles, and workflows. Includes dev/prod environments, troubleshooting, and best practices.
+
+---
+
+### [Scripts Reference](./scripts/)
+
+Complete guide to automation scripts - Docker deployment and GHCR operations. Interactive scripts with clean terminal output for development and production workflows.
+
+---
+
 ## Security & Operations
 
 ### [Secrets Technical Reference](./secrets-technical-reference/)

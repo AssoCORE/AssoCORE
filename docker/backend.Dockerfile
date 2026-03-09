@@ -1,3 +1,32 @@
+# ==============================================================================
+# DEVELOPMENT STAGE
+# ==============================================================================
+FROM python:3.11-slim AS development
+WORKDIR /app
+
+# Install uv for faster dependency management
+RUN pip install --no-cache-dir uv
+
+# Copy dependency files
+COPY back/pyproject.toml back/uv.lock ./
+
+# Install dependencies using uv
+RUN uv pip install --system --no-cache -r pyproject.toml
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose port
+EXPOSE 8000
+
+# Run with auto-reload for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ==============================================================================
+# PRODUCTION STAGE
+# ==============================================================================
+
 # Stage 1: Dependencies
 FROM python:3.11-slim AS deps
 WORKDIR /app
@@ -12,7 +41,7 @@ COPY back/pyproject.toml back/uv.lock ./
 RUN uv pip install --system --no-cache -r pyproject.toml
 
 # Stage 2: Production
-FROM python:3.11-slim AS runner
+FROM python:3.11-slim AS production
 WORKDIR /app
 
 # Copy installed dependencies from deps stage
@@ -29,5 +58,5 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Expose port
 EXPOSE 8000
 
-# Run uvicorn server
+# Run uvicorn server (production - no reload)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

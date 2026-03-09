@@ -1,3 +1,26 @@
+# ==============================================================================
+# DEVELOPMENT STAGE
+# ==============================================================================
+FROM node:20-alpine AS development
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Set environment
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Expose port
+EXPOSE 3000
+
+# Start development server with hot-reload
+CMD ["sh", "-c", "pnpm install && pnpm dev"]
+
+# ==============================================================================
+# PRODUCTION STAGES
+# ==============================================================================
+
 # Stage 1: Dependencies
 FROM nixos/nix:latest AS deps
 WORKDIR /app
@@ -37,7 +60,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # Stage 3: Production
-FROM node:20-alpine AS runner
+FROM node:20-alpine AS production
 WORKDIR /app
 
 # Set production environment

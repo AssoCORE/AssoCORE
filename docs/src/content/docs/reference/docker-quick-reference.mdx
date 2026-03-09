@@ -1,0 +1,254 @@
+---
+title: Docker Quick Reference
+description: Quick reference guide for Docker Compose profiles and common commands
+sidebar:
+  badge:
+    text: Reference
+    variant: note
+---
+
+import { Tabs, TabItem, Aside, Steps, Code } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="Quick Reference">
+  This is a condensed reference for Docker operations. For detailed workflows and tutorials, see the [Docker Dev/Prod Guide](/guides/how-to/docker-dev-prod/).
+</Aside>
+
+## Quick Start
+
+<Tabs>
+  <TabItem label="Development">
+    Development mode includes hot-reloading, mounted volumes, and debug builds:
+
+    ```bash
+    # Start all dev services
+    docker compose up
+
+    # Start specific dev service
+    docker compose up backend
+
+    # Build and start dev services
+    docker compose up --build
+
+    # Stop services
+    docker compose down
+    ```
+  </TabItem>
+
+  <TabItem label="Production">
+    Production mode uses optimized builds without hot-reloading:
+
+    ```bash
+    # Start all production services
+    docker compose --profile prod up
+
+    # Start specific prod service
+    docker compose --profile prod up backend_prod
+
+    # Build and start prod services
+    docker compose --profile prod up --build
+
+    # Stop prod services
+    docker compose --profile prod down
+    ```
+  </TabItem>
+</Tabs>
+
+## Services Overview
+
+### Shared Services (Both Dev & Prod)
+
+- **db** - MariaDB 10.11 database
+- **redis** - Redis cache (Alpine)
+- **nextcloud** - Nextcloud file storage
+
+### Development Services (`dev` profile - default)
+
+- **backend** - FastAPI backend with hot-reload on port 8000
+  - Source: `./back` mounted as volume
+  - Auto-reload on code changes
+
+- **frontend** - Next.js frontend with hot-reload on port 3000
+  - Source: `./front` mounted as volume
+  - Auto-reload on code changes
+
+- **mobile** - Flutter debug APK builder
+  - Source: `./mobile` mounted as volume
+  - Builds debug APK
+
+### Production Services (`prod` profile)
+
+- **backend_prod** - Optimized FastAPI backend on port 8000
+  - No volumes, optimized image
+  - Production-ready build
+
+- **frontend_prod** - Optimized Next.js frontend on port 3000
+  - Standalone production build
+  - Static assets optimized
+
+- **mobile_prod** - Flutter release APK builder
+  - Builds signed release APK
+  - Output to `./build/mobile/assocore.apk`
+
+## Dockerfile Stages
+
+Each Dockerfile supports multi-stage builds:
+
+### backend.Dockerfile
+
+- **development** - Python with uvicorn reload
+- **production** - Optimized slim image
+
+### frontend.Dockerfile
+
+- **development** - Node.js with pnpm dev server
+- **production** - Standalone Next.js build
+
+### mobile.Dockerfile
+
+- **development** - Debug APK build
+- **production** - Release APK build
+
+## Common Commands
+
+<Tabs>
+  <TabItem label="Development">
+    ```bash
+    # Development workflow
+    docker compose up                          # Start dev services
+    docker compose logs -f backend             # Follow backend logs
+    docker compose restart backend             # Restart backend
+    docker compose exec backend sh             # Shell into backend
+
+    # Build specific service
+    docker compose build backend               # Build dev backend
+    ```
+  </TabItem>
+
+  <TabItem label="Production">
+    ```bash
+    # Production workflow
+    docker compose --profile prod up -d        # Start prod in background
+    docker compose --profile prod logs -f      # Follow all prod logs
+    docker compose --profile prod ps           # List prod containers
+
+    # Build specific service
+    docker compose --profile prod build backend_prod  # Build prod backend
+    ```
+  </TabItem>
+
+  <TabItem label="Cleanup">
+    ```bash
+    # Clean up
+    docker compose down -v                     # Remove containers & volumes
+    docker compose --profile prod down -v      # Remove prod containers & volumes
+    
+    # Remove images
+    docker image prune -a                      # Remove unused images
+    ```
+  </TabItem>
+</Tabs>
+
+## Volume Mounts
+
+### Development
+
+- `./back:/app` - Backend source code
+- `./front:/app` - Frontend source code (node_modules excluded)
+- `./mobile:/app` - Mobile source code
+- `./data/db:/var/lib/mysql` - Database persistence
+- `./data/nextcloud:/var/www/html` - Nextcloud data
+- `./build/mobile:/output` - Mobile APK output
+
+### Production
+
+- `./data/db:/var/lib/mysql` - Database persistence
+- `./data/nextcloud:/var/www/html` - Nextcloud data
+- `./build/mobile:/output` - Mobile release APK output
+
+## Environment Variables
+
+Create a `.env` file in the `back/` directory:
+
+```bash
+# Database
+MARIADB_ROOT_PASSWORD=your_root_password
+NEXTCLOUD_DB_NAME=nextcloud_db
+NEXTCLOUD_DB_USER=nextcloud_user
+NEXTCLOUD_DB_PASSWORD=your_db_password
+
+# Backend
+DATABASE_URL=mysql+aiomysql://nextcloud_user:your_db_password@db:3306/nextcloud_db
+```
+
+## Port Mapping
+
+- **3000** - Frontend (dev & prod)
+- **8000** - Backend API (dev & prod)
+- **8081** - Nextcloud
+
+## Troubleshooting
+
+### Services won't start
+
+```bash
+# Check logs
+docker compose logs
+
+# Rebuild from scratch
+docker compose down -v
+docker compose build --no-cache
+docker compose up
+```
+
+### Database connection issues
+
+```bash
+# Check database health
+docker compose exec db mariadb-admin ping -h localhost
+
+# Reset database
+docker compose down -v
+docker compose up db
+```
+
+### Frontend build errors
+
+```bash
+# Clear node_modules and rebuild
+docker compose down frontend
+docker volume rm $(docker volume ls -q | grep node_modules)
+docker compose build --no-cache frontend
+docker compose up frontend
+```
+
+### Mobile APK not building
+
+```bash
+# Check mobile logs
+docker compose logs mobile
+
+# Get APK from container
+docker compose cp mobile:/output/assocore.apk ./build/mobile/
+```
+
+## Best Practices
+
+1. **Development**: Always use default profile for local development
+2. **Production**: Test prod builds locally before deploying
+3. **Volumes**: Back up `./data` directory regularly
+4. **Security**: Never commit `.env` files to version control
+5. **Updates**: Rebuild images after dependency changes
+
+## Network
+
+All services communicate via the `assocore` bridge network:
+
+- Services can reach each other by service name (e.g., `http://backend:8000`)
+- Shared network between dev and prod services
+- Isolated from host network
+
+## Related Documentation
+
+- [Docker Dev/Prod Complete Guide](/guides/how-to/docker-dev-prod/) - Detailed workflows and tutorials
+- [Scripts Reference](/reference/scripts/) - Automation scripts documentation
+- [Kubernetes Deployment](/guides/how-to/kubernetes-deployment/) - K8s deployment guide
