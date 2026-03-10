@@ -31,7 +31,7 @@ export default function Home() {
 
   // Image upload
   const [image, setImage] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>("/defaut_image.png")
+  const [preview, setPreview] = useState<string | null>("/default_image.png")
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -40,6 +40,13 @@ export default function Home() {
     const objectUrl = URL.createObjectURL(file)
     setPreview(objectUrl)
   }
+
+  // Regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const phoneRegex = /^(?:0|\+33)[1-9](?:\d{2}){4}$/
+
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   // Text edit
   const renderInput = (
@@ -55,6 +62,26 @@ export default function Home() {
       aria-label={ariaLabel}
     />
   )
+
+  // Validation email
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    if (!emailRegex.test(value)) {
+      setEmailError("Email invalide")
+    } else {
+      setEmailError(null)
+    }
+  }
+
+  // Validation téléphone
+  const handlePhoneChange = (value: string) => {
+    setPhoneNumber(value)
+    if (!phoneRegex.test(value)) {
+      setPhoneError("Numéro de téléphone invalide")
+    } else {
+      setPhoneError(null)
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -78,7 +105,7 @@ export default function Home() {
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="w-24 h-24">
                   <AvatarImage
-                    src={preview || "/defaut_image.png"}
+                    src={preview || "/default_image.png"}
                     alt="Photo de profil"
                   />
                   <AvatarFallback>
@@ -129,10 +156,12 @@ export default function Home() {
               </Popover>
 
               {/* Email */}
-              {renderInput("Adresse électronique", email, setEmail, "Entrer son email")}
+              {renderInput("Adresse électronique", email, handleEmailChange, "Entrer son email")}
+              {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
 
               {/* Phone number */}
-              {renderInput("Numéro de téléphone", phoneNumber, setPhoneNumber, "Entrer son numéro")}
+              {renderInput("Numéro de téléphone", phoneNumber, handlePhoneChange, "Entrer son numéro")}
+              {phoneError && <p className="text-red-500 text-sm">{phoneError}</p>}
             </CardContent>
           </Card>
         </main>
