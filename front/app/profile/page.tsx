@@ -60,7 +60,7 @@ export default function Home() {
     }
   }
 
-  // Validation téléphone
+  // Validation phone number
   const handlePhoneChange = (value: string) => {
     setPhoneNumber(value)
     if (!phoneRegex.test(value)) {
