@@ -59,7 +59,7 @@ export default function LoginPage() {
       ...prev,
       password: passwordRegex.test(value)
         ? ""
-        : "8 caractères minimum avec au moins 1 chiffre"
+        : "8 caractères minimum avec au moins 1 chiffre, 1 majuscule et un caractère spécial"
     }))
   }
 
@@ -99,8 +99,8 @@ export default function LoginPage() {
 
           <CardFooter className="flex flex-col gap-2">
 
-            <Button className="w-full">
-              Créer son compte
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/loginPage">Créer son compte</Link>
             </Button>
 
             <Button asChild variant="outline" className="w-full">
