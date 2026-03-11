@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
+import { textEdit } from "@/components/custom/textEdit"
+
 import { useState } from "react"
 
 export default function Home() {
@@ -48,21 +50,6 @@ export default function Home() {
   const [emailError, setEmailError] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
-  // Text edit
-  const renderInput = (
-    label: string,
-    value: string,
-    setter: React.Dispatch<React.SetStateAction<string>>,
-    ariaLabel: string
-  ) => (
-    <Input
-      placeholder={label}
-      value={value}
-      onChange={(e) => setter(e.target.value)}
-      aria-label={ariaLabel}
-    />
-  )
-
   // Validation email
   const handleEmailChange = (value: string) => {
     setEmail(value)
@@ -73,7 +60,7 @@ export default function Home() {
     }
   }
 
-  // Validation téléphone
+  // Validation phone number
   const handlePhoneChange = (value: string) => {
     setPhoneNumber(value)
     if (!phoneRegex.test(value)) {
@@ -123,10 +110,10 @@ export default function Home() {
               </div>
 
               {/* Surname */}
-              {renderInput("Prénom", name, setName, "Entrer son prénom")}
+              {textEdit("Prénom", name, setName, "Entrer son prénom")}
 
               {/* Name */}
-              {renderInput("Nom de famille", surname, setSurname, "Entrer son nom")}
+              {textEdit("Nom de famille", surname, setSurname, "Entrer son nom")}
 
               {/* Date */}
               <Popover>
@@ -156,11 +143,11 @@ export default function Home() {
               </Popover>
 
               {/* Email */}
-              {renderInput("Adresse électronique", email, handleEmailChange, "Entrer son email")}
+              {textEdit("Adresse électronique", email, handleEmailChange, "Entrer son email")}
               {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
 
               {/* Phone number */}
-              {renderInput("Numéro de téléphone", phoneNumber, handlePhoneChange, "Entrer son numéro")}
+              {textEdit("Numéro de téléphone", phoneNumber, handlePhoneChange, "Entrer son numéro")}
               {phoneError && <p className="text-red-500 text-sm">{phoneError}</p>}
             </CardContent>
           </Card>
