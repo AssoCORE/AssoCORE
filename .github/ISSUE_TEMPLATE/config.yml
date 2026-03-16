@@ -1,4 +1,5 @@
 blank_issues_enabled: true
+# TODO: Add contact links to the issue template
 # contact_links:
 #   - name: Support discussion
 #     url: https://github.com/Sigmapitech/glados/discussions/categories/help

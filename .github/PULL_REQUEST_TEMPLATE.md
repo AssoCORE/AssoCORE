@@ -1,7 +1,7 @@
 ## Pull Request
 
 <!--
-Thank you for your contribution to GLaDOS!
+Thank you for your contribution to AssoCORE!
 Please provide the following information to help us review your PR.
 -->
 
