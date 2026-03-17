@@ -1,0 +1,31 @@
+name: epitech-mirror-wiki
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  mirror-wiki:
+    if: github.repository == 'AssoCORE/AssoCORE'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.GH_SSH_PRIVATE_KEY }}
+          known_hosts: 'github.com'
+
+      - name: Checkout source wiki
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}.wiki
+          fetch-depth: 0   # Full history
+
+      - name: Add mirror remote
+        run: git remote add mirror "${{ secrets.GH_TARGET_REPO_WIKI }}"
+
+      - name: Push wiki to mirror
+        run: |
+          git push --mirror mirror --force
+
