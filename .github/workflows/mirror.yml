@@ -1,0 +1,30 @@
+name: epitech-mirror
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.GH_SSH_PRIVATE_KEY }}
+          known_hosts: 'github.com'
+
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # Full history
+          ref: ${{ github.ref }}
+
+      - name: Add mirror remote
+        run: git remote add mirror "${{ secrets.GH_TARGET_REPO }}"
+
+      - name: Push current branch to mirror
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          git push mirror HEAD:"refs/heads/$BRANCH" --force
