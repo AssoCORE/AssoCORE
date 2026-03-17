@@ -21,6 +21,12 @@ jobs:
           fetch-depth: 0   # Full history
           ref: ${{ github.ref }}
 
+      - name: Install Git LFS
+        run: git lfs install
+
+      - name: Pull LFS objects
+        run: git lfs pull
+
       - name: Add mirror remote
         run: git remote add mirror "${{ secrets.GH_TARGET_REPO }}"
 
