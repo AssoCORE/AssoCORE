@@ -57,6 +57,6 @@ back/
 
 - `GET /` - Health check
 - `GET /docs` - Swagger UI
-- `GET /api/nextcloud/users` - List Nextcloud users
-- `POST /api/nextcloud/users` - Create Nextcloud user
-- `GET /api/nextcloud/files/{user_id}` - List user files
+- `GET /nextcloud/users` - List Nextcloud users
+- `POST /nextcloud/users` - Create Nextcloud user
+- `GET /nextcloud/files/{user_id}` - List user files
