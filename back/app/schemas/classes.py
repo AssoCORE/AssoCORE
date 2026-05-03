@@ -10,7 +10,6 @@ from pydantic import (
     field_validator,
 )
 
-# Define a custom type for password with specific constraints
 PasswordStr = Annotated[
     str,
     StringConstraints(
@@ -24,62 +23,87 @@ PasswordStr = Annotated[
 ]
 
 
-# Base schema for all models
 class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Notification(BaseSchema):
+# --- Notification ---
+
+
+class NotificationOut(BaseSchema):
+    id: int
     date: datetime
     message: str
-    from_id: int
+    from_id: int | None
     read: bool
 
 
-class Reminder(BaseSchema):
+# --- Reminder ---
+
+
+class ReminderCreate(BaseSchema):
     date: datetime
     title: str
-    description: str
+    description: str | None = None
 
 
-class User(BaseSchema):
-    notifications: list[Notification] = Field(
-        default_factory=list, description="List of notifications"
-    )
-    reminders: list[Reminder] = Field(
-        default_factory=list, description="List of reminders"
-    )
-    roles: list[int] = Field(default_factory=list, description="List of role IDs")
+class ReminderOut(BaseSchema):
+    id: int
+    date: datetime
+    title: str
+    description: str | None
+
+
+# --- User ---
+
+
+class UserCreate(BaseSchema):
     name: str
     firstname: str
     username: str
     password: PasswordStr
     mail: EmailStr
-    phone: str = Field(
-        ..., regex=r"^\+?[1-9]\d{1,14}$", description="Phone number in E.164 format"
-    )
-    birth_date: datetime
-    id: int = Field(..., gt=0, description="User ID (positive integer)")
+    phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{1,14}$")
+    age: int | None = None
+
+
+class UserUpdate(BaseSchema):
+    name: str | None = None
+    firstname: str | None = None
+    mail: EmailStr | None = None
+    phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{1,14}$")
+    age: int | None = None
+
+
+class UserOut(BaseSchema):
+    id: int
+    name: str
+    firstname: str
+    username: str
+    mail: str
+    phone: str | None
+    age: int | None
+    roles: list[str] = Field(default_factory=list)
+    notifications: list[NotificationOut] = Field(default_factory=list)
+    reminders: list[ReminderOut] = Field(default_factory=list)
+
+
+# --- Event ---
 
 
 class Event(BaseSchema):
-    registered_users: list[int] = Field(
-        default_factory=list, description="List of registered user IDs"
-    )
-    staff: list[int] = Field(default_factory=list, description="List of staff user IDs")
-    creator: User
+    registered_users: list[int] = Field(default_factory=list)
+    staff: list[int] = Field(default_factory=list)
+    creator_id: int | None
     start_date: datetime
     end_date: datetime
     title: str
-    description: str
-    registrations_limits: int = Field(
-        ..., gt=0, description="Maximum number of registrations"
-    )
+    description: str | None
+    registrations_limits: int = Field(..., gt=0)
 
     @field_validator("end_date")
     def validate_event_dates(cls, v, info):
         start_date = info.data.get("start_date")
-        if start_date and v:
-            if v <= start_date:
-                raise ValueError("end_date must be after start_date")
+        if start_date and v <= start_date:
+            raise ValueError("end_date must be after start_date")
         return v
