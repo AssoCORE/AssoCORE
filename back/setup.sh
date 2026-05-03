@@ -274,14 +274,22 @@ if docker exec -u www-data $NEXTCLOUD_CONTAINER php occ status 2>/dev/null | gre
         print_success "Apps installation complete"
     fi
 else
-    print_warning "Nextcloud needs initial setup"
-    echo ""
-    echo "  Please complete setup at ${CYAN}http://localhost:8081${NC}"
-    echo ""
-    echo "  Use credentials from .env file:"
-    echo "  • Admin user: ${YELLOW}NEXTCLOUD_ADMIN_USER${NC}"
-    echo "  • Admin password: ${YELLOW}NEXTCLOUD_ADMIN_PASSWORD${NC}"
-    echo ""
+    print_step "Installing Nextcloud..."
+    docker exec -u www-data $NEXTCLOUD_CONTAINER php occ maintenance:install \
+        --database mysql \
+        --database-host db \
+        --database-name "${NEXTCLOUD_DB_NAME:-nextcloud}" \
+        --database-user "${NEXTCLOUD_DB_USER:-nextcloud}" \
+        --database-pass "${NEXTCLOUD_DB_PASSWORD:-nextcloud_db_password}" \
+        --admin-user "${NEXTCLOUD_ADMIN_USER:-admin}" \
+        --admin-pass "${NEXTCLOUD_ADMIN_PASSWORD:-admin}"
+    print_success "Nextcloud installed"
+
+    print_step "Configuring trusted domains..."
+    docker exec -u www-data $NEXTCLOUD_CONTAINER php occ config:system:set trusted_domains 0 --value=localhost 2>/dev/null || true
+    docker exec -u www-data $NEXTCLOUD_CONTAINER php occ config:system:set trusted_domains 1 --value=nextcloud 2>/dev/null || true
+    docker exec -u www-data $NEXTCLOUD_CONTAINER php occ config:system:set trusted_domains 2 --value=localhost:8081 2>/dev/null || true
+    print_success "Trusted domains configured"
 fi
 
 # ------------------------------------------------------------------------------
