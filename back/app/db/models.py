@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from sqlalchemy import (
@@ -107,7 +107,7 @@ class Notification(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    date = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     message = Column(Text, nullable=False)
     from_id = Column(Integer, nullable=True)
     read = Column(Boolean, default=False, nullable=False)
