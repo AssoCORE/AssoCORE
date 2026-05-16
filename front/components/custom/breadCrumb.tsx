@@ -30,7 +30,7 @@ function BreadCrumbElement({ link }: HeaderProps) {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+    <>
       {paths.map((seg, i) => {
         const href = "/" + paths.slice(0, i + 1).join("/");
         const url = getPathTo(href);
@@ -62,7 +62,7 @@ function BreadCrumbElement({ link }: HeaderProps) {
           </React.Fragment>
         );
       })}
-    </div>
+    </>
   );
 }
 

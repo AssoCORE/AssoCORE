@@ -1,22 +1,17 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import BreadCrumb from "@/components/custom/breadCrumb";
 import DarkButton from "@/components/custom/darkButton";
 import ProfileAccess from "@/components/custom/profileAccess";
 
-type HeaderProps = {
-  link: string;
-};
-
-export default function header() {
-  const pathName = usePathname();
-
+export default function Header() {
   return (
-    <div className="flex items-center justify-between w-full">
+    <header className="flex w-full items-center px-4 py-2">
       <BreadCrumb />
-      <ProfileAccess />
-      <DarkButton />
-    </div>
+      <div className="ml-auto">
+        <DarkButton />
+        <ProfileAccess />
+      </div>
+    </header>
   );
 }

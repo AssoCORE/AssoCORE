@@ -8,7 +8,7 @@ export default function Home() {
     <SidebarProvider>
       <div className="flex">
         <AppSidebar />
-        <main className="flex-1">
+        <main className="flex flex-1 flex-col min-w-0">
           <Header />
           <h1>Page Event</h1>
         </main>
