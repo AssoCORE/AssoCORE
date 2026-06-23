@@ -16,21 +16,23 @@ back/
 │   │
 │   ├── core/                # Cross-cutting concerns
 │   │   ├── security.py      # bcrypt hashing + PyJWT helpers
-│   │   └── dependencies.py  # get_current_user FastAPI dependency
+│   │   ├── dependencies.py  # get_current_user FastAPI dependency
+│   │   └── nextcloud.py     # NC client factory, password derivation, provisioning
 │   │
 │   ├── db/                  # Database layer
 │   │   ├── database.py      # Async engine, session factory, init_db()
 │   │   └── models.py        # SQLAlchemy ORM models
 │   │
 │   ├── schemas/             # Pydantic I/O models
-│   │   └── classes.py
+│   │   └── classes.py       # FileNode, MoveRequest, CopyRequest added
 │   │
 │   └── routes/              # HTTP endpoints (auto-discovered)
 │       ├── __init__.py      # pkgutil discovery + api_router aggregation
 │       ├── user.py          # Auth, users, notifications, reminders
+│       ├── storage.py       # User-scoped file storage via Nextcloud
+│       ├── apps.py          # Nextcloud embedded-app URL helpers
 │       ├── events.py        # Event CRUD (wiring in progress)
-│       ├── apps.py          # Nextcloud app proxies (stubs)
-│       └── nextcloud.py     # Nextcloud admin routes (functional)
+│       └── nextcloud.py     # Admin Nextcloud user/file management
 │
 ├── pyproject.toml           # uv dependencies
 ├── uv.lock
@@ -203,6 +205,42 @@ All foreign keys use `ondelete="CASCADE` so deleting a user removes their notifi
 | DELETE | `/user/reminder/` | required | Delete all reminders |
 | DELETE | `/user/reminder/{id}` | required | Delete specific reminder |
 
+### Storage (`/api/storage`) — user-scoped via JWT
+
+All routes use the authenticated user's Nextcloud account. nc-py-api is called in a thread pool so the async event loop is never blocked.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/storage/?path=` | List files/folders (default: root) |
+| GET | `/storage/info?path=` | Metadata for a specific file or folder |
+| GET | `/storage/search?q=&path=` | Search by name (supports `*` wildcard) |
+| POST | `/storage/upload?path=` | Upload a file (multipart) |
+| GET | `/storage/download?path=` | Download a file (binary stream) |
+| POST | `/storage/folder` | Create a folder (and any missing parents) |
+| DELETE | `/storage/?path=` | Delete a file or folder |
+| POST | `/storage/move` | Move or rename `{ src, dst, overwrite }` |
+| POST | `/storage/copy` | Copy `{ src, dst, overwrite }` |
+| POST | `/storage/favourite?path=&value=` | Set/unset favourite flag |
+| GET | `/storage/favourites` | List all favourited items |
+
+### Apps (`/api/apps`) — Nextcloud UI URLs
+
+Returns Nextcloud embedded-app URLs for the frontend to open in an iframe or redirect to. All routes require auth.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/apps/cloud` | Files app root |
+| GET | `/apps/cloud/folder?dir=` | Files app at a specific directory |
+| GET | `/apps/cloud/file?dir=&file=` | Files app opened on a specific file |
+| GET | `/apps/cloud/search?q=` | Files search |
+| GET | `/apps/viewer?file_id=` | File viewer (PDF / Office) |
+| GET | `/apps/calendar` | Calendar app |
+| GET | `/apps/calendar/{view_type}` | Calendar with specific view |
+| GET | `/apps/contacts` | Contacts app |
+| GET | `/apps/contacts/{contact_id}` | Specific contact |
+| GET | `/apps/notes` | Notes app |
+| GET | `/apps/notes/{note_id}` | Specific note |
+
 ### Events (`/api/event`) — stubs
 
 | Method | Path | Auth | Description |
@@ -217,9 +255,12 @@ All foreign keys use `ondelete="CASCADE` so deleting a user removes their notifi
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/nextcloud/users` | — | List Nextcloud users |
-| POST | `/nextcloud/users` | — | Create Nextcloud user |
-| GET | `/nextcloud/files/{user_id}` | — | List user files |
+| GET | `/nextcloud/users` | required | List Nextcloud users |
+| POST | `/nextcloud/users` | required | Create Nextcloud user |
+| DELETE | `/nextcloud/users/{username}` | required | Delete Nextcloud user |
+| PUT | `/nextcloud/users/{username}/enable` | required | Enable user |
+| PUT | `/nextcloud/users/{username}/disable` | required | Disable user |
+| GET | `/nextcloud/files/{username}?path=` | required | Browse any user's files (admin) |
 
 ## Security
 
