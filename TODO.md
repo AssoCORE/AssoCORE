@@ -29,9 +29,19 @@ Immediate and near-term work, by component.
 
 ### Cloud / Apps (F2)
 
-- [ ] Wire `back/app/routes/apps.py` to `nc-py-api` — provision a Nextcloud user on `POST /user/` so each member has their own storage
-- [ ] Scope file access per authenticated user
-- [ ] File upload endpoint
+- [x] Provision Nextcloud user on `POST /user/` (deterministic password via HMAC — no NC password stored in DB)
+- [x] `GET/DELETE /storage/` — list and delete files/folders
+- [x] `GET /storage/info` — file metadata
+- [x] `GET /storage/search` — search by name
+- [x] `POST /storage/upload` — upload file (multipart)
+- [x] `GET /storage/download` — download file (binary stream)
+- [x] `POST /storage/folder` — create folder (with `makedirs`)
+- [x] `POST /storage/move` and `POST /storage/copy`
+- [x] `POST /storage/favourite` and `GET /storage/favourites`
+- [x] `apps.py` — returns Nextcloud embedded-app URLs (cloud, viewer, calendar, contacts, notes)
+- [x] `nextcloud.py` — admin user management (create, delete, enable, disable) + admin file browse
+- [ ] Provision Nextcloud quota per user (currently unlimited)
+- [ ] Delete NC user when AssoCORE user is deleted (`DELETE /user/me` / `DELETE /user/{id}`)
 
 ### General
 
@@ -62,7 +72,7 @@ Immediate and near-term work, by component.
 - [ ] Main layout: sidebar nav, top bar, content area
 - [ ] Dashboard home wired to `GET /user/me`
 
-### Events (F3)
+### Event pages (F3)
 
 - [ ] Calendar view component
 - [ ] Event creation form (admin only)

@@ -1,12 +1,18 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_current_user
+from app.core.nextcloud import provision_nc_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.database import get_session
 from app.db.models import Notification, Reminder, User
+
+log = logging.getLogger(__name__)
 from app.schemas.classes import (
     LoginRequest,
     NotificationOut,
@@ -80,6 +86,20 @@ async def create_user(body: UserCreate, session: AsyncSession = Depends(get_sess
     )
     session.add(user)
     await session.commit()
+
+    # Provision a matching Nextcloud account (best-effort — does not block registration)
+    try:
+        await asyncio.to_thread(
+            provision_nc_user,
+            body.username,
+            str(body.mail),
+            f"{body.firstname} {body.name}",
+        )
+    except Exception:
+        log.warning(
+            "Failed to provision Nextcloud user for %s", body.username, exc_info=True
+        )
+
     result = await session.execute(_user_q().where(User.id == user.id))
     return result.scalars().first()
 
