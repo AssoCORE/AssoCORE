@@ -111,6 +111,36 @@ class UserOut(BaseSchema):
     reminders: list[ReminderOut] = Field(default_factory=list)
 
 
+# --- Storage ---
+
+
+class FileNode(BaseSchema):
+    name: str
+    path: str
+    is_dir: bool
+    size: int
+    mime_type: str
+    last_modified: datetime
+    etag: str
+    file_id: str
+
+
+class FolderCreate(BaseSchema):
+    path: str
+
+
+class MoveRequest(BaseSchema):
+    src: str
+    dst: str
+    overwrite: bool = False
+
+
+class CopyRequest(BaseSchema):
+    src: str
+    dst: str
+    overwrite: bool = False
+
+
 # --- Event ---
 
 
