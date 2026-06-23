@@ -1,30 +1,27 @@
-import os
-import jwt
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, status
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-import bcrypt
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from sqlalchemy.future import select
-from nc_py_api import Nextcloud
+from sqlalchemy.orm import selectinload
 
+from app.core.dependencies import get_current_user
+from app.core.security import create_access_token, hash_password, verify_password
 from app.db.database import get_session
-from app.db.models import User, Notification, Reminder
+from app.db.models import Notification, Reminder, User
 from app.schemas.classes import (
-    UserCreate,
-    UserUpdate,
-    UserOut,
+    LoginRequest,
     NotificationOut,
     ReminderCreate,
     ReminderOut,
+    Token,
+    UserCreate,
+    UserOut,
+    UserUpdate,
 )
 
 router = APIRouter(prefix="/user", tags=["user"])
 
 
 def _user_q():
-    """select(User) with all relationships eagerly loaded."""
     return select(User).options(
         selectinload(User.roles),
         selectinload(User.notifications),
@@ -32,129 +29,54 @@ def _user_q():
     )
 
 
-def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
 
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
-
-
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-to-a-secure-random-string")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta if expires_delta else timedelta(minutes=15)
-    )
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_session),
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except jwt.PyJWTError:
-        raise credentials_exception
-
-    result = await session.execute(_user_q().where(User.username == username))
+@router.post("/login", response_model=Token, summary="Authenticate and get a JWT")
+async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(User).where(User.username == body.username))
     user = result.scalars().first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-# ---------------------------------------------------------------------------
-# AUTH
-# ---------------------------------------------------------------------------
-
-
-@router.post("/login", description="Login via Nextcloud credentials")
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    session: AsyncSession = Depends(get_session),
-):
-    try:
-        nc_url = os.getenv("NEXTCLOUD_URL", "http://nextcloud")
-        nc = Nextcloud(
-            nextcloud_url=nc_url,
-            nc_auth_user=form_data.username,
-            nc_auth_pass=form_data.password,
-        )
-        import nc_py_api
-
-        try:
-            nc.users.get_user()
-        except nc_py_api.NextcloudException:
-            raise ValueError("Invalid Nextcloud credentials")
-    except Exception:
+    if not user or not verify_password(body.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid credentials",
         )
-
-    result = await session.execute(_user_q().where(User.username == form_data.username))
-    local_user = result.scalars().first()
-    if not local_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User authenticated in Nextcloud but has no local AssoCORE profile.",
-        )
-    if not verify_password(form_data.password, local_user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token = create_access_token(
-        data={"sub": form_data.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return Token(access_token=create_access_token(user.id))
 
 
 # ---------------------------------------------------------------------------
-# USER CRUD
+# User CRUD
 # ---------------------------------------------------------------------------
 
 
-@router.post("/create", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    body: UserCreate,
-    session: AsyncSession = Depends(get_session),
-):
-    existing = await session.execute(
-        _user_q().where((User.username == body.username) | (User.mail == body.mail))
+@router.post(
+    "/",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user",
+)
+async def create_user(body: UserCreate, session: AsyncSession = Depends(get_session)):
+    clash = await session.execute(
+        select(User).where(
+            (User.username == body.username) | (User.mail == str(body.mail))
+        )
     )
-    if existing.scalars().first():
-        raise HTTPException(status_code=409, detail="Username or email already taken.")
+    if clash.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username or email already taken",
+        )
 
     user = User(
         name=body.name,
         firstname=body.firstname,
         username=body.username,
         password=hash_password(body.password),
-        mail=body.mail,
+        mail=str(body.mail),
         phone=body.phone,
-        age=body.age,
+        birth_date=body.birth_date,
     )
     session.add(user)
     await session.commit()
@@ -162,64 +84,117 @@ async def create_user(
     return result.scalars().first()
 
 
-@router.get("/", response_model=list[UserOut])
-async def get_all_users(
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(get_current_user),
-):
-    result = await session.execute(_user_q())
-    return result.scalars().all()
-
-
-@router.get("/{user_id}", response_model=UserOut)
-async def get_user(
-    user_id: int,
-    session: AsyncSession = Depends(get_session),
-    _: User = Depends(get_current_user),
-):
-    result = await session.execute(_user_q().where(User.id == user_id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    return user
-
-
-@router.put("/update", response_model=UserOut)
-async def update_user(
-    body: UserUpdate,
-    session: AsyncSession = Depends(get_session),
+@router.get("/me", response_model=UserOut, summary="Get the authenticated user")
+async def get_me(
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
+    result = await session.execute(_user_q().where(User.id == current_user.id))
+    return result.scalars().first()
+
+
+@router.put("/me", response_model=UserOut, summary="Update the authenticated user")
+async def update_me(
+    body: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if body.username and body.username != current_user.username:
+        clash = await session.execute(
+            select(User).where(User.username == body.username)
+        )
+        if clash.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
+            )
+
+    if body.mail and str(body.mail) != current_user.mail:
+        clash = await session.execute(select(User).where(User.mail == str(body.mail)))
+        if clash.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already taken"
+            )
+
     for field, value in body.model_dump(exclude_none=True).items():
-        setattr(current_user, field, value)
+        if field == "password":
+            setattr(current_user, "password", hash_password(value))
+        elif field == "mail":
+            setattr(current_user, "mail", str(value))
+        else:
+            setattr(current_user, field, value)
+
     await session.commit()
     result = await session.execute(_user_q().where(User.id == current_user.id))
     return result.scalars().first()
 
 
-@router.delete("/delete/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(
-    user_id: int,
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete the authenticated user",
+)
+async def delete_me(
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+):
+    await session.delete(current_user)
+    await session.commit()
+
+
+@router.get("/", response_model=list[UserOut], summary="List all users")
+async def get_all_users(
     _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(_user_q())
+    return result.scalars().all()
+
+
+@router.get("/{user_id}", response_model=UserOut, summary="Get a user by ID")
+async def get_user(
+    user_id: int,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(_user_q().where(User.id == user_id))
     user = result.scalars().first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+@router.delete(
+    "/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a user by ID"
+)
+async def delete_user(
+    user_id: int,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     await session.delete(user)
     await session.commit()
 
 
 # ---------------------------------------------------------------------------
-# NOTIFICATIONS  (must be declared before /{user_id} to avoid route conflict)
+# Notifications  (scoped to the authenticated user)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/notification/", response_model=list[NotificationOut])
+@router.get(
+    "/notification/",
+    response_model=list[NotificationOut],
+    summary="Get all notifications",
+)
 async def get_notifications(
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Notification).where(Notification.user_id == current_user.id)
@@ -227,29 +202,15 @@ async def get_notifications(
     return result.scalars().all()
 
 
-@router.get("/notification/{notification_id}", response_model=NotificationOut)
-async def get_notification(
-    notification_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    result = await session.execute(
-        select(Notification).where(
-            Notification.id == notification_id,
-            Notification.user_id == current_user.id,
-        )
-    )
-    notif = result.scalars().first()
-    if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found.")
-    return notif
-
-
-@router.put("/notification/read/{notification_id}", response_model=NotificationOut)
+@router.put(
+    "/notification/read/{notification_id}",
+    response_model=NotificationOut,
+    summary="Mark a notification as read",
+)
 async def read_notification(
     notification_id: int,
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Notification).where(
@@ -259,18 +220,24 @@ async def read_notification(
     )
     notif = result.scalars().first()
     if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
     notif.read = True
     await session.commit()
     await session.refresh(notif)
     return notif
 
 
-@router.put("/notification/unread/{notification_id}", response_model=NotificationOut)
+@router.put(
+    "/notification/unread/{notification_id}",
+    response_model=NotificationOut,
+    summary="Mark a notification as unread",
+)
 async def unread_notification(
     notification_id: int,
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Notification).where(
@@ -280,20 +247,24 @@ async def unread_notification(
     )
     notif = result.scalars().first()
     if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
     notif.read = False
     await session.commit()
     await session.refresh(notif)
     return notif
 
 
-@router.delete(
-    "/notification/{notification_id}", status_code=status.HTTP_204_NO_CONTENT
+@router.get(
+    "/notification/{notification_id}",
+    response_model=NotificationOut,
+    summary="Get a specific notification",
 )
-async def delete_notification(
+async def get_notification(
     notification_id: int,
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Notification).where(
@@ -303,23 +274,52 @@ async def delete_notification(
     )
     notif = result.scalars().first()
     if not notif:
-        raise HTTPException(status_code=404, detail="Notification not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
+    return notif
+
+
+@router.delete(
+    "/notification/{notification_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a notification",
+)
+async def delete_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+        )
+    )
+    notif = result.scalars().first()
+    if not notif:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
     await session.delete(notif)
     await session.commit()
 
 
 # ---------------------------------------------------------------------------
-# REMINDERS
+# Reminders  (scoped to the authenticated user)
 # ---------------------------------------------------------------------------
 
 
 @router.post(
-    "/reminder/", response_model=ReminderOut, status_code=status.HTTP_201_CREATED
+    "/reminder/",
+    response_model=ReminderOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a reminder",
 )
 async def create_reminder(
     body: ReminderCreate,
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     reminder = Reminder(
         user_id=current_user.id,
@@ -333,10 +333,10 @@ async def create_reminder(
     return reminder
 
 
-@router.get("/reminder/", response_model=list[ReminderOut])
+@router.get("/reminder/", response_model=list[ReminderOut], summary="Get all reminders")
 async def get_reminders(
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Reminder).where(Reminder.user_id == current_user.id)
@@ -344,28 +344,12 @@ async def get_reminders(
     return result.scalars().all()
 
 
-@router.get("/reminder/{reminder_id}", response_model=ReminderOut)
-async def get_reminder(
-    reminder_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    result = await session.execute(
-        select(Reminder).where(
-            Reminder.id == reminder_id,
-            Reminder.user_id == current_user.id,
-        )
-    )
-    reminder = result.scalars().first()
-    if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found.")
-    return reminder
-
-
-@router.delete("/reminder/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/reminder/", status_code=status.HTTP_204_NO_CONTENT, summary="Delete all reminders"
+)
 async def delete_all_reminders(
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Reminder).where(Reminder.user_id == current_user.id)
@@ -375,11 +359,15 @@ async def delete_all_reminders(
     await session.commit()
 
 
-@router.delete("/reminder/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_reminder(
+@router.get(
+    "/reminder/{reminder_id}",
+    response_model=ReminderOut,
+    summary="Get a specific reminder",
+)
+async def get_reminder(
     reminder_id: int,
-    session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         select(Reminder).where(
@@ -389,6 +377,32 @@ async def delete_reminder(
     )
     reminder = result.scalars().first()
     if not reminder:
-        raise HTTPException(status_code=404, detail="Reminder not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Reminder not found"
+        )
+    return reminder
+
+
+@router.delete(
+    "/reminder/{reminder_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a specific reminder",
+)
+async def delete_reminder(
+    reminder_id: int,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(Reminder).where(
+            Reminder.id == reminder_id,
+            Reminder.user_id == current_user.id,
+        )
+    )
+    reminder = result.scalars().first()
+    if not reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Reminder not found"
+        )
     await session.delete(reminder)
     await session.commit()

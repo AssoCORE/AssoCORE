@@ -77,7 +77,7 @@ class User(Base):
     password = Column(String(255), nullable=False)
     mail = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(16), nullable=True)
-    age = Column(Integer, nullable=True)
+    birth_date = Column(DateTime, nullable=True)
 
     # relationships
     roles = relationship("Role", secondary=user_roles, backref="users")
