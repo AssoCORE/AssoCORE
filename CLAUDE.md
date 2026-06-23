@@ -64,36 +64,43 @@ pnpm build  # static build
 | Path | Role |
 |------|------|
 | `main.py` | FastAPI app init — async lifespan calls `init_db()`, mounts `api_router`, adds CORS for localhost:3000 |
-| `db/database.py` | SQLAlchemy async engine + session factory; `init_db()` creates the database and runs `metadata.create_all` on startup — no migration tool |
-| `db/models.py` | SQLAlchemy ORM models: `User`, `Role`, `Event`, `Notification`, `Reminder`, plus M2M tables `user_roles`, `event_registrations`, `event_staff` |
-| `schemas/classes.py` | Pydantic request/response models with validation (`PasswordStr`, `EmailStr`, E.164 phone, date ordering) |
-| `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports a `router: APIRouter`. Adding a new route file is enough — no manual wiring needed. All routes mount under `/api`. |
-| `routes/nextcloud.py` | Only functional route module — uses `nc-py-api` to proxy Nextcloud user/file operations |
-| `routes/user.py`, `events.py`, `apps.py` | Stub implementations — all return `{"Response":"OK"}` |
+| `db/database.py` | SQLAlchemy async engine + session factory; `init_db()` creates the DB and runs `metadata.create_all` on startup — no migration tool |
+| `db/models.py` | ORM models: `User`, `Role`, `Event`, `Notification`, `Reminder` + M2M tables `user_roles`, `event_registrations`, `event_staff` |
+| `schemas/classes.py` | Pydantic schemas: `UserCreate`, `UserUpdate`, `UserOut`, `LoginRequest`, `Token`, `RoleOut`, `NotificationOut`, `ReminderCreate`, `ReminderOut`, `EventCreate`, `EventOut` |
+| `core/security.py` | `hash_password`, `verify_password` (bcrypt), `create_access_token`, `decode_token` (PyJWT / HS256, 24 h expiry, sub = user ID) |
+| `core/dependencies.py` | `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`, decodes the JWT, returns the `User` ORM object or raises 401 |
+| `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. All routes mount under `/api`. |
+| `routes/user.py` | Full user system: login, register, me, CRUD, notifications, reminders — all wired to DB |
+| `routes/events.py` | Event CRUD stubs — models exist, handlers not yet wired |
+| `routes/apps.py` | Nextcloud proxy stubs (cloud, file viewer, calendar, contacts, notes) |
+| `routes/nextcloud.py` | Functional Nextcloud admin routes via `nc-py-api` |
 
-**DB session injection:** use `Depends(get_session)` from `app.db` to get an `AsyncSession` in route handlers.
+**Adding a protected route:** inject `current_user: User = Depends(get_current_user)` from `app.core.dependencies`. The dependency handles token validation and the 401 response automatically.
 
-**Current state:** Route handlers are stubs with no DB queries. There is no auth/JWT, no password hashing, and no middleware beyond CORS.
+**DB session injection:** use `session: AsyncSession = Depends(get_session)` from `app.db.database`.
+
+**Eager loading:** async SQLAlchemy does not support lazy loading. Always use `selectinload` or `joinedload` when a route needs relationships. The `_user_q()` helper in `routes/user.py` is the established pattern — returns a `select(User)` with all three relationships pre-loaded.
 
 ### Frontend (`front/`)
 
-Next.js 16 App Router with React 19 and TypeScript. Only the root layout and a demo page exist. UI layer is configured but empty:
-- **shadcn/ui** (new-york style, Radix primitives) — scaffold components with `pnpm dlx shadcn add <component>`
-- **Material-UI v7** — available alongside shadcn/ui
-- **Tailwind CSS v4** with OKLch CSS custom properties for theming (light/dark via `.dark` class)
-- Path alias `@/` maps to `front/` root (configured in `tsconfig.json` and `components.json`)
+Next.js 16 App Router, React 19, TypeScript. Only root layout and a demo page exist.
+- **shadcn/ui** (new-york style, Radix primitives) — scaffold with `pnpm dlx shadcn add <component>`
+- **Material-UI v7** available alongside shadcn/ui
+- **Tailwind CSS v4** with OKLch CSS custom properties for theming (`.dark` class toggles dark mode)
+- Path alias `@/` maps to `front/` root (`tsconfig.json` + `components.json`)
+- `cn()` utility in `front/lib/utils.ts` for conditional Tailwind classes
 
 No API client, state management, or auth flow exists yet.
 
 ### Infrastructure
 
-Docker Compose uses **profiles**: `dev` for development (source-mounted, hot-reload), `prod` for production builds. Infrastructure services (`db`, `redis`, `nextcloud`) run in both profiles.
+Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload) and `prod` (production builds). Infrastructure services (`db`, `redis`, `nextcloud`) run in both profiles.
 
-The `back/.env` file drives all secrets (DB credentials, Nextcloud credentials). The `DATABASE_URL` env var overrides the individual `MYSQL_*` vars in `db/database.py`.
+`back/.env` drives all secrets. `SECRET_KEY` must be set to a strong random value before any deployment — the default in `.env` is a placeholder.
 
 ## Key Conventions
 
-- **New backend route files** just need to export `router = APIRouter()` — they are auto-discovered.
-- **Pydantic schemas** live in `back/app/schemas/classes.py`; ORM models in `back/app/db/models.py` — keep them separate.
-- **Frontend components** go in `front/components/`; use `cn()` from `front/lib/utils.ts` for conditional Tailwind classes.
-- **Biome** (`biome.json` at root) is the formatter/linter for JS/TS — run it instead of Prettier.
+- **New route files** need only to export `router = APIRouter()` — auto-discovered.
+- **Schemas** in `back/app/schemas/classes.py`; **ORM models** in `back/app/db/models.py` — keep them separate.
+- **Frontend components** go in `front/components/`.
+- **Biome** (`biome.json` at root) is the formatter/linter for JS/TS.
