@@ -27,6 +27,27 @@ class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Auth ---
+
+
+class LoginRequest(BaseSchema):
+    username: str
+    password: str
+
+
+class Token(BaseSchema):
+    access_token: str
+    token_type: str = "bearer"
+
+
+# --- Role ---
+
+
+class RoleOut(BaseSchema):
+    id: int
+    name: str
+
+
 # --- Notification ---
 
 
@@ -64,15 +85,17 @@ class UserCreate(BaseSchema):
     password: PasswordStr
     mail: EmailStr
     phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{1,14}$")
-    age: int | None = None
+    birth_date: datetime | None = None
 
 
 class UserUpdate(BaseSchema):
     name: str | None = None
     firstname: str | None = None
+    username: str | None = None
     mail: EmailStr | None = None
     phone: str | None = Field(default=None, pattern=r"^\+?[1-9]\d{1,14}$")
-    age: int | None = None
+    birth_date: datetime | None = None
+    password: PasswordStr | None = None
 
 
 class UserOut(BaseSchema):
@@ -82,8 +105,8 @@ class UserOut(BaseSchema):
     username: str
     mail: str
     phone: str | None
-    age: int | None
-    roles: list[str] = Field(default_factory=list)
+    birth_date: datetime | None
+    roles: list[RoleOut] = Field(default_factory=list)
     notifications: list[NotificationOut] = Field(default_factory=list)
     reminders: list[ReminderOut] = Field(default_factory=list)
 
