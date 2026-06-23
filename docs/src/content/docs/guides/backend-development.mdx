@@ -197,29 +197,36 @@ Configuration is stored in `back/.env` (gitignored).
 ### Required Variables
 
 ```bash
-# Database Configuration
+# MariaDB root
+MARIADB_ROOT_PASSWORD=your_root_password
 MYSQL_ROOT_PASSWORD=your_root_password
-MYSQL_DATABASE=assocore_db
-MYSQL_USER=assocore_user
+
+# App database
+MYSQL_DATABASE=my_app_db
+MYSQL_USER=my_app_user
 MYSQL_PASSWORD=your_db_password
 MYSQL_HOST=db
 MYSQL_PORT=3306
 
-# Nextcloud Database
+# Nextcloud database
 NEXTCLOUD_DB_NAME=nextcloud
-NEXTCLOUD_DB_USER=nextcloud_user
+NEXTCLOUD_DB_USER=nextcloud
 NEXTCLOUD_DB_PASSWORD=your_nextcloud_db_password
 
-# Nextcloud Admin
-NEXTCLOUD_ADMIN_USER=admin
-NEXTCLOUD_ADMIN_PASSWORD=your_admin_password
+# Nextcloud API
+NEXTCLOUD_URL=http://nextcloud
+NEXTCLOUD_USER=admin
+NEXTCLOUD_PASSWORD=your_nextcloud_admin_password
 
-# API Configuration (Optional)
-DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}
+# JWT — MUST be changed before any deployment
+SECRET_KEY=change-me-to-a-random-secret-in-production
+
+# Optional — overrides the individual MYSQL_* vars
+# DATABASE_URL=mysql+aiomysql://user:pass@host:port/db
 ```
 
 <Aside type="caution">
-  **Security Note:** Never commit `.env` to version control. Use `.env.example` as a template.
+  **`SECRET_KEY` must be set to a strong random value in production.** All JWTs are signed with this key — if it leaks, any user's session can be forged. Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
 </Aside>
 
 ### Creating `.env`
@@ -249,27 +256,26 @@ DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MY
 ```
 back/
 ├── app/
-│   ├── main.py              # FastAPI application entry point
-│   ├── routes/              # API endpoint routes
-│   │   ├── __init__.py
-│   │   └── nextcloud.py     # Nextcloud integration endpoints
-│   ├── db/                  # Database layer
-│   │   ├── __init__.py
-│   │   └── database.py      # SQLAlchemy async setup
-│   ├── schemas/             # Pydantic models
-│   │   └── __init__.py
-│   └── models/              # SQLAlchemy models (if any)
-├── data/                    # Docker volume data (gitignored)
-│   ├── db/                  # MariaDB data
-│   └── nextcloud/           # Nextcloud files
+│   ├── main.py              # FastAPI app — lifespan, CORS, router mount
+│   ├── core/
+│   │   ├── security.py      # bcrypt + PyJWT helpers
+│   │   └── dependencies.py  # get_current_user dependency
+│   ├── db/
+│   │   ├── database.py      # Async engine, session factory, init_db()
+│   │   └── models.py        # SQLAlchemy ORM models
+│   ├── schemas/
+│   │   └── classes.py       # Pydantic request/response schemas
+│   └── routes/              # Auto-discovered route modules
+│       ├── __init__.py      # pkgutil discovery + /api prefix
+│       ├── user.py          # Auth, users, notifications, reminders
+│       ├── events.py        # Event CRUD (stubs)
+│       ├── apps.py          # Nextcloud app proxies (stubs)
+│       └── nextcloud.py     # Nextcloud admin routes (functional)
 ├── pyproject.toml           # uv dependencies
-├── uv.lock                  # Dependency lock file
-├── docker-compose.yml       # Production services
-├── docker-compose.dev.yml   # Development overrides
-├── Dockerfile               # API container build
-├── setup.sh                 # Complete setup script
-├── dev.sh                   # Development mode script
-└── shutdown.sh              # Shutdown script
+├── uv.lock
+├── setup.sh / dev.sh / shutdown.sh
+├── docker-compose.yml
+└── docker-compose.dev.yml
 ```
 
 ## API Endpoints
@@ -279,17 +285,42 @@ back/
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Root health check |
-| `/health` | GET | Service health status |
 | `/docs` | GET | Swagger UI (interactive) |
-| `/redoc` | GET | ReDoc (alternative docs) |
+| `/redoc` | GET | ReDoc |
 
-### Nextcloud Integration
+### Auth & Users
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/user/login` | POST | public | Authenticate, returns JWT |
+| `/api/user/` | POST | public | Register new user |
+| `/api/user/me` | GET | required | Current user profile |
+| `/api/user/me` | PUT | required | Update current user |
+| `/api/user/me` | DELETE | required | Delete current user |
+| `/api/user/` | GET | required | List all users |
+| `/api/user/{id}` | GET | required | Get user by ID |
+| `/api/user/{id}` | DELETE | required | Delete user by ID |
+| `/api/user/notification/` | GET | required | List notifications |
+| `/api/user/notification/{id}` | GET/DELETE | required | Single notification |
+| `/api/user/notification/read/{id}` | PUT | required | Mark as read |
+| `/api/user/notification/unread/{id}` | PUT | required | Mark as unread |
+| `/api/user/reminder/` | GET/POST/DELETE | required | Reminders |
+| `/api/user/reminder/{id}` | GET/DELETE | required | Single reminder |
+
+### Events (stubs — not yet wired to DB)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/nextcloud/users` | GET | List all Nextcloud users |
-| `/api/nextcloud/users` | POST | Create new Nextcloud user |
-| `/api/nextcloud/files/{user_id}` | GET | List user's files |
+| `/api/event/` | GET/POST | List / create events |
+| `/api/event/{id}` | GET/PUT/DELETE | Single event |
+
+### Nextcloud Admin
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/nextcloud/users` | GET | List Nextcloud users |
+| `/api/nextcloud/users` | POST | Create Nextcloud user |
+| `/api/nextcloud/files/{user_id}` | GET | List user files |
 
 ## Development Workflows
 
@@ -359,34 +390,41 @@ When you need to start completely fresh (clean database, etc.):
 
 <Steps>
 
-1. **Create route file** (if needed)
+1. **Create a route file** in `app/routes/`
    ```bash
-   touch app/routes/users.py
+   touch app/routes/myfeature.py
    ```
 
-2. **Define endpoints**
+2. **Define a router and handlers**
    ```python
-   from fastapi import APIRouter, HTTPException
-   
-   router = APIRouter(prefix="/api/users", tags=["users"])
-   
+   from fastapi import APIRouter, Depends
+   from sqlalchemy.ext.asyncio import AsyncSession
+   from app.db.database import get_session
+   from app.core.dependencies import get_current_user
+   from app.db.models import User
+
+   router = APIRouter(prefix="/myfeature", tags=["myfeature"])
+
    @router.get("/")
-   async def list_users():
-       return {"users": []}
+   async def list_items(
+       current_user: User = Depends(get_current_user),
+       session: AsyncSession = Depends(get_session),
+   ):
+       return []
    ```
 
-3. **Register router** in `app/main.py`
-   ```python
-   from app.routes import users
-   
-   app.include_router(users.router)
-   ```
+3. **Done — no manual registration needed**
+
+   `routes/__init__.py` auto-discovers every module in the package that exports `router: APIRouter` and mounts it under `/api`. Hot-reload picks up the new file immediately.
 
 4. **Test in Swagger UI**
    - Visit http://localhost:8000/docs
-   - Hot-reload applied automatically
 
 </Steps>
+
+<Aside type="tip">
+  Use `Depends(get_current_user)` from `app.core.dependencies` to protect any route. It validates the JWT and returns the current `User` ORM object, or raises 401 automatically.
+</Aside>
 
 ## Docker Compose
 
