@@ -3,11 +3,16 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import require_admin
 from app.core.nextcloud import get_admin_nc, nc_exception_to_http
-from app.db.models import User
 
-router = APIRouter(prefix="/nextcloud", tags=["nextcloud (admin)"])
+# The gate lives on the router, not on each handler, so a route added to this file later
+# cannot forget it. Every endpoint here can read or destroy any user's Nextcloud data.
+router = APIRouter(
+    prefix="/nextcloud",
+    tags=["nextcloud (admin)"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 async def _run(func, *args, **kwargs):
@@ -23,7 +28,7 @@ async def _run(func, *args, **kwargs):
 
 
 @router.get("/users", summary="List all Nextcloud users (admin)")
-async def get_users(_: User = Depends(get_current_user)):
+async def get_users():
     nc = get_admin_nc()
     users = await _run(nc.users.get_list)
     return {"users": users}
@@ -41,7 +46,7 @@ class CreateNcUserBody(BaseModel):
     status_code=status.HTTP_201_CREATED,
     summary="Create a Nextcloud user (admin)",
 )
-async def create_user(body: CreateNcUserBody, _: User = Depends(get_current_user)):
+async def create_user(body: CreateNcUserBody):
     nc = get_admin_nc()
     await _run(
         nc.users.create,
@@ -58,7 +63,7 @@ async def create_user(body: CreateNcUserBody, _: User = Depends(get_current_user
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a Nextcloud user (admin)",
 )
-async def delete_nc_user(username: str, _: User = Depends(get_current_user)):
+async def delete_nc_user(username: str):
     nc = get_admin_nc()
     await _run(nc.users.delete, username)
 
@@ -68,7 +73,7 @@ async def delete_nc_user(username: str, _: User = Depends(get_current_user)):
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Enable a Nextcloud user",
 )
-async def enable_nc_user(username: str, _: User = Depends(get_current_user)):
+async def enable_nc_user(username: str):
     nc = get_admin_nc()
     await _run(nc.users.enable, username)
 
@@ -78,7 +83,7 @@ async def enable_nc_user(username: str, _: User = Depends(get_current_user)):
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Disable a Nextcloud user",
 )
-async def disable_nc_user(username: str, _: User = Depends(get_current_user)):
+async def disable_nc_user(username: str):
     nc = get_admin_nc()
     await _run(nc.users.disable, username)
 
@@ -89,9 +94,7 @@ async def disable_nc_user(username: str, _: User = Depends(get_current_user)):
 
 
 @router.get("/files/{username}", summary="List files for a specific user (admin)")
-async def get_user_files(
-    username: str, path: str = "", _: User = Depends(get_current_user)
-):
+async def get_user_files(username: str, path: str = ""):
     nc = get_admin_nc()
     try:
         files = await _run(nc.files.listdir, f"/{username}/files/{path.lstrip('/')}")
