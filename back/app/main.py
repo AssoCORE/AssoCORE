@@ -34,3 +34,12 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "AssoCORE API"}
+
+
+@app.get("/health", tags=["health"], summary="Liveness probe")
+def health():
+    """Deliberately static — the Kubernetes liveness probe points here.
+
+    Checking the database would restart otherwise-healthy pods during a DB blip.
+    """
+    return {"status": "ok"}

@@ -50,6 +50,8 @@ services:
       - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
       - REDIS_HOST=redis
       - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
     volumes:
       - ./data/nextcloud:/var/www/html
     networks:
@@ -71,11 +73,13 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - redis
       - nextcloud
     env_file:
       - back/.env
     environment:
       - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=development
     volumes:
       - ./back:/app
@@ -132,11 +136,13 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - redis
       - nextcloud
     env_file:
       - back/.env
     environment:
       - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=production
     networks:
       - assocore
