@@ -63,23 +63,43 @@ pnpm build  # static build
 
 | Path | Role |
 |------|------|
-| `main.py` | FastAPI app init — async lifespan calls `init_db()`, mounts `api_router`, adds CORS for localhost:3000 |
+| `main.py` | FastAPI app init — async lifespan runs `init_db()` → `seed_all()` → redis ping, mounts `api_router`, adds CORS for localhost:3000, exposes `GET /health` |
 | `db/database.py` | SQLAlchemy async engine + session factory; `init_db()` creates the DB and runs `metadata.create_all` on startup — no migration tool |
-| `db/models.py` | ORM models: `User`, `Role`, `Event`, `Notification`, `Reminder` + M2M tables `user_roles`, `event_registrations`, `event_staff` |
-| `schemas/classes.py` | Pydantic schemas: `UserCreate`, `UserUpdate`, `UserOut`, `LoginRequest`, `Token`, `RoleOut`, `NotificationOut`, `ReminderCreate`, `ReminderOut`, `EventCreate`, `EventOut` |
-| `core/security.py` | `hash_password`, `verify_password` (bcrypt), `create_access_token`, `decode_token` (PyJWT / HS256, 24 h expiry, sub = user ID) |
-| `core/dependencies.py` | `get_current_user` FastAPI dependency — reads `Authorization: Bearer <token>`, decodes the JWT, returns the `User` ORM object or raises 401 |
-| `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. All routes mount under `/api`. |
-| `routes/user.py` | Full user system: login, register, me, CRUD, notifications, reminders — all wired to DB |
+| `db/models.py` | ORM models: `User`, `Role`, `Event`, `Notification`, `Reminder`, `NextcloudAccount` + M2M tables `user_roles`, `event_registrations`, `event_staff` |
+| `db/seed.py` | Startup seeding — default roles, a bootstrap admin from `ADMIN_*` env vars, and a `member` backfill for role-less users. Idempotent and safe to run on several replicas at once |
+| `schemas/classes.py` | Pydantic schemas: `UserCreate`, `UserUpdate`, `UserOut`, `LoginRequest`, `Token`, `RefreshRequest`, `LogoutRequest`, `RoleOut`, `NotificationOut`, `ReminderCreate`, `ReminderOut`, `NcLink*`, `EventCreate`, `EventOut`. Validation lives here too — `PasswordStr` (8-50 chars, upper + lower + digit + one of `#?!@$%^&*-`), `EmailStr`, E.164 phone, event date ordering. A client that validates input itself must mirror these exactly or users get confusing 422s. |
+| `core/security.py` | `hash_password`, `verify_password` (bcrypt), `create_access_token` / `create_refresh_token` / `create_token_pair`, `decode_token` (PyJWT / HS256; every token carries `typ` + `jti`) |
+| `core/tokens.py` | `TokenStore` — redis-backed access-token blacklist and refresh-token rotation with reuse detection |
+| `core/redis_client.py` | Process-wide async redis client (auth state on DB 1, separate from Nextcloud's DB 0) |
+| `core/crypto.py` | Fernet `encrypt_secret` / `decrypt_secret` for Nextcloud app passwords stored in the DB |
+| `core/roles.py` | Role name constants — `admin`, `staff`, `member` |
+| `core/dependencies.py` | `get_current_user` (validates the bearer token, checks the blacklist, eager-loads relations) and the `require_roles(*names)` / `require_admin` gates |
+| `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. Routers mount at the app root (`/user/...`, `/storage/...`) — there is **no** `/api` prefix. |
+| `routes/user.py` | Full user system: login, refresh, logout, register, me, CRUD, notifications, reminders — all wired to DB |
 | `routes/events.py` | Event CRUD stubs — models exist, handlers not yet wired |
 | `routes/apps.py` | Nextcloud proxy stubs (cloud, file viewer, calendar, contacts, notes) |
-| `routes/nextcloud.py` | Functional Nextcloud admin routes via `nc-py-api` |
+| `routes/nextcloud.py` | Nextcloud admin routes via `nc-py-api` — **admin-gated at the router level** |
+| `routes/nc_link.py` | Link a real Nextcloud account via Login Flow v2, storing an encrypted per-user app password |
 
-**Adding a protected route:** inject `current_user: User = Depends(get_current_user)` from `app.core.dependencies`. The dependency handles token validation and the 401 response automatically.
+**Adding a protected route:** inject `current_user: User = Depends(get_current_user)` from `app.core.dependencies`. The dependency handles token validation, revocation and the 401 response automatically. For admin-only routes use `Depends(require_admin)` (or `require_roles("staff", "admin")`); prefer putting it in the `APIRouter(dependencies=[...])` so new routes in that file cannot forget it.
 
 **DB session injection:** use `session: AsyncSession = Depends(get_session)` from `app.db.database`.
 
-**Eager loading:** async SQLAlchemy does not support lazy loading. Always use `selectinload` or `joinedload` when a route needs relationships. The `_user_q()` helper in `routes/user.py` is the established pattern — returns a `select(User)` with all three relationships pre-loaded.
+**Eager loading:** async SQLAlchemy does not support lazy loading. Always use `selectinload` or `joinedload` when a route needs relationships. `_user_q()` in `routes/user.py` is the established pattern; `_deletable_user_q()` loads everything a cascading delete touches. Relationships read on every request (`User.nc_account`) instead declare `lazy="selectin"` on the model.
+
+**Migrations:** there is no migration tool, and `metadata.create_all` only creates missing **tables** — it never adds a column to an existing one. Adding a field to a live model is a silent no-op against an existing database. Model new data as a new table (see `NextcloudAccount`), or introduce Alembic.
+
+#### Auth flow
+
+- `POST /user/login` → `{access_token, refresh_token, expires_in}`. The access token lasts 15 min; the refresh token 30 days.
+- `POST /user/refresh` takes the refresh token (no `Authorization` header — the access token is expected to be expired) and rotates it. A rotated token inherits its predecessor's expiry, so refreshing never extends the absolute session lifetime.
+- Replaying an already-used refresh token within `REFRESH_GRACE_SECONDS` (10 s) returns the same replacement pair, so concurrent browser tabs converge instead of fighting. Replaying it later is treated as theft: the whole token family is revoked and the user must log in again.
+- `POST /user/logout` blacklists the current access token and, when given a refresh token, kills its family.
+- Revocation state lives in redis. If redis is down, revocation checks are skipped (`AUTH_REDIS_STRICT=false`) but refresh and logout return 503 — they cannot be honoured without it.
+
+#### Nextcloud accounts
+
+Every AssoCORE user has a matching Nextcloud account. By default its password is derived from `SECRET_KEY` + username, so a `SECRET_KEY` leak exposes every account. Users can instead link their real Nextcloud account through `POST /nextcloud/link/init` → browser approval → `GET /nextcloud/link/poll/{handle}`, which stores an encrypted per-user app password that `storage.py` prefers. Login re-checks the account at most once every `NC_PROBE_INTERVAL_HOURS` and re-provisions it if missing — but never resets the password of a linked account.
 
 ### Frontend (`front/`)
 
@@ -96,11 +116,13 @@ No API client, state management, or auth flow exists yet.
 
 Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload) and `prod` (production builds). Infrastructure services (`db`, `redis`, `nextcloud`) run in both profiles.
 
-`back/.env` drives all secrets. `SECRET_KEY` must be set to a strong random value before any deployment — the default in `.env` is a placeholder.
+`back/.env` drives all secrets; `back/.env.example` lists every key with placeholder values. Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
+
+Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command.
 
 ## Key Conventions
 
 - **New route files** need only to export `router = APIRouter()` — auto-discovered.
 - **Schemas** in `back/app/schemas/classes.py`; **ORM models** in `back/app/db/models.py` — keep them separate.
 - **Frontend components** go in `front/components/`.
-- **Biome** (`biome.json` at root) is the formatter/linter for JS/TS.
+- **Biome** (`biome.json` at root) is the formatter/linter for JS/TS — use it rather than Prettier.
