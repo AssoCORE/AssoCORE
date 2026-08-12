@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .core import redis_client
 from .db import init_db
 from .routes import api_router
 
@@ -10,7 +11,9 @@ from .routes import api_router
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
+    await redis_client.ping()
     yield
+    await redis_client.close()
 
 
 app = FastAPI(docs_url="/docs", lifespan=lifespan)
