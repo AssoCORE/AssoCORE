@@ -123,6 +123,28 @@ class UserOut(BaseSchema):
     reminders: list[ReminderOut] = Field(default_factory=list)
 
 
+# --- Nextcloud account linking ---
+
+
+class NcLinkInit(BaseSchema):
+    login_url: str  # open in a browser to approve
+    handle: (
+        str  # opaque server-side reference; the real poll token never leaves the API
+    )
+    expires_in: int
+
+
+class NcLinkPoll(BaseSchema):
+    status: str  # "pending" | "linked"
+    nc_username: str | None = None
+
+
+class NcLinkStatus(BaseSchema):
+    linked: bool
+    nc_username: str | None = None
+    linked_at: datetime | None = None
+
+
 # --- Storage ---
 
 

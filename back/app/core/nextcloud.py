@@ -3,12 +3,34 @@ import hmac
 import os
 
 from fastapi import HTTPException, status
-from nc_py_api import Nextcloud
+from nc_py_api import AsyncNextcloud, Nextcloud
 from nc_py_api._exceptions import NextcloudException
 
 
+def nc_url() -> str:
+    """Base URL the API uses to reach Nextcloud (container DNS in docker)."""
+    return os.getenv("NEXTCLOUD_URL", "http://nextcloud")
+
+
+def nc_public_url() -> str:
+    """Base URL a *browser* can reach Nextcloud on.
+
+    Distinct from `nc_url()`: the API talks to `http://nextcloud`, which resolves nowhere
+    outside the docker network, so any URL handed to a user must be rewritten to this one.
+    """
+    return os.getenv("NEXTCLOUD_PUBLIC_URL", "http://localhost:8081")
+
+
+def to_public_url(url: str) -> str:
+    return url.replace(nc_url(), nc_public_url(), 1)
+
+
 def derive_nc_password(username: str) -> str:
-    """Deterministic per-user Nextcloud password derived from SECRET_KEY + username."""
+    """Deterministic per-user Nextcloud password derived from SECRET_KEY + username.
+
+    Fallback for accounts that have not been linked via Login Flow v2. Note that a SECRET_KEY
+    leak yields every user's Nextcloud password — linking a real app password is the upgrade.
+    """
     key = os.getenv("SECRET_KEY", "change-me-in-production").encode()
     return hmac.new(key, username.encode(), hashlib.sha256).hexdigest()
 
@@ -31,18 +53,30 @@ def admin_credentials() -> tuple[str, str]:
 
 def get_admin_nc() -> Nextcloud:
     user, password = admin_credentials()
-    return Nextcloud(
-        nextcloud_url=os.getenv("NEXTCLOUD_URL", "http://nextcloud"),
-        nc_auth_user=user,
-        nc_auth_pass=password,
+    return Nextcloud(nextcloud_url=nc_url(), nc_auth_user=user, nc_auth_pass=password)
+
+
+def get_async_admin_nc() -> AsyncNextcloud:
+    user, password = admin_credentials()
+    return AsyncNextcloud(
+        nextcloud_url=nc_url(), nc_auth_user=user, nc_auth_pass=password
     )
 
 
-def get_user_nc(username: str) -> Nextcloud:
+def get_user_nc(username: str, app_password: str | None = None) -> Nextcloud:
+    """Client acting as `username`, using a linked app password when one is available."""
     return Nextcloud(
-        nextcloud_url=os.getenv("NEXTCLOUD_URL", "http://nextcloud"),
+        nextcloud_url=nc_url(),
         nc_auth_user=username,
-        nc_auth_pass=derive_nc_password(username),
+        nc_auth_pass=app_password or derive_nc_password(username),
+    )
+
+
+def get_async_user_nc(username: str, app_password: str | None = None) -> AsyncNextcloud:
+    return AsyncNextcloud(
+        nextcloud_url=nc_url(),
+        nc_auth_user=username,
+        nc_auth_pass=app_password or derive_nc_password(username),
     )
 
 
