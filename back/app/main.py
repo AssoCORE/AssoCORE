@@ -5,12 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core import redis_client
 from .db import init_db
+from .db.seed import seed_all
 from .routes import api_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
+    await seed_all()
     await redis_client.ping()
     yield
     await redis_client.close()
