@@ -37,7 +37,19 @@ class LoginRequest(BaseSchema):
 
 class Token(BaseSchema):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int  # seconds until access_token expires
+
+
+class RefreshRequest(BaseSchema):
+    refresh_token: str
+
+
+class LogoutRequest(BaseSchema):
+    # Optional: without it only the current access token is revoked, and other devices in the
+    # same session keep working until their refresh token expires.
+    refresh_token: str | None = None
 
 
 # --- Role ---
