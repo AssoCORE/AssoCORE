@@ -1,21 +1,35 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
+from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import bearer, get_current_user
 from app.core.nextcloud import provision_nc_user
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    REFRESH,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
 from app.db.models import Notification, Reminder, User
 
 log = logging.getLogger(__name__)
 from app.schemas.classes import (
     LoginRequest,
+    LogoutRequest,
     NotificationOut,
+    RefreshRequest,
     ReminderCreate,
     ReminderOut,
     Token,
@@ -40,16 +54,149 @@ def _user_q():
 # ---------------------------------------------------------------------------
 
 
-@router.post("/login", response_model=Token, summary="Authenticate and get a JWT")
-async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
+UNAUTHORIZED = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+)
+AUTH_BACKEND_DOWN = HTTPException(
+    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    detail="Authentication backend unavailable",
+)
+
+
+def _expires_in(expires_at: datetime) -> int:
+    return max(int((expires_at - datetime.now(timezone.utc)).total_seconds()), 0)
+
+
+async def _issue_pair(
+    user_id: int,
+    store: TokenStore,
+    family: str | None = None,
+    refresh_expires_at: datetime | None = None,
+) -> Token:
+    access = create_access_token(user_id)
+    refresh = create_refresh_token(
+        user_id, family=family, expires_at=refresh_expires_at
+    )
+    await store.store_refresh(refresh.jti, user_id, refresh.family, refresh.expires_at)
+    return Token(
+        access_token=access.token,
+        refresh_token=refresh.token,
+        expires_in=_expires_in(access.expires_at),
+    )
+
+
+@router.post(
+    "/login", response_model=Token, summary="Authenticate and get a token pair"
+)
+async def login(
+    body: LoginRequest,
+    session: AsyncSession = Depends(get_session),
+    store: TokenStore = Depends(get_token_store),
+):
     result = await session.execute(select(User).where(User.username == body.username))
     user = result.scalars().first()
     if not user or not verify_password(body.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+        raise UNAUTHORIZED
+    try:
+        return await _issue_pair(user.id, store)
+    except RedisUnavailable:
+        raise AUTH_BACKEND_DOWN
+
+
+@router.post(
+    "/refresh", response_model=Token, summary="Exchange a refresh token for a new pair"
+)
+async def refresh(body: RefreshRequest, store: TokenStore = Depends(get_token_store)):
+    """Rotate a refresh token.
+
+    Takes no Authorization header — the access token is expected to have expired, which is
+    the whole reason the client is here.
+    """
+    try:
+        payload = decode_token(body.refresh_token, expected_type=REFRESH)
+    except (ExpiredSignatureError, InvalidTokenError):
+        raise UNAUTHORIZED
+
+    jti = payload["jti"]
+    family = payload.get("fam")
+    if not family:
+        raise UNAUTHORIZED
+
+    try:
+        if await store.is_family_dead(family):
+            raise UNAUTHORIZED
+        result = await store.consume_refresh(jti)
+
+        if result.status == "GRACE":
+            # A concurrent request already rotated this token; hand back the same pair so N
+            # racing tabs converge on one session instead of tripping reuse detection.
+            access_payload = decode_token(result.next_access)
+            return Token(
+                access_token=result.next_access,
+                refresh_token=result.next_refresh,
+                expires_in=_expires_in(
+                    datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc)
+                ),
+            )
+
+        if result.status == "PENDING":
+            # Consumed microseconds ago by a request still in flight.
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Refresh in progress, retry",
+                headers={"Retry-After": "1"},
+            )
+
+        if result.status != "OK":
+            log.warning(
+                "Refresh token reuse detected (family %s) — revoking the family", family
+            )
+            await store.kill_family(family, REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+            raise UNAUTHORIZED
+
+        pair = await _issue_pair(
+            result.user_id,
+            store,
+            family=result.family,
+            refresh_expires_at=result.expires_at,
         )
-    return Token(access_token=create_access_token(user.id))
+        await store.cache_replacement(jti, pair.access_token, pair.refresh_token)
+        return pair
+    except RedisUnavailable:
+        # The refresh token exists only in redis, so we cannot verify it. Fail closed.
+        raise AUTH_BACKEND_DOWN
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke the current access token and end the session",
+)
+async def logout(
+    body: LogoutRequest | None = None,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    _: User = Depends(get_current_user),
+    store: TokenStore = Depends(get_token_store),
+):
+    payload = decode_token(credentials.credentials)
+    try:
+        await store.revoke_access(
+            payload["jti"], datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        )
+        if body and body.refresh_token:
+            try:
+                refresh_payload = decode_token(
+                    body.refresh_token, expected_type=REFRESH
+                )
+            except (ExpiredSignatureError, InvalidTokenError):
+                return
+            family = refresh_payload.get("fam")
+            if family:
+                # Kill the whole family, not just this token — that is what "log out" means.
+                await store.kill_family(family, REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+    except RedisUnavailable:
+        # Reporting a successful logout when nothing was revoked would be a lie.
+        raise AUTH_BACKEND_DOWN
 
 
 # ---------------------------------------------------------------------------
