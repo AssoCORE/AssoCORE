@@ -7,12 +7,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
       nextcloud:
         condition: service_started
     env_file:
       - .env
     environment:
       - DATABASE_URL=mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
     volumes:
       - ./app:/app/app
     networks:
