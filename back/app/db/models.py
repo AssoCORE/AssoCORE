@@ -96,8 +96,51 @@ class User(Base):
     )
     staff_events = relationship("Event", secondary=event_staff, back_populates="staff")
 
+    # lazy="selectin" on the relationship itself, not just at the call site: storage.py reads
+    # this on every request, and async SQLAlchemy raises MissingGreenlet on a lazy load.
+    nc_account = relationship(
+        "NextcloudAccount",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r}>"
+
+
+class NextcloudAccount(Base):
+    """Link between an AssoCORE user and a Nextcloud account.
+
+    A separate table rather than columns on `users`: `metadata.create_all` creates missing
+    tables but never adds missing columns, so extending `users` would silently no-op against
+    an existing database.
+    """
+
+    __tablename__ = "nextcloud_accounts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    # May differ from User.username when the user links a pre-existing Nextcloud account.
+    nc_username = Column(String(128), nullable=False)
+    # Fernet ciphertext of a Nextcloud app password. Null means fall back to the password
+    # derived from SECRET_KEY. Never exposed through a response model.
+    app_password_enc = Column(String(512), nullable=True)
+    linked_at = Column(DateTime, nullable=True)
+    # Last successful credential probe; throttles the self-heal check at login.
+    checked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="nc_account")
+
+    def __repr__(self) -> str:
+        return f"<NextcloudAccount user_id={self.user_id} nc_username={self.nc_username!r}>"
 
 
 class Notification(Base):
