@@ -8,6 +8,7 @@ from nc_py_api import Nextcloud
 from nc_py_api._exceptions import NextcloudException
 from nc_py_api.files import FsNode
 
+from app.core.crypto import decrypt_secret
 from app.core.dependencies import get_current_user
 from app.core.nextcloud import get_user_nc, nc_exception_to_http
 from app.db.models import User
@@ -22,6 +23,16 @@ router = APIRouter(prefix="/storage", tags=["storage"])
 
 
 def _nc(user: User) -> Nextcloud:
+    """Nextcloud client acting as `user`.
+
+    Prefers the app password from a linked account; a decrypt failure (rotated key) degrades
+    to the derived password rather than failing the request.
+    """
+    account = user.nc_account
+    if account is not None and account.app_password_enc:
+        app_password = decrypt_secret(account.app_password_enc)
+        if app_password:
+            return get_user_nc(account.nc_username or user.username, app_password)
     return get_user_nc(user.username)
 
 
