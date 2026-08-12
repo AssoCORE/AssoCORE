@@ -13,11 +13,28 @@ def derive_nc_password(username: str) -> str:
     return hmac.new(key, username.encode(), hashlib.sha256).hexdigest()
 
 
+def admin_credentials() -> tuple[str, str]:
+    """Nextcloud admin credentials.
+
+    ``NEXTCLOUD_ADMIN_USER`` / ``NEXTCLOUD_ADMIN_PASSWORD`` are the names used by .env,
+    docker-compose and the Nextcloud image itself. The bare ``NEXTCLOUD_USER`` /
+    ``NEXTCLOUD_PASSWORD`` names are kept as a fallback so existing local setups keep working.
+    """
+    user = os.getenv("NEXTCLOUD_ADMIN_USER") or os.getenv("NEXTCLOUD_USER") or "admin"
+    password = (
+        os.getenv("NEXTCLOUD_ADMIN_PASSWORD")
+        or os.getenv("NEXTCLOUD_PASSWORD")
+        or "admin"
+    )
+    return user, password
+
+
 def get_admin_nc() -> Nextcloud:
+    user, password = admin_credentials()
     return Nextcloud(
         nextcloud_url=os.getenv("NEXTCLOUD_URL", "http://nextcloud"),
-        nc_auth_user=os.getenv("NEXTCLOUD_USER", "admin"),
-        nc_auth_pass=os.getenv("NEXTCLOUD_PASSWORD", "admin"),
+        nc_auth_user=user,
+        nc_auth_pass=password,
     )
 
 
