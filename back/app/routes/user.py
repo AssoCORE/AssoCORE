@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -10,7 +10,13 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import bearer, get_current_user, require_admin
-from app.core.nextcloud import provision_nc_user
+from app.core.crypto import decrypt_secret
+from app.core.nextcloud import (
+    NC_PROBE_INTERVAL_HOURS,
+    SELF_HEAL_ENABLED,
+    ensure_nc_account,
+    provision_nc_user,
+)
 from app.core.roles import ROLE_MEMBER
 from app.core.security import (
     REFRESH,
@@ -23,7 +29,7 @@ from app.core.security import (
 )
 from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
-from app.db.models import Notification, Reminder, Role, User
+from app.db.models import NextcloudAccount, Notification, Reminder, Role, User
 
 log = logging.getLogger(__name__)
 from app.schemas.classes import (
@@ -102,6 +108,50 @@ async def _issue_pair(
     )
 
 
+async def _sync_nc_account(user: User, session: AsyncSession) -> None:
+    """Best-effort: confirm the user's Nextcloud account works, provisioning it if missing.
+
+    Never raises. A login must not fail because Nextcloud is unreachable.
+    """
+    if not SELF_HEAL_ENABLED:
+        return
+
+    account = user.nc_account
+    now = datetime.now(timezone.utc)
+    if account is not None and account.checked_at is not None:
+        checked_at = account.checked_at
+        if checked_at.tzinfo is None:
+            checked_at = checked_at.replace(tzinfo=timezone.utc)
+        if now - checked_at < timedelta(hours=NC_PROBE_INTERVAL_HOURS):
+            return
+
+    app_password = None
+    if account is not None and account.app_password_enc:
+        app_password = decrypt_secret(account.app_password_enc)
+
+    try:
+        ok = await ensure_nc_account(
+            account.nc_username if account else user.username,
+            email=user.mail,
+            display_name=f"{user.firstname} {user.name}",
+            app_password=app_password,
+        )
+    except Exception:
+        log.warning(
+            "Nextcloud account check failed for %s", user.username, exc_info=True
+        )
+        return
+
+    if not ok:
+        return
+
+    if account is None:
+        account = NextcloudAccount(user_id=user.id, nc_username=user.username)
+        session.add(account)
+    account.checked_at = now
+    await session.commit()
+
+
 @router.post(
     "/login", response_model=Token, summary="Authenticate and get a token pair"
 )
@@ -114,6 +164,9 @@ async def login(
     user = result.scalars().first()
     if not user or not verify_password(body.password, user.password):
         raise UNAUTHORIZED
+
+    await _sync_nc_account(user, session)
+
     try:
         return await _issue_pair(user.id, store)
     except RedisUnavailable:

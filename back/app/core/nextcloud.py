@@ -1,10 +1,25 @@
+import asyncio
 import hashlib
 import hmac
+import logging
 import os
 
 from fastapi import HTTPException, status
 from nc_py_api import AsyncNextcloud, Nextcloud
 from nc_py_api._exceptions import NextcloudException
+
+log = logging.getLogger(__name__)
+
+# Bounds how long a login can wait on Nextcloud before giving up.
+NC_PROBE_TIMEOUT = float(os.getenv("NC_PROBE_TIMEOUT", "3.0"))
+# How long a successful probe is trusted before re-checking, so steady-state logins cost no
+# Nextcloud round-trip at all.
+NC_PROBE_INTERVAL_HOURS = int(os.getenv("NC_PROBE_INTERVAL_HOURS", "24"))
+SELF_HEAL_ENABLED = os.getenv("NC_LOGIN_SELF_HEAL", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def nc_url() -> str:
@@ -94,6 +109,61 @@ def provision_nc_user(username: str, email: str = "", display_name: str = "") ->
         if e.status_code == 102:  # OCS: user already exists
             return
         raise
+
+
+async def ensure_nc_account(
+    username: str,
+    email: str = "",
+    display_name: str = "",
+    app_password: str | None = None,
+) -> bool:
+    """Make sure `username` has a working Nextcloud account, provisioning it if not.
+
+    Repairs accounts for users who registered while Nextcloud was down. Returns True when the
+    account is usable.
+
+    Uses AsyncNextcloud rather than a thread so `asyncio.wait_for` can genuinely bound how
+    long a login waits on Nextcloud — cancelling a thread would leave its socket running.
+    """
+    user_nc = get_async_user_nc(username, app_password)
+    if await asyncio.wait_for(user_nc.perform_login(), timeout=NC_PROBE_TIMEOUT):
+        return True
+
+    if app_password:
+        # A linked account failing to authenticate most likely means the user rotated their
+        # own Nextcloud password. Resetting it through the admin API would hijack a real
+        # account, so stop here and let them re-link.
+        log.warning(
+            "Nextcloud rejected the linked app password for %s — leaving it untouched",
+            username,
+        )
+        return False
+
+    admin_nc = get_async_admin_nc()
+    if not await asyncio.wait_for(admin_nc.perform_login(), timeout=NC_PROBE_TIMEOUT):
+        # perform_login() returns False both for bad credentials and for an unreachable
+        # server, so an admin failure here means Nextcloud is down, not that the user is
+        # missing. Provisioning would be wrong either way.
+        log.warning("Nextcloud unreachable — skipping account check for %s", username)
+        return False
+
+    try:
+        await admin_nc.users.create(
+            username,
+            password=derive_nc_password(username),
+            email=email,
+            display_name=display_name or username,
+        )
+        log.info("Provisioned missing Nextcloud account for %s", username)
+        return True
+    except NextcloudException as e:
+        if e.status_code != 102:  # anything but "already exists"
+            raise
+        # The account exists but rejected our password — the derived password drifted
+        # (usually a SECRET_KEY change). Reset it back to what we can reproduce.
+        await admin_nc.users.edit(username, password=derive_nc_password(username))
+        log.info("Repaired the derived Nextcloud password for %s", username)
+        return True
 
 
 def nc_exception_to_http(e: Exception) -> HTTPException:
