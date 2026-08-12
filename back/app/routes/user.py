@@ -50,6 +50,22 @@ def _user_q():
     )
 
 
+def _deletable_user_q():
+    """Load every relationship SQLAlchemy touches while cascading a user delete.
+
+    `session.delete()` walks each cascading collection to emit the child deletes; on an async
+    session an unloaded collection means a lazy load, which raises MissingGreenlet.
+    """
+    return select(User).options(
+        selectinload(User.roles),
+        selectinload(User.notifications),
+        selectinload(User.reminders),
+        selectinload(User.created_events),
+        selectinload(User.registered_events),
+        selectinload(User.staff_events),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
@@ -314,8 +330,13 @@ async def delete_me(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    await session.delete(current_user)
-    await session.commit()
+    result = await session.execute(
+        _deletable_user_q().where(User.id == current_user.id)
+    )
+    user = result.scalars().first()
+    if user:
+        await session.delete(user)
+        await session.commit()
 
 
 @router.get("/", response_model=list[UserOut], summary="List all users")
@@ -350,7 +371,8 @@ async def delete_user(
     _: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await session.get(User, user_id)
+    result = await session.execute(_deletable_user_q().where(User.id == user_id))
+    user = result.scalars().first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
