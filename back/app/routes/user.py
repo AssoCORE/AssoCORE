@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import bearer, get_current_user
 from app.core.nextcloud import provision_nc_user
+from app.core.roles import ROLE_MEMBER
 from app.core.security import (
     REFRESH,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -22,7 +23,7 @@ from app.core.security import (
 )
 from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
-from app.db.models import Notification, Reminder, User
+from app.db.models import Notification, Reminder, Role, User
 
 log = logging.getLogger(__name__)
 from app.schemas.classes import (
@@ -222,6 +223,12 @@ async def create_user(body: UserCreate, session: AsyncSession = Depends(get_sess
             detail="Username or email already taken",
         )
 
+    member = (
+        (await session.execute(select(Role).where(Role.name == ROLE_MEMBER)))
+        .scalars()
+        .first()
+    )
+
     user = User(
         name=body.name,
         firstname=body.firstname,
@@ -230,6 +237,9 @@ async def create_user(body: UserCreate, session: AsyncSession = Depends(get_sess
         mail=str(body.mail),
         phone=body.phone,
         birth_date=body.birth_date,
+        # Assigned before add() — on a transient object this initialises the collection
+        # without a round-trip; appending after commit would lazy-load and blow up.
+        roles=[member] if member else [],
     )
     session.add(user)
     await session.commit()
