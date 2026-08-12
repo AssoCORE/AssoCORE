@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import bearer, get_current_user
+from app.core.dependencies import bearer, get_current_user, require_admin
 from app.core.nextcloud import provision_nc_user
 from app.core.roles import ROLE_MEMBER
 from app.core.security import (
@@ -347,7 +347,7 @@ async def get_user(
 )
 async def delete_user(
     user_id: int,
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     user = await session.get(User, user_id)
