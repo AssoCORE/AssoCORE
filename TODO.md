@@ -18,7 +18,7 @@ Immediate and near-term work, by component.
 - [x] `core/roles.py` + `db/seed.py` — default roles seeded, admin bootstrapped from `ADMIN_*` env vars, `member` backfilled onto role-less users
 - [x] Enforce RBAC: `require_roles` / `require_admin` dependencies; `routes/nextcloud.py` gated at the router level and `DELETE /user/{id}` is admin-only
 - [x] Refresh tokens — 15 min access + 30 day refresh, rotation with reuse detection, `POST /user/logout` revocation (redis-backed)
-- [ ] `GET /user/` should be admin-only, or return a reduced payload for non-admins
+- [x] `GET /user/` and `GET /user/{id}` restricted to admins — the latter also leaked another user's notifications/reminders to any authenticated caller
 - [ ] Rate limiting on `POST /user/login` to prevent brute-force
 - [ ] Change `SECRET_KEY` placeholder in `.env` before any deployment (and set an independent `NC_APP_PASSWORD_KEY`)
 - [ ] `POST /user/logout/all` to end every session for a user at once

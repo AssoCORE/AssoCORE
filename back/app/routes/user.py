@@ -392,19 +392,25 @@ async def delete_me(
         await session.commit()
 
 
-@router.get("/", response_model=list[UserOut], summary="List all users")
-async def get_all_users(
-    _: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
+@router.get(
+    "/",
+    response_model=list[UserOut],
+    summary="List all users",
+    dependencies=[Depends(require_admin)],
+)
+async def get_all_users(session: AsyncSession = Depends(get_session)):
     result = await session.execute(_user_q())
     return result.scalars().all()
 
 
-@router.get("/{user_id}", response_model=UserOut, summary="Get a user by ID")
+@router.get(
+    "/{user_id}",
+    response_model=UserOut,
+    summary="Get a user by ID",
+    dependencies=[Depends(require_admin)],
+)
 async def get_user(
     user_id: int,
-    _: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(_user_q().where(User.id == user_id))
