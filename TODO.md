@@ -50,7 +50,7 @@ Immediate and near-term work, by component.
 ### General
 
 - [ ] Separate app database from the Nextcloud database (currently both share the same MariaDB instance and credentials)
-- [ ] Request logging middleware
+- [x] Request logging middleware — HTTP middleware logs method, path, status, duration on every request
 - [ ] Integration tests for the auth flow: register → login → protected route → 401 on bad token
 
 ---
@@ -90,5 +90,5 @@ Immediate and near-term work, by component.
 - [ ] Separate MariaDB database for the app (distinct from Nextcloud's)
 - [x] `GET /health` for the k8s liveness/readiness probes (static by design — a DB check there would restart healthy pods during a DB blip)
 - [x] `.env.example` with placeholder values for new contributors
-- [ ] Deeper healthcheck (e.g. `/ready`) that verifies DB and redis connectivity
+- [x] `GET /ready` — probes DB and redis, returns 503 with error map if either is down
 - [ ] Watchtower exclusion rules so dev images are not auto-updated
