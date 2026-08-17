@@ -56,6 +56,20 @@ event_staff = Table(
     ),
 )
 
+event_attendances = Table(
+    "event_attendances",
+    Base.metadata,
+    Column(
+        "event_id",
+        Integer,
+        ForeignKey("events.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -95,6 +109,9 @@ class User(Base):
         "Event", secondary=event_registrations, back_populates="registered_users"
     )
     staff_events = relationship("Event", secondary=event_staff, back_populates="staff")
+    attended_events = relationship(
+        "Event", secondary=event_attendances, back_populates="attendees"
+    )
 
     # lazy="selectin" on the relationship itself, not just at the call site: storage.py reads
     # this on every request, and async SQLAlchemy raises MissingGreenlet on a lazy load.
@@ -196,6 +213,9 @@ class Event(Base):
         "User", secondary=event_registrations, back_populates="registered_events"
     )
     staff = relationship("User", secondary=event_staff, back_populates="staff_events")
+    attendees = relationship(
+        "User", secondary=event_attendances, back_populates="attended_events"
+    )
 
     def __repr__(self) -> str:
         return f"<Event id={self.id} title={self.title!r}>"
