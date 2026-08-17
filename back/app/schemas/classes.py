@@ -178,19 +178,41 @@ class CopyRequest(BaseSchema):
 # --- Event ---
 
 
-class Event(BaseSchema):
-    registered_users: list[int] = Field(default_factory=list)
-    staff: list[int] = Field(default_factory=list)
-    creator_id: int | None
+class EventCreate(BaseSchema):
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
     start_date: datetime
     end_date: datetime
-    title: str
-    description: str | None
     registrations_limits: int = Field(..., gt=0)
 
     @field_validator("end_date")
-    def validate_event_dates(cls, v, info):
-        start_date = info.data.get("start_date")
-        if start_date and v <= start_date:
+    @classmethod
+    def end_after_start(cls, v, info):
+        start = info.data.get("start_date")
+        if start and v <= start:
             raise ValueError("end_date must be after start_date")
         return v
+
+
+class EventUpdate(BaseSchema):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    registrations_limits: int | None = Field(default=None, gt=0)
+
+
+class EventOut(BaseSchema):
+    id: int
+    title: str
+    description: str | None
+    start_date: datetime
+    end_date: datetime
+    registrations_limits: int
+    creator_id: int | None
+    registered_count: int
+    spots_left: int
+    is_full: bool
+    registered_user_ids: list[int]
+    staff_ids: list[int]
+    attendee_ids: list[int]

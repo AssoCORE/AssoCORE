@@ -25,9 +25,9 @@ Immediate and near-term work, by component.
 
 ### Events (F3)
 
-- [ ] Wire `back/app/routes/events.py` to the DB — models and schemas defined, all handlers return stubs
-- [ ] `POST /event/{id}/register` and `DELETE /event/{id}/register` for member self-registration
-- [ ] `POST /event/{id}/checkin` for attendance tracking (F4)
+- [x] Wire `back/app/routes/events.py` to the DB — CRUD + registration + check-in fully implemented
+- [x] `POST /event/{id}/register` and `DELETE /event/{id}/register` for member self-registration
+- [x] `POST /event/{id}/checkin/{user_id}` and `DELETE /event/{id}/checkin/{user_id}` for attendance tracking (F4)
 
 ### Cloud / Apps (F2)
 
