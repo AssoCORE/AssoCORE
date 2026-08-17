@@ -58,6 +58,10 @@ def _family_dead_key(family: str) -> str:
     return f"{PREFIX}family:dead:{family}"
 
 
+def _user_families_key(user_id: int) -> str:
+    return f"{PREFIX}user:{user_id}:families"
+
+
 def _ttl_from(expires_at: datetime) -> int:
     remaining = int((expires_at - datetime.now(timezone.utc)).total_seconds())
     return max(remaining, 1)
@@ -153,6 +157,9 @@ class TokenStore:
                 pipe.sadd(_family_key(family), jti)
                 # Outlive the tokens themselves so reuse detection can still enumerate them.
                 pipe.expire(_family_key(family), ttl + 60)
+                # Track all families per user so logout/all can kill them in one call.
+                pipe.sadd(_user_families_key(user_id), family)
+                pipe.expire(_user_families_key(user_id), ttl + 3600)
                 await pipe.execute()
         except RedisError as e:
             raise RedisUnavailable(str(e)) from e
@@ -208,6 +215,17 @@ class TokenStore:
                 pipe.delete(_family_key(family))
                 pipe.set(_family_dead_key(family), "1", ex=max(ttl, 1))
                 await pipe.execute()
+        except RedisError as e:
+            raise RedisUnavailable(str(e)) from e
+
+    async def kill_user_sessions(self, user_id: int, refresh_ttl: int) -> None:
+        """Revoke all active refresh token families for a user (logout everywhere)."""
+        key = _user_families_key(user_id)
+        try:
+            families = await self._redis.smembers(key)
+            for family in families:
+                await self.kill_family(family, refresh_ttl)
+            await self._redis.delete(key)
         except RedisError as e:
             raise RedisUnavailable(str(e)) from e
 
