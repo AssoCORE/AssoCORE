@@ -19,9 +19,9 @@ Immediate and near-term work, by component.
 - [x] Enforce RBAC: `require_roles` / `require_admin` dependencies; `routes/nextcloud.py` gated at the router level and `DELETE /user/{id}` is admin-only
 - [x] Refresh tokens — 15 min access + 30 day refresh, rotation with reuse detection, `POST /user/logout` revocation (redis-backed)
 - [x] `GET /user/` and `GET /user/{id}` restricted to admins — the latter also leaked another user's notifications/reminders to any authenticated caller
-- [ ] Rate limiting on `POST /user/login` to prevent brute-force
+- [x] Rate limiting on `POST /user/login` — 5 req/min per IP via `slowapi`
 - [ ] Change `SECRET_KEY` placeholder in `.env` before any deployment (and set an independent `NC_APP_PASSWORD_KEY`)
-- [ ] `POST /user/logout/all` to end every session for a user at once
+- [x] `POST /user/logout/all` — kills every active refresh token family for the user
 
 ### Events (F3)
 
@@ -45,7 +45,7 @@ Immediate and near-term work, by component.
 - [x] Link a real Nextcloud account via Login Flow v2 (`routes/nc_link.py`) — stores a Fernet-encrypted per-user app password that `storage.py` prefers over the derived one
 - [x] Re-check and re-provision the Nextcloud account at login, throttled by `NC_PROBE_INTERVAL_HOURS`
 - [ ] Provision Nextcloud quota per user (currently unlimited)
-- [ ] Delete NC user when AssoCORE user is deleted (`DELETE /user/me` / `DELETE /user/{id}`)
+- [x] Delete NC user when AssoCORE user is deleted (`DELETE /user/me` / `DELETE /user/{id}`)
 
 ### General
 
