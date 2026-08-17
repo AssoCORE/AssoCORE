@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import bearer, get_current_user, require_admin
 from app.core.crypto import decrypt_secret
+from app.core.nextcloud import get_admin_nc
 from app.core.nextcloud import (
     NC_PROBE_INTERVAL_HOURS,
     SELF_HEAL_ENABLED,
@@ -27,6 +28,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.rate_limit import limiter
 from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
 from app.db.models import NextcloudAccount, Notification, Reminder, Role, User
@@ -69,7 +71,17 @@ def _deletable_user_q():
         selectinload(User.created_events),
         selectinload(User.registered_events),
         selectinload(User.staff_events),
+        selectinload(User.attended_events),
     )
+
+
+async def _delete_nc_user(nc_username: str) -> None:
+    """Best-effort: remove the Nextcloud account after an AssoCORE user is deleted."""
+    nc = get_admin_nc()
+    try:
+        await asyncio.to_thread(nc.users.delete, nc_username)
+    except Exception:
+        log.warning("Failed to delete Nextcloud user %s", nc_username, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +167,9 @@ async def _sync_nc_account(user: User, session: AsyncSession) -> None:
 @router.post(
     "/login", response_model=Token, summary="Authenticate and get a token pair"
 )
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),
     store: TokenStore = Depends(get_token_store),
@@ -266,6 +280,28 @@ async def logout(
                 await store.kill_family(family, REFRESH_TOKEN_EXPIRE_DAYS * 86400)
     except RedisUnavailable:
         # Reporting a successful logout when nothing was revoked would be a lie.
+        raise AUTH_BACKEND_DOWN
+
+
+@router.post(
+    "/logout/all",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke all active sessions for the current user (logout everywhere)",
+)
+async def logout_all(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    current_user: User = Depends(get_current_user),
+    store: TokenStore = Depends(get_token_store),
+):
+    payload = decode_token(credentials.credentials)
+    try:
+        await store.revoke_access(
+            payload["jti"], datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        )
+        await store.kill_user_sessions(
+            current_user.id, REFRESH_TOKEN_EXPIRE_DAYS * 86400
+        )
+    except RedisUnavailable:
         raise AUTH_BACKEND_DOWN
 
 
@@ -388,8 +424,10 @@ async def delete_me(
     )
     user = result.scalars().first()
     if user:
+        nc_username = user.nc_account.nc_username if user.nc_account else user.username
         await session.delete(user)
         await session.commit()
+        await _delete_nc_user(nc_username)
 
 
 @router.get(
@@ -436,8 +474,10 @@ async def delete_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
+    nc_username = user.nc_account.nc_username if user.nc_account else user.username
     await session.delete(user)
     await session.commit()
+    await _delete_nc_user(nc_username)
 
 
 # ---------------------------------------------------------------------------
