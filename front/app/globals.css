@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
@@ -118,9 +116,13 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+    /* fallback for border and outline utilities */
+    border-color: var(--color-border);
+    outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }
