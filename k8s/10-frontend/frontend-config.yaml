@@ -11,3 +11,6 @@ data:
   # Frontend environment configuration
   NEXT_PUBLIC_API_URL: "https://api.assocore.localhost"
   NODE_ENV: "production"
+  # Server-only; the Next.js server calls FastAPI server-to-server (not
+  # subject to browser CORS), so this is never exposed to the browser.
+  BACKEND_URL: "http://backend.assocore.svc.cluster.local:8000"
