@@ -99,6 +99,7 @@ services:
       - backend
     environment:
       - NODE_ENV=development
+      - BACKEND_URL=http://backend:8000
     volumes:
       - ./front:/app
       - /app/node_modules
@@ -162,6 +163,7 @@ services:
       - backend_prod
     environment:
       - NODE_ENV=production
+      - BACKEND_URL=http://backend_prod:8000
     networks:
       - assocore
 

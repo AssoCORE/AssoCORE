@@ -59,12 +59,11 @@ Immediate and near-term work, by component.
 
 ### Auth (F1)
 
-- [ ] `/login` page — username + password form calling `POST /user/login` (note: no `/api` prefix)
-- [ ] JWT storage strategy (decide: `httpOnly` cookie vs `localStorage`) — note the API now returns an access **and** a refresh token
-- [ ] `lib/api.ts` — fetch wrapper that injects `Authorization: Bearer <token>` and transparently calls `POST /user/refresh` on a 401, since access tokens now expire after 15 min
-- [ ] Global auth state (Zustand or React context) seeded from `GET /user/me`
-- [ ] Route guard — redirect unauthenticated users to `/login`
-- [ ] `/register` page
+- [x] `/login` and `/register` pages — plain shadcn forms, functional only (no design pass — visual work belongs to #79/#80)
+- [x] JWT storage: httpOnly cookies set by Next.js Route Handlers. The browser never holds a raw token or calls FastAPI directly, only same-origin `/api/auth/*` routes
+- [x] Token refresh: `front/proxy.ts` (Next 16's `middleware.ts` replacement) proactively rotates an expired-but-refreshable access token before each protected-page render; `/api/auth/refresh` is the reactive fallback for a client-side fetch that 401s mid-session
+- [x] Global auth state — `front/components/auth/AuthProvider.tsx`, a thin client Context seeded from the server-rendered user in the `(protected)` layout
+- [x] Route guard — `(protected)/layout.tsx` redirects to `/login`; `(protected)/admin/layout.tsx` additionally requires the admin role, redirecting to `/unauthorized` otherwise (the backend's own `require_admin` enforces this independently regardless of the frontend gate)
 
 ### User Account
 
