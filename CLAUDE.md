@@ -103,14 +103,43 @@ Every AssoCORE user has a matching Nextcloud account. By default its password is
 
 ### Frontend (`front/`)
 
-Next.js 16 App Router, React 19, TypeScript. Only root layout and a demo page exist.
-- **shadcn/ui** (new-york style, Radix primitives) — scaffold with `pnpm dlx shadcn add <component>`
+Next.js 16 App Router, React 19, TypeScript.
+- **shadcn/ui** (new-york style, Radix primitives) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Newer CLI-generated components import `cn` from the real [`cn`](https://github.com/shadcn-ui/cn) package rather than `@/lib/utils`; the components already in `front/components/ui/` (hand-written before this was diagnosed) still use the local `cn()` in `front/lib/utils.ts` — both work, but pick one convention before this drifts further.
 - **Material-UI v7** available alongside shadcn/ui
 - **Tailwind CSS v4** with OKLch CSS custom properties for theming (`.dark` class toggles dark mode)
 - Path alias `@/` maps to `front/` root (`tsconfig.json` + `components.json`)
 - `cn()` utility in `front/lib/utils.ts` for conditional Tailwind classes
+- `front/.env.example` documents `BACKEND_URL` (server-only, no `NEXT_PUBLIC_` prefix)
 
-No API client, state management, or auth flow exists yet.
+#### Auth (frontend)
+
+The browser never calls FastAPI directly or holds a raw JWT — only same-origin Next.js
+routes do, and the Next.js server calls the backend server-to-server (`front/lib/backend.ts`),
+which sidesteps browser CORS entirely.
+
+- `front/app/api/auth/{login,register,logout,refresh}/route.ts` are the only code that talks
+  to the backend on the browser's behalf. `login`/`refresh` set httpOnly `access_token` /
+  `refresh_token` cookies (both `path: "/"` — a narrower path would stop the browser attaching
+  `refresh_token` to a plain page navigation, breaking the refresh design below).
+- `front/proxy.ts` (Next.js 16 renamed `middleware.ts` → a file exporting `proxy`) runs before
+  every protected-page request, decodes the access token's payload (no signature check — the
+  backend re-validates that on every real call), and if it's expired calls `POST /user/refresh`
+  itself, rewriting both the in-flight request's cookies and the response's before the Server
+  Component renders — Server Components themselves cannot call `cookies().set()`. `/api/auth/refresh`
+  is the reactive fallback for a client-side fetch that 401s mid-session, after the proxy already
+  ran for that page load.
+- `front/lib/auth/session.ts`'s `getCurrentUser()` (React `cache()`-wrapped) is the server-only
+  `GET /user/me` getter used by pages/layouts; `front/lib/auth/roles.ts` mirrors the backend's
+  `admin`/`staff`/`member` constants and `hasRole()`/`isAdmin()` checks.
+- Route guards: `front/app/(protected)/layout.tsx` redirects to `/login` if unauthenticated;
+  `(protected)/admin/layout.tsx` additionally requires the admin role, redirecting to
+  `/unauthorized` otherwise — this is a UX gate only, the backend's own `require_admin` enforces
+  it independently regardless of what the frontend does.
+- `front/lib/auth/schemas.ts` mirrors the backend's password/phone/email regexes exactly so
+  client-side zod errors match the server's 422s.
+
+This pass is functional plumbing only (plain shadcn primitives, no design work) — the visual
+design is tracked separately under issues #79/#80, which rebase onto this work.
 
 ### Infrastructure
 
@@ -119,6 +148,8 @@ Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload) and `prod` 
 `back/.env` drives all secrets; `back/.env.example` lists every key with placeholder values. Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
 
 Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command.
+
+The frontend's `BACKEND_URL` points at the backend service reachable from wherever Next.js itself runs — `http://backend:8000` / `http://backend_prod:8000` in the two `docker-compose.yml` profiles, `http://backend.assocore.svc.cluster.local:8000` in `k8s/10-frontend/frontend-config.yaml`. It's a plain server-only env var, not `NEXT_PUBLIC_*`.
 
 ## Key Conventions
 
