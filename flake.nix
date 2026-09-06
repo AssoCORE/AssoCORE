@@ -71,10 +71,6 @@
               '';
               files = "\\.py$";
             };
-            convco = {
-              enable = true;
-              name = "convco hook";
-            };
             alejandra = {
               enable = true;
               name = "alejandra hook";
@@ -107,7 +103,6 @@
               biome
               black
               isort
-              convco
               alejandra
 
               # Git
