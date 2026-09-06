@@ -91,7 +91,12 @@ services:
     env_file:
       - back/.env
     environment:
-      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      # DATABASE_URL is intentionally not set here — back/app/db/database.py already
+      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
+      # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
+      # not the backend's, and silently produced an empty-credential connection string
+      # whenever the root-level .env was missing those keys.
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=development
     volumes:
@@ -158,7 +163,12 @@ services:
     env_file:
       - back/.env
     environment:
-      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      # DATABASE_URL is intentionally not set here — back/app/db/database.py already
+      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
+      # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
+      # not the backend's, and silently produced an empty-credential connection string
+      # whenever the root-level .env was missing those keys.
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=production
     networks:
