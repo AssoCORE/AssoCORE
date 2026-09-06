@@ -13,15 +13,18 @@ services:
     env_file:
       - back/.env
     environment:
-      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME}
       - MARIADB_USER=${NEXTCLOUD_DB_USER}
       - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      # -h localhost would use the unix socket (passwordless local auth) and
+      # falsely report healthy before TCP is actually accepting connections —
+      # explicit credentials over TCP is what other services actually need.
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
     networks:
       - assocore
 
@@ -29,6 +32,11 @@ services:
   redis:
     image: redis:alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - assocore
 
@@ -39,8 +47,10 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - back/.env
     environment:
@@ -50,6 +60,8 @@ services:
       - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
       - REDIS_HOST=redis
       - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
     volumes:
       - ./data/nextcloud:/var/www/html
     networks:
@@ -70,12 +82,22 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - nextcloud
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nextcloud:
+        condition: service_started
     env_file:
       - back/.env
     environment:
-      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      # DATABASE_URL is intentionally not set here — back/app/db/database.py already
+      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
+      # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
+      # not the backend's, and silently produced an empty-credential connection string
+      # whenever the root-level .env was missing those keys.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=development
     volumes:
       - ./back:/app
@@ -95,6 +117,7 @@ services:
       - backend
     environment:
       - NODE_ENV=development
+      - BACKEND_URL=http://backend:8000
     volumes:
       - ./front:/app
       - /app/node_modules
@@ -131,12 +154,22 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - nextcloud
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nextcloud:
+        condition: service_started
     env_file:
       - back/.env
     environment:
-      - DATABASE_URL=mysql+aiomysql://${NEXTCLOUD_DB_USER}:${NEXTCLOUD_DB_PASSWORD}@db:3306/${NEXTCLOUD_DB_NAME}
+      # DATABASE_URL is intentionally not set here — back/app/db/database.py already
+      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
+      # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
+      # not the backend's, and silently produced an empty-credential connection string
+      # whenever the root-level .env was missing those keys.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - ENVIRONMENT=production
     networks:
       - assocore
@@ -156,6 +189,7 @@ services:
       - backend_prod
     environment:
       - NODE_ENV=production
+      - BACKEND_URL=http://backend_prod:8000
     networks:
       - assocore
 

@@ -1,98 +1,109 @@
-import importlib
-import os
-from http import HTTPStatus
-from typing import Any, Optional
+import asyncio
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/nextcloud", tags=["nextcloud"])
+from app.core.dependencies import require_admin
+from app.core.nextcloud import get_admin_nc, nc_exception_to_http
+
+# The gate lives on the router, not on each handler, so a route added to this file later
+# cannot forget it. Every endpoint here can read or destroy any user's Nextcloud data.
+router = APIRouter(
+    prefix="/nextcloud",
+    tags=["nextcloud (admin)"],
+    dependencies=[Depends(require_admin)],
+)
 
 
-def get_nc_client() -> Any:
+async def _run(func, *args, **kwargs):
     try:
-        Nextcloud = importlib.import_module("nc_py_api").Nextcloud
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=HTTPStatus.SERVICE_UNAVAILABLE,
-            detail="Nextcloud integration unavailable: missing nc_py_api dependency",
-        ) from exc
-
-    return Nextcloud(
-        nextcloud_url=os.getenv("NEXTCLOUD_URL", "http://nextcloud"),
-        nc_auth_user=os.getenv("NEXTCLOUD_USER", "admin"),
-        nc_auth_pass=os.getenv("NEXTCLOUD_PASSWORD", "admin"),
-    )
-
-
-@router.get("/users", description="Get all Nextcloud users")
-async def get_nextcloud_users():
-    try:
-        nc = get_nc_client()
-        users = nc.users.get_list()
-        return JSONResponse(content={"users": users})
+        return await asyncio.to_thread(func, *args, **kwargs)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise nc_exception_to_http(e)
 
 
-@router.get("/files/{user_id}", description="Get files for a Nextcloud user")
-async def get_user_files(user_id: str):
-    try:
-        nc = get_nc_client()
-        files = nc.files.listdir(f"/{user_id}/files")
-        return JSONResponse(content={"files": [f.name for f in files]})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
 
 
-class NextcloudCreateUserModel(BaseModel):
+@router.get("/users", summary="List all Nextcloud users (admin)")
+async def get_users():
+    nc = get_admin_nc()
+    users = await _run(nc.users.get_list)
+    return {"users": users}
+
+
+class CreateNcUserBody(BaseModel):
     username: str
     password: str
-    email: Optional[str] = None
+    email: str | None = None
+    display_name: str | None = None
 
 
-@router.post("/users", description="Create a new Nextcloud user")
-async def create_nextcloud_user(user: NextcloudCreateUserModel):
+@router.post(
+    "/users",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a Nextcloud user (admin)",
+)
+async def create_user(body: CreateNcUserBody):
+    nc = get_admin_nc()
+    await _run(
+        nc.users.create,
+        body.username,
+        password=body.password,
+        email=body.email or "",
+        display_name=body.display_name or body.username,
+    )
+    return {"username": body.username}
+
+
+@router.delete(
+    "/users/{username}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Nextcloud user (admin)",
+)
+async def delete_nc_user(username: str):
+    nc = get_admin_nc()
+    await _run(nc.users.delete, username)
+
+
+@router.put(
+    "/users/{username}/enable",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Enable a Nextcloud user",
+)
+async def enable_nc_user(username: str):
+    nc = get_admin_nc()
+    await _run(nc.users.enable, username)
+
+
+@router.put(
+    "/users/{username}/disable",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Disable a Nextcloud user",
+)
+async def disable_nc_user(username: str):
+    nc = get_admin_nc()
+    await _run(nc.users.disable, username)
+
+
+# ---------------------------------------------------------------------------
+# Files (admin — access any user's storage)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/files/{username}", summary="List files for a specific user (admin)")
+async def get_user_files(username: str, path: str = ""):
+    nc = get_admin_nc()
     try:
-        nc = get_nc_client()
-        users_api = getattr(nc, "users", None)
-        if users_api is None:
-            raise RuntimeError("Nextcloud client has no `users` API")
-
-        method_names = ["create", "add", "create_user", "add_user", "createUser"]
-        last_exc = None
-        for name in method_names:
-            if hasattr(users_api, name):
-                func = getattr(users_api, name)
-                try:
-                    kwargs = {"user_id": user.username, "password": user.password}
-                    if user.email:
-                        kwargs["email"] = user.email
-                    result = func(**kwargs)
-                    return JSONResponse(
-                        status_code=HTTPStatus.CREATED, content={"result": result}
-                    )
-                except TypeError:
-                    try:
-                        if user.email:
-                            result = func(user.username, user.password, user.email)
-                        else:
-                            result = func(user.username, user.password)
-                        return JSONResponse(
-                            status_code=HTTPStatus.CREATED, content={"result": result}
-                        )
-                    except Exception as e:
-                        last_exc = e
-                        continue
-                except Exception as e:
-                    last_exc = e
-                    continue
-
-        raise RuntimeError(
-            str(last_exc)
-            if last_exc
-            else "No supported user-creation method found on Nextcloud client"
-        )
+        files = await _run(nc.files.listdir, f"/{username}/files/{path.lstrip('/')}")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise nc_exception_to_http(e)
+    return {
+        "files": [
+            {"name": f.name, "is_dir": f.is_dir, "size": f.info.size} for f in files
+        ]
+    }

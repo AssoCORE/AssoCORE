@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from sqlalchemy import (
@@ -56,6 +56,20 @@ event_staff = Table(
     ),
 )
 
+event_attendances = Table(
+    "event_attendances",
+    Base.metadata,
+    Column(
+        "event_id",
+        Integer,
+        ForeignKey("events.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -77,7 +91,7 @@ class User(Base):
     password = Column(String(255), nullable=False)
     mail = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(16), nullable=True)
-    age = Column(Integer, nullable=True)
+    birth_date = Column(DateTime, nullable=True)
 
     # relationships
     roles = relationship("Role", secondary=user_roles, backref="users")
@@ -95,9 +109,55 @@ class User(Base):
         "Event", secondary=event_registrations, back_populates="registered_users"
     )
     staff_events = relationship("Event", secondary=event_staff, back_populates="staff")
+    attended_events = relationship(
+        "Event", secondary=event_attendances, back_populates="attendees"
+    )
+
+    # lazy="selectin" on the relationship itself, not just at the call site: storage.py reads
+    # this on every request, and async SQLAlchemy raises MissingGreenlet on a lazy load.
+    nc_account = relationship(
+        "NextcloudAccount",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r}>"
+
+
+class NextcloudAccount(Base):
+    """Link between an AssoCORE user and a Nextcloud account.
+
+    A separate table rather than columns on `users`: `metadata.create_all` creates missing
+    tables but never adds missing columns, so extending `users` would silently no-op against
+    an existing database.
+    """
+
+    __tablename__ = "nextcloud_accounts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    # May differ from User.username when the user links a pre-existing Nextcloud account.
+    nc_username = Column(String(128), nullable=False)
+    # Fernet ciphertext of a Nextcloud app password. Null means fall back to the password
+    # derived from SECRET_KEY. Never exposed through a response model.
+    app_password_enc = Column(String(512), nullable=True)
+    linked_at = Column(DateTime, nullable=True)
+    # Last successful credential probe; throttles the self-heal check at login.
+    checked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="nc_account")
+
+    def __repr__(self) -> str:
+        return f"<NextcloudAccount user_id={self.user_id} nc_username={self.nc_username!r}>"
 
 
 class Notification(Base):
@@ -107,7 +167,7 @@ class Notification(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    date = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     message = Column(Text, nullable=False)
     from_id = Column(Integer, nullable=True)
     read = Column(Boolean, default=False, nullable=False)
@@ -153,6 +213,9 @@ class Event(Base):
         "User", secondary=event_registrations, back_populates="registered_events"
     )
     staff = relationship("User", secondary=event_staff, back_populates="staff_events")
+    attendees = relationship(
+        "User", secondary=event_attendances, back_populates="attended_events"
+    )
 
     def __repr__(self) -> str:
         return f"<Event id={self.id} title={self.title!r}>"
