@@ -88,6 +88,6 @@ Immediate and near-term work, by component.
 - [ ] Set a strong `SECRET_KEY` via an environment secret in prod (not committed to `.env`)
 - [ ] Separate MariaDB database for the app (distinct from Nextcloud's)
 - [x] `GET /health` for the k8s liveness/readiness probes (static by design — a DB check there would restart healthy pods during a DB blip)
-- [x] `.env.example` with placeholder values for new contributors
+- [x] `.env.example` with placeholder values for new contributors — one at the repo root (Compose's own `${VAR}` substitution) and one in `back/` (container env vars); a fresh clone had no root `.env.example`, so `docker compose up` silently ran `db`/`nextcloud` with blank credentials
 - [x] `GET /ready` — probes DB and redis, returns 503 with error map if either is down
 - [ ] Watchtower exclusion rules so dev images are not auto-updated
