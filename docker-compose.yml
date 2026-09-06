@@ -18,10 +18,13 @@ services:
       - MARIADB_USER=${NEXTCLOUD_DB_USER}
       - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      # -h localhost would use the unix socket (passwordless local auth) and
+      # falsely report healthy before TCP is actually accepting connections —
+      # explicit credentials over TCP is what other services actually need.
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p\"$$MARIADB_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
     networks:
       - assocore
 
@@ -29,6 +32,11 @@ services:
   redis:
     image: redis:alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - assocore
 
@@ -39,8 +47,10 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - back/.env
     environment:
@@ -72,9 +82,12 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
-      - nextcloud
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nextcloud:
+        condition: service_started
     env_file:
       - back/.env
     environment:
@@ -136,9 +149,12 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
-      - nextcloud
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nextcloud:
+        condition: service_started
     env_file:
       - back/.env
     environment:
