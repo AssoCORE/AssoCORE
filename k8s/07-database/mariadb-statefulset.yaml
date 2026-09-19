@@ -74,12 +74,15 @@ spec:
             - name: config
               mountPath: /etc/mysql/conf.d
               readOnly: true
+          # -h localhost would use the unix socket (passwordless local auth) and
+          # falsely report ready before TCP is actually accepting connections —
+          # explicit credentials over TCP is what other services actually need.
           livenessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - mariadb-admin ping -h localhost -u root -p$MARIADB_ROOT_PASSWORD
+                - mariadb-admin ping -h 127.0.0.1 -u root -p"$MARIADB_ROOT_PASSWORD" --silent
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -89,7 +92,7 @@ spec:
               command:
                 - sh
                 - -c
-                - mariadb-admin ping -h localhost -u root -p$MARIADB_ROOT_PASSWORD
+                - mariadb-admin ping -h 127.0.0.1 -u root -p"$MARIADB_ROOT_PASSWORD" --silent
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
