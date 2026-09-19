@@ -88,6 +88,7 @@ pnpm build  # static build
 | `core/crypto.py` | Fernet `encrypt_secret` / `decrypt_secret` for Nextcloud app passwords stored in the DB |
 | `core/roles.py` | Role name constants — `admin`, `staff`, `member` |
 | `core/notifications.py` | `notify()` / `notify_many()` / `notify_role()` — the only writers of the `notifications` table |
+| `core/pagination.py` | `paginate()` plus the shared `limit`/`offset` query params for list endpoints |
 | `core/dependencies.py` | `get_current_user` (validates the bearer token, checks the blacklist, eager-loads relations) and the `require_roles(*names)` / `require_admin` gates |
 | `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. Routers mount at the app root (`/user/...`, `/storage/...`) — there is **no** `/api` prefix. |
 | `routes/user.py` | Full user system: login, refresh, logout, register, me, CRUD, notifications, reminders — all wired to DB |
@@ -199,6 +200,7 @@ The frontend's `BACKEND_URL` points at the backend service reachable from wherev
 ## Key Conventions
 
 - **New route files** need only to export `router = APIRouter()` — auto-discovered.
+- **List endpoints return `Page[T]`** (`{items, total, limit, offset}`), never a bare array — `total` is the count before `limit`/`offset` so a client can render page counts. Use `paginate()` with the `limit_param()` / `offset_param()` helpers from `app.core.pagination`, and filter in SQL rather than post-filtering the result list: paging over a set you then discard rows from returns short pages and a `total` that disagrees with them.
 - **Schemas** in `back/app/schemas/classes.py`; **ORM models** in `back/app/db/models.py` — keep them separate.
 - **Frontend components** go in `front/components/`.
 - **Biome** (`biome.json` at root) is the formatter/linter for JS/TS — use it rather than Prettier.
