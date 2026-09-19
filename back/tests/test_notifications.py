@@ -60,7 +60,7 @@ async def _grant(db_session, user_id: int, role_name: str) -> None:
 async def _messages(client, tokens: dict) -> list[str]:
     resp = await client.get("/user/notification/", headers=_auth(tokens))
     assert resp.status_code == 200, resp.text
-    return [n["message"] for n in resp.json()]
+    return [n["message"] for n in resp.json()["items"]]
 
 
 async def _create_event(client, tokens: dict, title: str) -> dict:
@@ -235,7 +235,7 @@ async def test_read_all_marks_everything_and_is_idempotent(client, db_session):
     assert resp.json()["sent"] == 2
 
     resp = await client.get("/user/notification/", headers=_auth(recipient_tokens))
-    assert all(n["read"] for n in resp.json())
+    assert all(n["read"] for n in resp.json()["items"])
 
     # Second call changes nothing, so it reports 0 rather than the total.
     resp = await client.put(
@@ -340,7 +340,7 @@ async def test_event_notification_failure_does_not_break_registration(
     # The registration is genuinely persisted, not merely reported as a 204.
     resp = await client.get("/event/?my_events=true", headers=_auth(member_tokens))
     assert any(
-        e["id"] == event["id"] for e in resp.json()
+        e["id"] == event["id"] for e in resp.json()["items"]
     ), "and must actually be persisted"
 
     # ...and no notification was stored for it.

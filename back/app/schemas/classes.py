@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Generic, TypeVar
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -25,6 +25,30 @@ PasswordStr = Annotated[
 
 class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Pagination ---
+
+T = TypeVar("T")
+
+# Query-parameter bounds, shared by every paginated endpoint so a caller can
+# rely on the same limits everywhere.
+MAX_PAGE_SIZE = 200
+DEFAULT_PAGE_SIZE = 50
+
+
+class Page(BaseSchema, Generic[T]):
+    """A slice of a collection.
+
+    `total` is the number of rows matching the filters *before* limit/offset,
+    which is what a client needs to render page counts — without it the only
+    way to know whether more exists is to keep requesting pages.
+    """
+
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
 
 
 # --- Auth ---
