@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_current_user, require_admin, require_roles
+from app.core.notifications import notify, notify_many
 from app.db.database import get_session
 from app.db.models import Event, User
 from app.schemas.classes import EventCreate, EventOut, EventUpdate
@@ -148,7 +149,15 @@ async def update_event(
 
     await session.commit()
     result = await session.execute(_event_q().where(Event.id == event.id))
-    return _to_schema(result.scalar_one())
+    updated = result.scalar_one()
+
+    await notify_many(
+        session,
+        [u.id for u in updated.registered_users],
+        f'The event "{updated.title}" has been updated',
+        from_id=current_user.id,
+    )
+    return _to_schema(updated)
 
 
 @router.delete(
@@ -161,14 +170,26 @@ async def delete_event(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_admin),
 ):
-    result = await session.execute(select(Event).where(Event.id == event_id))
+    # Eager-loaded so the registrants can be read here — after the delete they
+    # are gone, and on an async session a lazy load would raise MissingGreenlet.
+    result = await session.execute(_event_q().where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if event is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
+    registered_ids = [u.id for u in event.registered_users]
+    title = event.title
+
     await session.delete(event)
     await session.commit()
+
+    await notify_many(
+        session,
+        registered_ids,
+        f'The event "{title}" has been cancelled',
+        from_id=current_user.id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +226,12 @@ async def register_for_event(
 
     event.registered_users.append(current_user)
     await session.commit()
+
+    await notify(
+        session,
+        current_user.id,
+        f'You are registered for "{event.title}"',
+    )
 
 
 @router.delete(
