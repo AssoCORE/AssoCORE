@@ -1,3 +1,8 @@
+# These entries cover the whole dependency tree, not just direct dependencies.
+# msw is pulled in transitively and ships a build script, so removing it here
+# makes `pnpm install` fail with ERR_PNPM_IGNORED_BUILDS — pnpm will re-add it
+# with a "set this to true or false" placeholder. Don't prune this list by
+# checking package.json.
 allowBuilds:
   msw: false
   sharp: false
