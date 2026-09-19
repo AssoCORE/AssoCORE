@@ -121,7 +121,7 @@ FastAPI offers high performance and ease of development, while nextCloud provide
 3.  **Initialization**
     ```bash
     # Start the stack
-    docker compose --profile dev up -d --wait
+    docker compose up -d --wait
 
     # Set trusted domains so you don’t get "Access through untrusted domain" errors
     docker exec -u www-data $(docker compose ps -q nextcloud) php occ config:system:set trusted_domains 0 --value=localhost:8080
@@ -135,7 +135,7 @@ FastAPI offers high performance and ease of development, while nextCloud provide
 
 4.  **Shutdown**
     ```bash
-    docker compose --profile dev down
+    docker compose down
     ```
 </Steps>
 
