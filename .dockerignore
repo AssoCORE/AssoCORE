@@ -34,7 +34,6 @@ result/
 *.swp
 *.swo
 *~
-.dev-notes.json
 
 # OS Files
 .DS_Store
