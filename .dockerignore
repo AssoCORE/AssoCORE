@@ -89,6 +89,7 @@ mobile/.packages
 mobile/.pub-cache/
 mobile/.metadata
 mobile/android/.gradle/
+mobile/android/.kotlin/
 mobile/android/app/debug/
 mobile/android/app/profile/
 mobile/android/app/release/
