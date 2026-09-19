@@ -156,7 +156,7 @@ Development services include hot-reload and mounted volumes for rapid iteration:
 3. **Mobile (Flutter)**
 
    ```bash
-   docker compose up mobile
+   docker compose --profile mobile up --build
    ```
 
    <Aside type="note">
@@ -213,7 +213,7 @@ Production services are optimized for performance and security:
 3. **Mobile Production**
 
    ```bash
-   docker compose --profile prod up mobile_prod
+   docker compose --profile mobile-prod up --build
    ```
 
    <Aside type="caution">

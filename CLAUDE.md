@@ -24,6 +24,10 @@ docker compose --profile dev up --wait
 
 # Start everything (prod profile)
 docker compose --profile prod up --build
+
+# Build the Flutter APK (one-shot build tool, deliberately not in dev/prod)
+docker compose --profile mobile up --build        # debug → ./build/mobile/
+docker compose --profile mobile-prod up --build   # release
 ```
 
 Required variables use `${VAR:?message}`, so a missing or incomplete `.env` makes
