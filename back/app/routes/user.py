@@ -9,8 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import bearer, get_current_user, require_admin
+from app.core.dependencies import (
+    bearer,
+    get_current_user,
+    require_admin,
+    require_roles,
+)
 from app.core.crypto import decrypt_secret
+from app.core.notifications import notify_role
 from app.core.nextcloud import get_admin_nc
 from app.core.nextcloud import (
     NC_PROBE_INTERVAL_HOURS,
@@ -18,7 +24,7 @@ from app.core.nextcloud import (
     ensure_nc_account,
     provision_nc_user,
 )
-from app.core.roles import ROLE_MEMBER
+from app.core.roles import ROLE_ADMIN, ROLE_MEMBER, ROLE_STAFF
 from app.core.security import (
     REFRESH,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -37,7 +43,10 @@ log = logging.getLogger(__name__)
 from app.schemas.classes import (
     LoginRequest,
     LogoutRequest,
+    NotificationBroadcast,
+    NotificationCreate,
     NotificationOut,
+    NotificationSent,
     RefreshRequest,
     ReminderCreate,
     ReminderOut,
@@ -498,6 +507,73 @@ async def get_notifications(
         select(Notification).where(Notification.user_id == current_user.id)
     )
     return result.scalars().all()
+
+
+@router.post(
+    "/notification/",
+    response_model=NotificationOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Send a notification to a user (admin/staff)",
+)
+async def create_notification(
+    body: NotificationCreate,
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_STAFF)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Unlike the event hooks, this is the caller's whole intent — so a failure
+    here is a real error and must surface rather than be swallowed."""
+    target = await session.get(User, body.user_id)
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    notification = Notification(
+        user_id=target.id, message=body.message, from_id=current_user.id
+    )
+    session.add(notification)
+    await session.commit()
+    await session.refresh(notification)
+    return notification
+
+
+@router.post(
+    "/notification/broadcast",
+    response_model=NotificationSent,
+    status_code=status.HTTP_201_CREATED,
+    summary="Send a notification to everyone, or to one role (admin)",
+)
+async def broadcast_notification(
+    body: NotificationBroadcast,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    sent = await notify_role(session, body.role, body.message, from_id=current_user.id)
+    return NotificationSent(sent=sent)
+
+
+@router.put(
+    "/notification/read-all",
+    response_model=NotificationSent,
+    summary="Mark every notification as read",
+)
+async def read_all_notifications(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reports how many were *changed*, so calling it twice returns 0 the
+    second time rather than the total."""
+    result = await session.execute(
+        select(Notification).where(
+            Notification.user_id == current_user.id,
+            Notification.read.is_(False),
+        )
+    )
+    unread = result.scalars().all()
+    for notification in unread:
+        notification.read = True
+    await session.commit()
+    return NotificationSent(sent=len(unread))
 
 
 @router.put(
