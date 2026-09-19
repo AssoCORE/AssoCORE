@@ -13,10 +13,13 @@ services:
     env_file:
       - back/.env
     environment:
-      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME}
-      - MARIADB_USER=${NEXTCLOUD_DB_USER}
-      - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      # ${VAR:?msg} makes Compose refuse to start when the repo-root .env is missing.
+      # Without it these silently resolve to empty strings and the containers come up
+      # with blank credentials against a volume that already has a real password set.
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_USER=${NEXTCLOUD_DB_USER:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?missing from repo-root .env — cp .env.example .env}
     healthcheck:
       # -h localhost would use the unix socket (passwordless local auth) and
       # falsely report healthy before TCP is actually accepting connections —
@@ -55,13 +58,13 @@ services:
       - back/.env
     environment:
       - MYSQL_HOST=db
-      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
-      - MYSQL_USER=${NEXTCLOUD_DB_USER}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:?missing from repo-root .env — cp .env.example .env}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:?missing from repo-root .env — cp .env.example .env}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?missing from repo-root .env — cp .env.example .env}
       - REDIS_HOST=redis
       - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
-      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
-      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:?missing from repo-root .env — cp .env.example .env}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:?missing from repo-root .env — cp .env.example .env}
     volumes:
       - ./data/nextcloud:/var/www/html
     networks:
