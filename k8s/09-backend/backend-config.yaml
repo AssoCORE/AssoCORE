@@ -8,12 +8,8 @@ metadata:
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
 data:
-  # Backend environment configuration
-  ENVIRONMENT: "production"
-  LOG_LEVEL: "info"
-  # Database connection will use mariadb service
-  DB_HOST: "mariadb.assocore.svc.cluster.local"
-  DB_PORT: "3306"
+  # The backend's DB connection comes from backend-db-secret's DATABASE_URL, not
+  # from here — DB_HOST/DB_PORT were never read (the code reads MYSQL_HOST/MYSQL_PORT).
   # Auth state (revoked access tokens, refresh tokens). DB 1 keeps it off Nextcloud's DB 0.
   REDIS_URL: "redis://redis.assocore.svc.cluster.local:6379/1"
   ACCESS_TOKEN_EXPIRE_MINUTES: "15"
