@@ -102,6 +102,16 @@ This is intentional - keeping related resources together makes deployment and ma
 - GitHub Personal Access Token with `read:packages` scope
 - Domain name configured (e.g., `assocore.org`)
 
+### On Windows (WSL2)
+
+k3s needs systemd, which WSL2 does not enable by default. Run this once, then restart
+WSL (`wsl --shutdown` from PowerShell) before installing a cluster:
+
+```bash
+./k8s/enable-wsl-systemd.sh
+./k8s/install-k3s-single.sh
+```
+
 ## Quick Start
 
 ### 1. Deploy Core Services

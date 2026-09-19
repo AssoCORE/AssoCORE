@@ -10,16 +10,25 @@ AssoCORE is a self-hosted association management platform (Epitech EIP). It is m
 
 ### Full stack (Docker)
 
-```bash
-# Start infrastructure + API in dev mode (hot-reload)
-cd back && ./dev.sh
+There is exactly one compose stack, at the repo root. Run everything from the repo
+root — Compose resolves the `${VAR}` substitutions in `docker-compose.yml` from a
+`.env` in the directory you run from.
 
-# Start everything (dev profile)
-docker compose --profile dev up
+```bash
+# First time only — both files are needed, see Infrastructure below
+cp .env.example .env
+cp back/.env.example back/.env
+
+# Start everything (dev profile, hot-reload). --wait blocks until healthy.
+docker compose --profile dev up --wait
 
 # Start everything (prod profile)
 docker compose --profile prod up --build
 ```
+
+Required variables use `${VAR:?message}`, so a missing or incomplete `.env` makes
+Compose refuse to start and name the variable, rather than starting containers with
+blank credentials.
 
 ### Backend (FastAPI — `back/`)
 
