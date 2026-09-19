@@ -118,12 +118,13 @@ Every AssoCORE user has a matching Nextcloud account. By default its password is
 ### Frontend (`front/`)
 
 Next.js 16 App Router, React 19, TypeScript.
-- **shadcn/ui** (new-york style, Radix primitives) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Newer CLI-generated components import `cn` from the real [`cn`](https://github.com/shadcn-ui/cn) package rather than `@/lib/utils`; the components already in `front/components/ui/` (hand-written before this was diagnosed) still use the local `cn()` in `front/lib/utils.ts` — both work, but pick one convention before this drifts further.
-- **Material-UI v7** available alongside shadcn/ui
+- **shadcn/ui** (new-york style, Radix primitives, Lucide icons) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Every component in `front/components/ui/` imports the local `cn()` from `@/lib/utils`; if the CLI ever emits an import from the standalone [`cn`](https://github.com/shadcn-ui/cn) package, rewrite it to match rather than adding the dependency.
 - **Tailwind CSS v4** with OKLch CSS custom properties for theming (`.dark` class toggles dark mode)
 - Path alias `@/` maps to `front/` root (`tsconfig.json` + `components.json`)
 - `cn()` utility in `front/lib/utils.ts` for conditional Tailwind classes
-- `front/.env.example` documents `BACKEND_URL` (server-only, no `NEXT_PUBLIC_` prefix)
+- **Two linters, on purpose**: Biome (root `biome.json`) formats and lints; ESLint (`front/eslint.config.mjs`, run by `pnpm lint`) exists only for the Next-specific `core-web-vitals` rules Biome has no equivalent for. Don't add Prettier.
+- `BACKEND_URL` is server-only (no `NEXT_PUBLIC_` prefix) and defaults to `http://localhost:8000` in `front/lib/backend.ts`; Compose overrides it per profile. There is deliberately no `front/.env.example` — the only value it could document is already the code default.
+- `lucide-react` currently has no imports but is the configured `iconLibrary` in `components.json`, so `shadcn add` will emit Lucide imports. Don't remove it as "unused".
 
 #### Auth (frontend)
 
