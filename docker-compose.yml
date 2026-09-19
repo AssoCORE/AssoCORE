@@ -33,7 +33,7 @@ services:
 
   # Redis cache
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -44,8 +44,11 @@ services:
       - assocore
 
   # Nextcloud instance
+  # Pinned: a floating tag means teammates silently get different majors, and
+  # Nextcloud refuses to start against a data volume written by a newer version.
+  # NOTE: k8s pins 28-apache — see issue for reconciling the two.
   nextcloud:
-    image: nextcloud:latest
+    image: nextcloud:34-apache
     restart: unless-stopped
     ports:
       - "8081:80"
