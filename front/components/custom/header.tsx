@@ -8,10 +8,11 @@ export default function Header() {
   return (
     <header className="flex w-full items-center px-4 py-2">
       <BreadCrumb />
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
         <DarkButton />
         <ProfileAccess />
       </div>
     </header>
   );
 }
+
