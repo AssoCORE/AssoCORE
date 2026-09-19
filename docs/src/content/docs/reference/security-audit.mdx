@@ -105,7 +105,7 @@ A comprehensive security audit was performed across the entire AssoCORE codebase
 
 **Details:**
 
-- Use `env_file:` directive to load from `back/.env`
+- Use `env_file:` directive to load from `.env`
 - Use environment variable substitution: `${MARIADB_ROOT_PASSWORD}`
 - No hardcoded credentials found
 - `.env` files properly excluded from git
@@ -116,7 +116,7 @@ A comprehensive security audit was performed across the entire AssoCORE codebase
 services:
   db:
     env_file:
-      - back/.env
+      - .env
     environment:
       - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
 ```

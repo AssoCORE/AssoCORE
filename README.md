@@ -115,12 +115,11 @@ Our comprehensive documentation is available in the `docs/` folder and covers ev
 git clone https://github.com/AssoCORE/AssoCORE.git
 cd AssoCORE
 
-# 2. Create both env files (first time only)
-cp .env.example .env          # read by Docker Compose itself
-cp back/.env.example back/.env # injected into the backend container
+# 2. Create the env file (first time only)
+cp .env.example .env
 
-# 3. Development mode (hot-reload). --wait blocks until every service is healthy.
-docker compose --profile dev up --wait
+# 3. Run the app (hot-reload). --wait blocks until every service is healthy.
+docker compose up --wait
 
 # 4. Production mode (optimized builds)
 docker compose --profile prod up --build
@@ -137,20 +136,22 @@ docker compose --profile mobile-prod up --build   # release
 
 ### 🔐 Environment configuration
 
-Two `.env` files are required, and they are read by **different mechanisms**:
+There is **one** `.env`, at the repository root, created from `.env.example`. Compose
+uses it for two things at once:
 
-| File | Read by | Purpose |
-|------|---------|---------|
-| `.env` (repo root) | Docker Compose itself | Resolves the `${VAR}` substitutions inside `docker-compose.yml` (the `db` and `nextcloud` service definitions) |
-| `back/.env` | the containers | Injected via `env_file:` into the backend and friends |
+1. resolving the `${VAR}` substitutions inside `docker-compose.yml`, and
+2. as the `env_file` injected into the `db`, `nextcloud` and `backend` containers.
 
-Because Compose resolves the root `.env` relative to **the directory you run it from**,
-always run `docker compose` from the repo root. Keys that appear in both files
-(`MYSQL_ROOT_PASSWORD`, `NEXTCLOUD_DB_*`, `NEXTCLOUD_ADMIN_*`) must be kept in sync.
+The first of those is why it must sit next to `docker-compose.yml`, and why you should
+run `docker compose` **from the repository root** — Compose looks for `.env` in the
+directory you invoke it from, not in the compose file's directory.
 
-Required variables are declared as `${VAR:?message}`, so a missing or incomplete root
-`.env` makes Compose stop and name the offending variable rather than starting MariaDB
-and Nextcloud with blank credentials.
+Required variables are declared as `${VAR:?message}`, so a missing or incomplete `.env`
+makes Compose stop and name the offending variable rather than starting MariaDB and
+Nextcloud with blank credentials.
+
+`.env` also sets `COMPOSE_PROFILES=dev`, which is what makes a bare `docker compose up`
+run the app. Passing `--profile` explicitly overrides it.
 
 Before any deployment, set `SECRET_KEY` to a strong random value, and in production also
 set `NC_APP_PASSWORD_KEY` (an independent Fernet key) and `ADMIN_PASSWORD`.

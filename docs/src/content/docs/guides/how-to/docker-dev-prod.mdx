@@ -90,19 +90,19 @@ These services are used by both development and production environments:
   </TabItem>
 
   <TabItem label="Cache">
-    **Redis Alpine**
+    **Redis 7 Alpine**
     
     ```yaml
     Service: redis
     Port: 6379 (internal)
-    Image: redis:alpine
+    Image: redis:7-alpine
     ```
     
     Provides caching for Nextcloud and application sessions.
   </TabItem>
 
   <TabItem label="File Storage">
-    **Nextcloud Latest**
+    **Nextcloud 34 (pinned)**
     
     ```yaml
     Service: nextcloud
@@ -160,7 +160,7 @@ Development services include hot-reload and mounted volumes for rapid iteration:
    ```
 
    <Aside type="note">
-     - **Profile**: `dev` (default)
+     - **Profile**: `mobile` (deliberately not `dev` — it is a one-shot build tool)
      - **Output**: `./build/mobile/app-debug.apk`
      - **Features**:
        - Debug APK build
@@ -284,7 +284,7 @@ USER nextjs
 CMD ["node", "server.js"]
 ```
 
-## Automated Scripts
+## Common Workflows
 
 Run these from the repository root.
 
@@ -293,10 +293,9 @@ Run these from the repository root.
 ```bash
 # First time only
 cp .env.example .env
-cp back/.env.example back/.env
 
 # Start the dev profile; --wait blocks until every service is healthy
-docker compose --profile dev up --wait
+docker compose up --wait
 ```
 
 <Aside>
@@ -331,7 +330,7 @@ docker compose --profile prod up --build
 
 ### Development Environment
 
-Create `back/.env` for development:
+Create `.env` at the repository root:
 
 ```bash
 # Database
@@ -550,7 +549,7 @@ docker compose exec db mariadb-admin ping -h localhost
 
 2. Verify environment file exists:
    ```bash
-   ls -la back/.env
+   ls -la .env
    ```
 
 3. Check Docker daemon:
@@ -744,7 +743,7 @@ docker scan $(docker compose --profile prod images -q backend_prod)
 
 <CardGrid>
   <Card title="Try Development" icon="laptop">
-    Run `docker compose --profile dev up --wait` to start developing immediately
+    Run `docker compose up --wait` to start developing immediately
   </Card>
   <Card title="Test Production" icon="rocket">
     Run `docker compose --profile prod up --build` to test prod builds locally
