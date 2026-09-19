@@ -11,7 +11,7 @@ services:
     volumes:
       - ./data/db:/var/lib/mysql
     env_file:
-      - back/.env
+      - .env
     environment:
       # ${VAR:?msg} makes Compose refuse to start when the repo-root .env is missing.
       # Without it these silently resolve to empty strings and the containers come up
@@ -58,7 +58,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - back/.env
+      - .env
     environment:
       - MYSQL_HOST=db
       - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:?missing from repo-root .env — cp .env.example .env}
@@ -103,10 +103,10 @@ services:
       nextcloud:
         condition: service_started
     env_file:
-      - back/.env
+      - .env
     environment:
       # DATABASE_URL is intentionally not set here — back/app/db/database.py already
-      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # builds the correct one from .env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
       # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
       # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
       # not the backend's, and silently produced an empty-credential connection string
@@ -192,10 +192,10 @@ services:
       nextcloud:
         condition: service_started
     env_file:
-      - back/.env
+      - .env
     environment:
       # DATABASE_URL is intentionally not set here — back/app/db/database.py already
-      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # builds the correct one from .env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
       # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
       # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
       # not the backend's, and silently produced an empty-credential connection string

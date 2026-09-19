@@ -34,17 +34,16 @@ import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/star
 
 <Steps>
 
-1. **Create both env files** (first time only)
+1. **Create the env file** (first time only)
 
    ```bash
-   cp .env.example .env            # read by Docker Compose itself
-   cp back/.env.example back/.env  # injected into the containers
+   cp .env.example .env
    ```
 
 2. **Start the stack**
 
    ```bash
-   docker compose --profile dev up --wait
+   docker compose up --wait
    ```
 
    `--wait` blocks until every service reports healthy, so there is no need to poll
@@ -59,8 +58,8 @@ import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/star
 4. **Stop**
 
    ```bash
-   docker compose --profile dev down          # keep data
-   docker compose --profile dev down -v       # also drop volumes
+   docker compose down          # keep data
+   docker compose down -v       # also drop volumes
    ```
 
 </Steps>
@@ -95,21 +94,24 @@ import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/star
 
 ## Environment Configuration
 
-Two `.env` files are required, and they are read by **different mechanisms**:
+There is one `.env`, at the repository root, created from the tracked `.env.example`.
+Compose uses it for two things at once:
 
-| File | Read by | Purpose |
-|------|---------|---------|
-| `.env` (repo root) | Docker Compose itself | Resolves `${VAR}` substitutions inside `docker-compose.yml` (the `db` and `nextcloud` service definitions) |
-| `back/.env` | the containers | Injected via `env_file:` into the backend |
+1. resolving the `${VAR}` substitutions inside `docker-compose.yml`, and
+2. as the `env_file` injected into the `db`, `nextcloud` and `backend` containers.
 
-Keys present in both (`MYSQL_ROOT_PASSWORD`, `NEXTCLOUD_DB_*`, `NEXTCLOUD_ADMIN_*`) must
-be kept in sync. Both are gitignored; `.env.example` and `back/.env.example` are the
-tracked templates.
+The first is why it must sit next to `docker-compose.yml`, and why compose has to be run
+from the repository root — Compose looks for `.env` in the directory you invoke it from.
+It is gitignored; never commit it.
 
-### Key variables in `back/.env`
+<Aside type="note">
+  This used to be split between a repo-root `.env` and a `back/.env` that had to be kept in sync by hand. They were merged: the drift silently produced blank credentials.
+</Aside>
+
+### Key variables
 
 ```bash
-# MariaDB root — must match the repo-root .env
+# MariaDB root
 MYSQL_ROOT_PASSWORD=root_password
 
 # App database (the backend's own, separate from Nextcloud's)
@@ -240,7 +242,7 @@ and `production` targets) and is shared by Compose and CI.
 
 1. **Start the stack**
    ```bash
-   docker compose --profile dev up --wait
+   docker compose up --wait
    ```
 
 2. **Make code changes**
@@ -260,7 +262,7 @@ and `production` targets) and is shared by Compose and CI.
 
 5. **Stop when done**
    ```bash
-   docker compose --profile dev down
+   docker compose down
    ```
 
 </Steps>
@@ -272,10 +274,10 @@ and `production` targets) and is shared by Compose and CI.
 When you need a completely clean database:
 
 ```bash
-docker compose --profile dev down -v
+docker compose down -v
 # the bind-mounted data dirs are owned by the container user
 sudo rm -rf data/db data/nextcloud
-docker compose --profile dev up --wait
+docker compose up --wait
 ```
 
 Nextcloud reinstalls itself on first boot from `NEXTCLOUD_ADMIN_USER` /
@@ -377,9 +379,9 @@ needed. Confirm with `curl -s http://localhost:8081/status.php`, which should re
 <Tabs>
   <TabItem label="Development">
     ```bash
-    docker compose --profile dev up --wait
+    docker compose up --wait
     docker compose logs -f backend
-    docker compose --profile dev down
+    docker compose down
     ```
   </TabItem>
 
@@ -402,7 +404,7 @@ needed. Confirm with `curl -s http://localhost:8081/status.php`, which should re
 
   <TabItem label="Clean">
     ```bash
-    docker compose --profile dev down -v
+    docker compose down -v
     sudo rm -rf data/
     ```
   </TabItem>
@@ -424,7 +426,7 @@ needed. Confirm with `curl -s http://localhost:8081/status.php`, which should re
   <TabItem label="Check Config">
     ```bash
     # Resolves every ${VAR}; errors if one is missing
-    docker compose --profile dev config
+    docker compose config
     ```
 
     If this prints `required variable ... is missing a value`, your repo-root `.env`
@@ -484,13 +486,13 @@ docker compose exec -u www-data nextcloud php occ config:system:set trusted_doma
 **Hot-reload not working:**
 ```bash
 # Confirm ./back is mounted into the dev container
-docker compose --profile dev config | grep -A5 'backend:'
+docker compose config | grep -A5 'backend:'
 ```
 
 **Import errors after adding a dependency:** the image installs dependencies at build
 time from `pyproject.toml`/`uv.lock`, so pulling new code is not enough — rebuild:
 ```bash
-docker compose --profile dev build backend
+docker compose build backend
 ```
 
 ## Advanced Usage
@@ -517,7 +519,7 @@ docker compose --profile dev build backend
 </Steps>
 
 <Aside type="note">
-  `MYSQL_HOST` in `back/.env` is `db`, which only resolves inside the docker network. Point it at `127.0.0.1` when running the API on the host.
+  `MYSQL_HOST` in `.env` is `db`, which only resolves inside the docker network. Point it at `127.0.0.1` when running the API on the host.
 </Aside>
 
 ---
@@ -547,10 +549,9 @@ jobs:
       - name: Setup environment
         run: |
           cp .env.example .env
-          cp back/.env.example back/.env
 
       - name: Start services
-        run: docker compose --profile dev up -d --wait
+        run: docker compose up -d --wait
 
       - name: Run tests
         run: docker compose exec -T backend pytest
@@ -578,8 +579,8 @@ jobs:
 
 1. **Start the stack**
    ```bash
-   cp .env.example .env && cp back/.env.example back/.env
-   docker compose --profile dev up --wait
+   cp .env.example .env
+   docker compose up --wait
    ```
 
 2. **Explore the API** at http://localhost:8000/docs

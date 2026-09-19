@@ -10,25 +10,26 @@ AssoCORE is a self-hosted association management platform (Epitech EIP). It is m
 
 ### Full stack (Docker)
 
-There is exactly one compose stack, at the repo root. Run everything from the repo
-root — Compose resolves the `${VAR}` substitutions in `docker-compose.yml` from a
-`.env` in the directory you run from.
+One compose stack and one env file, both at the repo root. Run compose from the repo
+root — it resolves `.env` relative to the directory you invoke it from.
 
 ```bash
-# First time only — both files are needed, see Infrastructure below
+# First time only
 cp .env.example .env
-cp back/.env.example back/.env
 
-# Start everything (dev profile, hot-reload). --wait blocks until healthy.
-docker compose --profile dev up --wait
+# Run the app (hot-reload). --wait blocks until every service is healthy.
+docker compose up --wait
 
-# Start everything (prod profile)
+# Production builds
 docker compose --profile prod up --build
 
-# Build the Flutter APK (one-shot build tool, deliberately not in dev/prod)
+# Flutter APK — a one-shot build tool, deliberately outside dev/prod
 docker compose --profile mobile up --build        # debug → ./build/mobile/
 docker compose --profile mobile-prod up --build   # release
 ```
+
+`.env` sets `COMPOSE_PROFILES=dev`, which is why a bare `docker compose up` runs the
+app; an explicit `--profile` on the command line overrides it.
 
 Required variables use `${VAR:?message}`, so a missing or incomplete `.env` makes
 Compose refuse to start and name the variable, rather than starting containers with
@@ -156,11 +157,24 @@ design is tracked separately under issues #79/#80, which rebase onto this work.
 
 ### Infrastructure
 
-Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload) and `prod` (production builds). Infrastructure services (`db`, `redis`, `nextcloud`) run in both profiles.
+Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload, the default via
+`COMPOSE_PROFILES` in `.env`), `prod` (production builds), and `mobile`/`mobile-prod`
+for the Flutter APK builders. Infrastructure (`db`, `redis`, `nextcloud`) declares no
+profile, so it runs in all of them. The APK builders are deliberately outside
+`dev`/`prod`: they are one-shot build tools with no ready state, and in the dev profile
+they ran a slow Flutter build on every `up` and broke `--wait`.
 
-`back/.env` drives all secrets; `back/.env.example` lists every key with placeholder values. Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
+**There is one `.env`, at the repo root** (`.env.example` is the template). Compose reads
+it twice over — to resolve the `${VAR}` substitutions inside `docker-compose.yml`, and as
+the `env_file` injected into the `db`, `nextcloud` and `backend` containers. It has to sit
+next to the compose file for the first of those, which is why compose must be run from the
+repo root. This used to be split across a root `.env` and a `back/.env` that had to be kept
+in sync by hand; they were merged because the drift silently produced blank credentials.
 
-**A separate root-level `.env`** (see `.env.example` at the repo root) is also required for `docker compose up` itself — Compose resolves the `${VAR}` substitutions inside `docker-compose.yml` (the `db` and `nextcloud` service definitions) from a `.env` next to the compose file, which is a different mechanism from `env_file: back/.env` (that only injects vars into the specific containers listing it). Without this root `.env`, those substitutions silently resolve to empty strings — Compose warns about it, but still starts containers with blank DB/Nextcloud credentials, so the backend and Nextcloud will fail against a persisted `./data/db` volume that already has a real root password set. Keep both `.env` files' overlapping keys (`MYSQL_ROOT_PASSWORD`, `NEXTCLOUD_DB_*`, `NEXTCLOUD_ADMIN_*`) in sync.
+Required substitutions use `${VAR:?message}`, so a missing or incomplete `.env` aborts the
+run naming the variable instead of starting MariaDB and Nextcloud with empty passwords.
+
+Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
 
 Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command.
 
