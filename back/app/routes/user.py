@@ -2,9 +2,10 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from jwt import ExpiredSignatureError, InvalidTokenError
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -34,6 +35,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.pagination import limit_param, offset_param, paginate
 from app.core.rate_limit import limiter
 from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
@@ -47,6 +49,7 @@ from app.schemas.classes import (
     NotificationCreate,
     NotificationOut,
     NotificationSent,
+    Page,
     RefreshRequest,
     ReminderCreate,
     ReminderOut,
@@ -441,13 +444,36 @@ async def delete_me(
 
 @router.get(
     "/",
-    response_model=list[UserOut],
+    response_model=Page[UserOut],
     summary="List all users",
     dependencies=[Depends(require_admin)],
 )
-async def get_all_users(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(_user_q())
-    return result.scalars().all()
+async def get_all_users(
+    q: str | None = Query(
+        default=None,
+        description="Case-insensitive search across username, name, firstname and mail",
+    ),
+    role: str | None = Query(default=None, description="Only users holding this role"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = _user_q()
+    if q:
+        term = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                User.username.ilike(term),
+                User.name.ilike(term),
+                User.firstname.ilike(term),
+                User.mail.ilike(term),
+            )
+        )
+    if role:
+        # any() keeps this a single statement instead of loading every user's
+        # roles and filtering in Python.
+        stmt = stmt.where(User.roles.any(Role.name == role))
+    return await paginate(session, stmt.order_by(User.id), limit, offset)
 
 
 @router.get(
@@ -496,17 +522,27 @@ async def delete_user(
 
 @router.get(
     "/notification/",
-    response_model=list[NotificationOut],
+    response_model=Page[NotificationOut],
     summary="Get all notifications",
 )
 async def get_notifications(
+    unread_only: bool = Query(default=False, description="Only unread notifications"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Notification).where(Notification.user_id == current_user.id)
+    """Newest first — a notification list is read from the top.
+
+    An unread *count* needs no dedicated endpoint: request
+    `?unread_only=true&limit=1` and read `total`.
+    """
+    stmt = select(Notification).where(Notification.user_id == current_user.id)
+    if unread_only:
+        stmt = stmt.where(Notification.read.is_(False))
+    return await paginate(
+        session, stmt.order_by(Notification.date.desc()), limit, offset
     )
-    return result.scalars().all()
 
 
 @router.post(
@@ -707,15 +743,18 @@ async def create_reminder(
     return reminder
 
 
-@router.get("/reminder/", response_model=list[ReminderOut], summary="Get all reminders")
+@router.get("/reminder/", response_model=Page[ReminderOut], summary="Get all reminders")
 async def get_reminders(
+    upcoming: bool = Query(default=False, description="Only reminders still in future"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Reminder).where(Reminder.user_id == current_user.id)
-    )
-    return result.scalars().all()
+    stmt = select(Reminder).where(Reminder.user_id == current_user.id)
+    if upcoming:
+        stmt = stmt.where(Reminder.date >= datetime.now(timezone.utc))
+    return await paginate(session, stmt.order_by(Reminder.date), limit, offset)
 
 
 @router.delete(

@@ -1,13 +1,16 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_current_user, require_admin, require_roles
 from app.core.notifications import notify, notify_many
+from app.core.pagination import limit_param, offset_param, paginate
 from app.db.database import get_session
 from app.db.models import Event, User
-from app.schemas.classes import EventCreate, EventOut, EventUpdate
+from app.schemas.classes import EventCreate, EventOut, EventUpdate, Page
 
 router = APIRouter(prefix="/event", tags=["event"])
 
@@ -45,33 +48,37 @@ def _to_schema(event: Event) -> EventOut:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/", response_model=list[EventOut], summary="List events")
+@router.get("/", response_model=Page[EventOut], summary="List events")
 async def list_events(
     upcoming: bool = Query(default=False, description="Only future events"),
     past: bool = Query(default=False, description="Only past events"),
     my_events: bool = Query(
         default=False, description="Only events I am registered for"
     ),
+    q: str | None = Query(
+        default=None, description="Case-insensitive search in title and description"
+    ),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    from datetime import datetime, timezone
-
-    q = _event_q()
+    stmt = _event_q()
     now = datetime.now(timezone.utc)
     if upcoming:
-        q = q.where(Event.start_date > now)
+        stmt = stmt.where(Event.start_date > now)
     elif past:
-        q = q.where(Event.end_date < now)
-    result = await session.execute(q.order_by(Event.start_date))
-    events = result.scalars().all()
+        stmt = stmt.where(Event.end_date < now)
+    if q:
+        term = f"%{q}%"
+        stmt = stmt.where(or_(Event.title.ilike(term), Event.description.ilike(term)))
     if my_events:
-        events = [
-            e
-            for e in events
-            if any(u.id == current_user.id for u in e.registered_users)
-        ]
-    return [_to_schema(e) for e in events]
+        # Filter in SQL rather than loading every event and checking in Python —
+        # otherwise limit/offset would page over the wrong set.
+        stmt = stmt.where(Event.registered_users.any(User.id == current_user.id))
+    return await paginate(
+        session, stmt.order_by(Event.start_date), limit, offset, transform=_to_schema
+    )
 
 
 @router.get("/{event_id}", response_model=EventOut, summary="Get a specific event")
