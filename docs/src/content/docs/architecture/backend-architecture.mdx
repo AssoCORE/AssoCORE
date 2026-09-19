@@ -35,14 +35,16 @@ back/
 │       └── nextcloud.py     # Admin Nextcloud user/file management
 │
 ├── pyproject.toml           # uv dependencies
-├── uv.lock
-├── setup.sh / dev.sh / shutdown.sh
-└── docker-compose.yml / docker-compose.dev.yml
+└── uv.lock
 ```
+
+The backend image is built from `docker/backend.Dockerfile` (multi-stage, `development`
+and `production` targets) and orchestrated by the single `docker-compose.yml` at the
+repository root.
 
 ## Route Auto-Discovery
 
-`routes/__init__.py` uses `pkgutil.iter_modules` to discover every module in the `routes` package and register any `APIRouter` it finds as `router`. All routers are aggregated under the `/api` prefix.
+`routes/__init__.py` uses `pkgutil.iter_modules` to discover every module in the `routes` package and register any `APIRouter` it finds as `router`. Routers mount at the app root (`/user/...`, `/storage/...`) — there is no `/api` prefix.
 
 **To add a new route file:** create `app/routes/myfeature.py` with `router = APIRouter(...)` — no other wiring needed.
 

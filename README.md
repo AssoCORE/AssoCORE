@@ -108,44 +108,48 @@ Our comprehensive documentation is available in the `docs/` folder and covers ev
 - **[Kubernetes Deployment](./docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx)** - Deploy on Kubernetes (beginner-friendly)
 - **[DevOps Infrastructure](./docs/src/content/docs/architecture/devops-infrastructure.mdx)** - Architecture overview
 
-### 🚀 Quick Start (Docker - Interactive)
-
-Use our interactive scripts for guided deployment:
-
-```bash
-# Complete deployment with guided setup (development or production)
-./scripts/docker-deploy.sh
-
-# Or use quick-start scripts:
-./scripts/docker-dev.sh   # Development with hot-reload
-./scripts/docker-prod.sh  # Production optimized builds
-```
-
-**Features:**
-- 🎨 Clean, colorful output (like k8s/deploy-all.sh)
-- 🔒 Secure password generation
-- ✅ Automatic health checks
-- 📝 Step-by-step guidance
-- ⚡ Smart defaults
-
-### 🐳 Quick Start (Docker - Manual)
+### 🐳 Quick Start (Docker)
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/AssoCORE/AssoCORE.git
 cd AssoCORE
 
-# 2. Development mode (default - with hot-reload)
-docker compose up
+# 2. Create both env files (first time only)
+cp .env.example .env          # read by Docker Compose itself
+cp back/.env.example back/.env # injected into the backend container
 
-# 3. Production mode (optimized builds)
-docker compose --profile prod up
+# 3. Development mode (hot-reload). --wait blocks until every service is healthy.
+docker compose --profile dev up --wait
 
-# 4. Access the application
-# Frontend: http://localhost:3000
+# 4. Production mode (optimized builds)
+docker compose --profile prod up --build
+
+# 5. Access the application
+# Frontend:    http://localhost:3000
 # Backend API: http://localhost:8000/docs
-# Nextcloud: http://localhost:8081
+# Nextcloud:   http://localhost:8081
 ```
+
+### 🔐 Environment configuration
+
+Two `.env` files are required, and they are read by **different mechanisms**:
+
+| File | Read by | Purpose |
+|------|---------|---------|
+| `.env` (repo root) | Docker Compose itself | Resolves the `${VAR}` substitutions inside `docker-compose.yml` (the `db` and `nextcloud` service definitions) |
+| `back/.env` | the containers | Injected via `env_file:` into the backend and friends |
+
+Because Compose resolves the root `.env` relative to **the directory you run it from**,
+always run `docker compose` from the repo root. Keys that appear in both files
+(`MYSQL_ROOT_PASSWORD`, `NEXTCLOUD_DB_*`, `NEXTCLOUD_ADMIN_*`) must be kept in sync.
+
+Required variables are declared as `${VAR:?message}`, so a missing or incomplete root
+`.env` makes Compose stop and name the offending variable rather than starting MariaDB
+and Nextcloud with blank credentials.
+
+Before any deployment, set `SECRET_KEY` to a strong random value, and in production also
+set `NC_APP_PASSWORD_KEY` (an independent Fernet key) and `ADMIN_PASSWORD`.
 
 ### ☸️ Quick Start (Kubernetes)
 
