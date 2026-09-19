@@ -73,6 +73,7 @@ pnpm build  # static build
 | `core/redis_client.py` | Process-wide async redis client (auth state on DB 1, separate from Nextcloud's DB 0) |
 | `core/crypto.py` | Fernet `encrypt_secret` / `decrypt_secret` for Nextcloud app passwords stored in the DB |
 | `core/roles.py` | Role name constants — `admin`, `staff`, `member` |
+| `core/notifications.py` | `notify()` / `notify_many()` / `notify_role()` — the only writers of the `notifications` table |
 | `core/dependencies.py` | `get_current_user` (validates the bearer token, checks the blacklist, eager-loads relations) and the `require_roles(*names)` / `require_admin` gates |
 | `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. Routers mount at the app root (`/user/...`, `/storage/...`) — there is **no** `/api` prefix. |
 | `routes/user.py` | Full user system: login, refresh, logout, register, me, CRUD, notifications, reminders — all wired to DB |
@@ -96,6 +97,20 @@ pnpm build  # static build
 - Replaying an already-used refresh token within `REFRESH_GRACE_SECONDS` (10 s) returns the same replacement pair, so concurrent browser tabs converge instead of fighting. Replaying it later is treated as theft: the whole token family is revoked and the user must log in again.
 - `POST /user/logout` blacklists the current access token and, when given a refresh token, kills its family.
 - Revocation state lives in redis. If redis is down, revocation checks are skipped (`AUTH_REDIS_STRICT=false`) but refresh and logout return 503 — they cannot be honoured without it.
+
+#### Notifications
+
+Nothing writes to `notifications` except `core/notifications.py`. Send one with
+`notify(session, user_id, message, from_id=...)`, or `notify_role(...)` to reach everyone
+holding a role. `from_id` records who caused it and is null for system-generated ones.
+
+Call these **after** committing whatever triggered them: they manage their own
+commit/rollback and swallow every `Exception`, so a notification that fails to insert
+rolls back only itself and returns 0 rather than turning a successful action into a 500.
+That only holds if the triggering work is already committed — notify last.
+
+`POST /user/notification/` is the exception: creating one is the caller's whole intent
+there, so it raises normally.
 
 #### Nextcloud accounts
 
