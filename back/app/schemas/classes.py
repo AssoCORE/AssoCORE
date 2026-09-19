@@ -71,6 +71,21 @@ class NotificationOut(BaseSchema):
     read: bool
 
 
+class NotificationCreate(BaseSchema):
+    user_id: int
+    message: str = Field(..., min_length=1, max_length=2000)
+
+
+class NotificationBroadcast(BaseSchema):
+    message: str = Field(..., min_length=1, max_length=2000)
+    # None targets every user; otherwise only holders of this role.
+    role: str | None = None
+
+
+class NotificationSent(BaseSchema):
+    sent: int
+
+
 # --- Reminder ---
 
 
