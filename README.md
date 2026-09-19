@@ -125,6 +125,10 @@ docker compose --profile dev up --wait
 # 4. Production mode (optimized builds)
 docker compose --profile prod up --build
 
+# Flutter APK — a one-shot build tool, deliberately outside the dev/prod profiles
+docker compose --profile mobile up --build        # debug → ./build/mobile/
+docker compose --profile mobile-prod up --build   # release
+
 # 5. Access the application
 # Frontend:    http://localhost:3000
 # Backend API: http://localhost:8000/docs
