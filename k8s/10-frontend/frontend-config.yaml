@@ -8,8 +8,8 @@ metadata:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: web
 data:
-  # Frontend environment configuration
-  NEXT_PUBLIC_API_URL: "https://api.assocore.localhost"
+  # No NEXT_PUBLIC_* here: Next.js inlines those at build time, so setting one as a
+  # runtime env var on a standalone build has no effect. Nothing read it anyway.
   NODE_ENV: "production"
   # Server-only; the Next.js server calls FastAPI server-to-server (not
   # subject to browser CORS), so this is never exposed to the browser.
