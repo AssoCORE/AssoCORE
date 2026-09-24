@@ -328,7 +328,9 @@ docker compose exec db mysql -u root -p
    export GITHUB_TOKEN=ghp_your_token_here
    
    # Login to registry
-   ./scripts/ghcr-login.sh
+   ./scripts/ghcr-login.sh YOUR_GITHUB_USERNAME
+   # equivalent to:
+   # echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
    ```
 
 2. **Pull Latest Images**

@@ -11,12 +11,15 @@ services:
     volumes:
       - ./data/db:/var/lib/mysql
     env_file:
-      - back/.env
+      - .env
     environment:
-      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME}
-      - MARIADB_USER=${NEXTCLOUD_DB_USER}
-      - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      # ${VAR:?msg} makes Compose refuse to start when the repo-root .env is missing.
+      # Without it these silently resolve to empty strings and the containers come up
+      # with blank credentials against a volume that already has a real password set.
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_DATABASE=${NEXTCLOUD_DB_NAME:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_USER=${NEXTCLOUD_DB_USER:?missing from repo-root .env — cp .env.example .env}
+      - MARIADB_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?missing from repo-root .env — cp .env.example .env}
     healthcheck:
       # -h localhost would use the unix socket (passwordless local auth) and
       # falsely report healthy before TCP is actually accepting connections —
@@ -30,7 +33,7 @@ services:
 
   # Redis cache
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -41,8 +44,11 @@ services:
       - assocore
 
   # Nextcloud instance
+  # Pinned: a floating tag means teammates silently get different majors, and
+  # Nextcloud refuses to start against a data volume written by a newer version.
+  # NOTE: k8s pins 28-apache — see issue for reconciling the two.
   nextcloud:
-    image: nextcloud:latest
+    image: nextcloud:34-apache
     restart: unless-stopped
     ports:
       - "8081:80"
@@ -52,18 +58,26 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - back/.env
+      - .env
     environment:
       - MYSQL_HOST=db
-      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME}
-      - MYSQL_USER=${NEXTCLOUD_DB_USER}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:?missing from repo-root .env — cp .env.example .env}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:?missing from repo-root .env — cp .env.example .env}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD:?missing from repo-root .env — cp .env.example .env}
       - REDIS_HOST=redis
       - NEXTCLOUD_TRUSTED_DOMAINS=localhost:8081 nextcloud
-      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
-      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:?missing from repo-root .env — cp .env.example .env}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:?missing from repo-root .env — cp .env.example .env}
     volumes:
       - ./data/nextcloud:/var/www/html
+    # status.php answers only once the first-boot install has finished, so this is
+    # what makes `up --wait` mean "usable" rather than "container started".
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost/status.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     networks:
       - assocore
 
@@ -89,10 +103,10 @@ services:
       nextcloud:
         condition: service_started
     env_file:
-      - back/.env
+      - .env
     environment:
       # DATABASE_URL is intentionally not set here — back/app/db/database.py already
-      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # builds the correct one from .env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
       # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
       # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
       # not the backend's, and silently produced an empty-credential connection string
@@ -101,6 +115,17 @@ services:
       - ENVIRONMENT=development
     volumes:
       - ./back:/app
+    # The image has no curl or wget, so probe with the interpreter that is there.
+    # 127.0.0.1, not localhost: uvicorn binds 0.0.0.0 (IPv4 only) while localhost
+    # resolves ::1 first inside the container, so the probe's first connection is
+    # refused. Whether it then falls back to IPv4 varies by environment — on some
+    # machines the container just sits there unhealthy while the app is fine.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     networks:
       - assocore
 
@@ -121,12 +146,22 @@ services:
     volumes:
       - ./front:/app
       - /app/node_modules
+    # /login rather than /, which 307-redirects to it for anonymous requests.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     networks:
       - assocore
 
   # Mobile APK builder - Development
+  # Its own profile, not "dev": this is a one-shot build tool, not a service. In the
+  # dev profile it ran a slow Flutter build on every `up` and, having no meaningful
+  # ready state, defeated `--wait` by reporting healthy and then exiting.
   mobile:
-    profiles: ["dev"]
+    profiles: ["mobile"]
     build:
       context: .
       dockerfile: docker/mobile.Dockerfile
@@ -161,10 +196,10 @@ services:
       nextcloud:
         condition: service_started
     env_file:
-      - back/.env
+      - .env
     environment:
       # DATABASE_URL is intentionally not set here — back/app/db/database.py already
-      # builds the correct one from back/.env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
+      # builds the correct one from .env's MYSQL_USER/MYSQL_PASSWORD/MYSQL_HOST/
       # MYSQL_PORT/MYSQL_DATABASE (the app's own database, separate from Nextcloud's).
       # Wiring it to NEXTCLOUD_DB_* here was a bug: those name Nextcloud's own DB/user,
       # not the backend's, and silently produced an empty-credential connection string
@@ -195,7 +230,7 @@ services:
 
   # Mobile APK builder - Production (Release build)
   mobile_prod:
-    profiles: ["prod"]
+    profiles: ["mobile-prod"]
     build:
       context: .
       dockerfile: docker/mobile.Dockerfile

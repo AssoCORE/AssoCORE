@@ -34,7 +34,6 @@ result/
 *.swp
 *.swo
 *~
-.dev-notes.json
 
 # OS Files
 .DS_Store
@@ -74,11 +73,11 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment files (keep .env.example)
-.env
-.env.local
-.env.*.local
-back/.env
-front/.env.local
+# ** so a stray env file at any depth stays out of the build context — a bare
+# ".env" pattern only matches the context root.
+**/.env
+**/.env.local
+**/.env.*.local
 
 # Flutter/Mobile
 mobile/build/

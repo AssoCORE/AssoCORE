@@ -2,15 +2,22 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from jwt import ExpiredSignatureError, InvalidTokenError
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import bearer, get_current_user, require_admin
+from app.core.dependencies import (
+    bearer,
+    get_current_user,
+    require_admin,
+    require_roles,
+)
 from app.core.crypto import decrypt_secret
+from app.core.notifications import notify_role
 from app.core.nextcloud import get_admin_nc
 from app.core.nextcloud import (
     NC_PROBE_INTERVAL_HOURS,
@@ -18,7 +25,7 @@ from app.core.nextcloud import (
     ensure_nc_account,
     provision_nc_user,
 )
-from app.core.roles import ROLE_MEMBER
+from app.core.roles import ROLE_ADMIN, ROLE_MEMBER, ROLE_STAFF
 from app.core.security import (
     REFRESH,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -28,6 +35,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.pagination import limit_param, offset_param, paginate
 from app.core.rate_limit import limiter
 from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
 from app.db.database import get_session
@@ -37,7 +45,11 @@ log = logging.getLogger(__name__)
 from app.schemas.classes import (
     LoginRequest,
     LogoutRequest,
+    NotificationBroadcast,
+    NotificationCreate,
     NotificationOut,
+    NotificationSent,
+    Page,
     RefreshRequest,
     ReminderCreate,
     ReminderOut,
@@ -432,13 +444,36 @@ async def delete_me(
 
 @router.get(
     "/",
-    response_model=list[UserOut],
+    response_model=Page[UserOut],
     summary="List all users",
     dependencies=[Depends(require_admin)],
 )
-async def get_all_users(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(_user_q())
-    return result.scalars().all()
+async def get_all_users(
+    q: str | None = Query(
+        default=None,
+        description="Case-insensitive search across username, name, firstname and mail",
+    ),
+    role: str | None = Query(default=None, description="Only users holding this role"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = _user_q()
+    if q:
+        term = f"%{q}%"
+        stmt = stmt.where(
+            or_(
+                User.username.ilike(term),
+                User.name.ilike(term),
+                User.firstname.ilike(term),
+                User.mail.ilike(term),
+            )
+        )
+    if role:
+        # any() keeps this a single statement instead of loading every user's
+        # roles and filtering in Python.
+        stmt = stmt.where(User.roles.any(Role.name == role))
+    return await paginate(session, stmt.order_by(User.id), limit, offset)
 
 
 @router.get(
@@ -487,17 +522,94 @@ async def delete_user(
 
 @router.get(
     "/notification/",
-    response_model=list[NotificationOut],
+    response_model=Page[NotificationOut],
     summary="Get all notifications",
 )
 async def get_notifications(
+    unread_only: bool = Query(default=False, description="Only unread notifications"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Notification).where(Notification.user_id == current_user.id)
+    """Newest first — a notification list is read from the top.
+
+    An unread *count* needs no dedicated endpoint: request
+    `?unread_only=true&limit=1` and read `total`.
+    """
+    stmt = select(Notification).where(Notification.user_id == current_user.id)
+    if unread_only:
+        stmt = stmt.where(Notification.read.is_(False))
+    return await paginate(
+        session, stmt.order_by(Notification.date.desc()), limit, offset
     )
-    return result.scalars().all()
+
+
+@router.post(
+    "/notification/",
+    response_model=NotificationOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Send a notification to a user (admin/staff)",
+)
+async def create_notification(
+    body: NotificationCreate,
+    current_user: User = Depends(require_roles(ROLE_ADMIN, ROLE_STAFF)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Unlike the event hooks, this is the caller's whole intent — so a failure
+    here is a real error and must surface rather than be swallowed."""
+    target = await session.get(User, body.user_id)
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    notification = Notification(
+        user_id=target.id, message=body.message, from_id=current_user.id
+    )
+    session.add(notification)
+    await session.commit()
+    await session.refresh(notification)
+    return notification
+
+
+@router.post(
+    "/notification/broadcast",
+    response_model=NotificationSent,
+    status_code=status.HTTP_201_CREATED,
+    summary="Send a notification to everyone, or to one role (admin)",
+)
+async def broadcast_notification(
+    body: NotificationBroadcast,
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    sent = await notify_role(session, body.role, body.message, from_id=current_user.id)
+    return NotificationSent(sent=sent)
+
+
+@router.put(
+    "/notification/read-all",
+    response_model=NotificationSent,
+    summary="Mark every notification as read",
+)
+async def read_all_notifications(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reports how many were *changed*, so calling it twice returns 0 the
+    second time rather than the total."""
+    result = await session.execute(
+        select(Notification).where(
+            Notification.user_id == current_user.id,
+            Notification.read.is_(False),
+        )
+    )
+    unread = result.scalars().all()
+    for notification in unread:
+        notification.read = True
+    await session.commit()
+    return NotificationSent(sent=len(unread))
 
 
 @router.put(
@@ -631,15 +743,18 @@ async def create_reminder(
     return reminder
 
 
-@router.get("/reminder/", response_model=list[ReminderOut], summary="Get all reminders")
+@router.get("/reminder/", response_model=Page[ReminderOut], summary="Get all reminders")
 async def get_reminders(
+    upcoming: bool = Query(default=False, description="Only reminders still in future"),
+    limit: int = limit_param(),
+    offset: int = offset_param(),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Reminder).where(Reminder.user_id == current_user.id)
-    )
-    return result.scalars().all()
+    stmt = select(Reminder).where(Reminder.user_id == current_user.id)
+    if upcoming:
+        stmt = stmt.where(Reminder.date >= datetime.now(timezone.utc))
+    return await paginate(session, stmt.order_by(Reminder.date), limit, offset)
 
 
 @router.delete(

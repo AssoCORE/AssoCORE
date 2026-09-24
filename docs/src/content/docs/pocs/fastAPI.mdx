@@ -48,7 +48,7 @@ FastAPI offers high performance and ease of development, while nextCloud provide
     For development, you should create a python virtual environment and install the required dependencies.
 
     <Aside type="note" title="Note">
-      The venv gets automatically created by the `setup.sh` script, but you can also do it manually if you prefer.
+      This page records the original proof of concept. The project now uses `uv` (`cd back && uv sync`) and a single Compose stack at the repository root — see the [Backend Development Guide](/guides/backend-development/) for the current workflow.
     </Aside>
 
     ```sh
@@ -119,15 +119,9 @@ FastAPI offers high performance and ease of development, while nextCloud provide
     ```
 
 3.  **Initialization**
-    Run the script to initialize everything
-    ```bash
-    ./setup.sh
-    ```
-
-    Or run manually:
     ```bash
     # Start the stack
-    docker compose up -d
+    docker compose up -d --wait
 
     # Set trusted domains so you don’t get "Access through untrusted domain" errors
     docker exec -u www-data $(docker compose ps -q nextcloud) php occ config:system:set trusted_domains 0 --value=localhost:8080
@@ -139,10 +133,9 @@ FastAPI offers high performance and ease of development, while nextCloud provide
     docker exec -u www-data $(docker compose ps -q nextcloud) php occ app:install notes
     ```
 
-4.  **Shuttdown**
-    Run the script to stop everything
+4.  **Shutdown**
     ```bash
-    ./shutdown.sh
+    docker compose down
     ```
 </Steps>
 

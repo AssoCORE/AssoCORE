@@ -136,15 +136,32 @@ The workflow automatically creates the following tags:
 ### Quick Method (Helper Script)
 
 <Aside type="tip">
-  Use our helper scripts for the easiest experience:
+  You normally do not need to push by hand: `.github/workflows/docker-build.yml`
+  builds and pushes the backend, frontend and mobile images to GHCR on every push to
+  `main`/`develop` and on tags. Push a tag to cut a release.
 </Aside>
 
-```bash title="Build and Push All Services"
-# Build and push all images
-./scripts/build-and-push.sh latest
+For the times you do need to push manually, `scripts/build-and-push.sh` wraps the
+build and push for every service:
 
-# Or with a specific tag
+```bash title="Helper Script"
+./scripts/build-and-push.sh latest
 ./scripts/build-and-push.sh v1.0.0
+./scripts/build-and-push.sh v1.0.0 --with-mobile
+```
+
+Or run the equivalent by hand:
+
+```bash title="Build and Push Manually"
+# Backend
+docker build -f docker/backend.Dockerfile --target production \
+  -t ghcr.io/assocore/assocore/backend:v1.0.0 .
+docker push ghcr.io/assocore/assocore/backend:v1.0.0
+
+# Frontend
+docker build -f docker/frontend.Dockerfile --target production \
+  -t ghcr.io/assocore/assocore/frontend:v1.0.0 .
+docker push ghcr.io/assocore/assocore/frontend:v1.0.0
 ```
 
 ### Manual Method
@@ -156,6 +173,8 @@ The workflow automatically creates the following tags:
    ```bash
    export GITHUB_TOKEN=ghp_your_token_here
    ./scripts/ghcr-login.sh fenrir42
+   # equivalent to:
+   # echo "$GITHUB_TOKEN" | docker login ghcr.io -u fenrir42 --password-stdin
    ```
 
 2. **Build and push backend**
@@ -294,7 +313,7 @@ echo $GITHUB_TOKEN
 export GITHUB_TOKEN=ghp_your_token_here
 
 # Then login
-./scripts/ghcr-login.sh fenrir42
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u fenrir42 --password-stdin
 ```
 
 ### "error from registry: denied"
@@ -328,7 +347,7 @@ If variables still aren't working:
 
 ```bash
 # Source the env file manually
-set -a; source back/.env; set +a
+set -a; source .env; set +a
 docker compose -f docker-compose.prod.yml up -d
 ```
 

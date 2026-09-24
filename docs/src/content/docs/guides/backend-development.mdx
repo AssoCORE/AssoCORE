@@ -10,7 +10,7 @@ sidebar:
 import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/starlight/components';
 
 <Aside type="tip" title="Quick Start">
-  The backend includes three interactive scripts for complete setup, development, and shutdown. All scripts feature proper health checks and colored output.
+  There is one Docker Compose stack, at the repository root. Run every `docker compose` command from the repo root — Compose resolves the `${VAR}` substitutions in `docker-compose.yml` from a `.env` in the directory you invoke it from.
 </Aside>
 
 ## Stack Overview
@@ -30,226 +30,132 @@ import { Tabs, TabItem, Aside, Steps, Card, CardGrid, Code } from '@astrojs/star
   </Card>
 </CardGrid>
 
-## Quick Start Scripts
-
-The `back/` directory includes three interactive scripts:
-
-### 🚀 setup.sh - Complete Setup
-
-First-time setup or clean install with all services.
-
-```bash
-cd back
-./setup.sh
-```
+## Quick Start
 
 <Steps>
 
-1. **Checks prerequisites**
-   - Docker and Docker Compose availability
-   - Environment configuration validation
-   
-2. **Optional Python environment**
-   - Prompts to setup local env with uv
-   
-3. **Clean start option**
-   - Shows current data size
-   - Option to delete and start fresh
-   
-4. **Starts all services**
-   - MariaDB, Redis, Nextcloud, API
-   - **Proper health checks** (no more sleep timers!)
-   
-5. **Configures Nextcloud**
-   - Sets trusted domains
-   - Optional app installation (calendar, contacts, notes)
-   
-6. **Post-deployment summary**
-   - Service URLs
-   - Quick commands
-   - Access information
+1. **Create the env file** (first time only)
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Start the stack**
+
+   ```bash
+   docker compose up --wait
+   ```
+
+   `--wait` blocks until every service reports healthy, so there is no need to poll
+   or guess. If a required variable is missing, Compose stops and names it rather
+   than starting MariaDB with blank credentials.
+
+3. **Develop**
+
+   The `dev` profile mounts `./back` into the container and runs uvicorn with
+   `--reload`, so code changes apply instantly.
+
+4. **Stop**
+
+   ```bash
+   docker compose down          # keep data
+   docker compose down -v       # also drop volumes
+   ```
 
 </Steps>
-
-<Aside type="note">
-  **Health Checks Included:**
-  - MariaDB: `mariadb-admin ping` (90s timeout)
-  - Redis: `redis-cli ping` (30s timeout)
-  - Nextcloud: `curl status.php` (120s timeout)
-  - API: `curl /health` (60s timeout)
-</Aside>
-
----
-
-### 💻 dev.sh - Development Mode
-
-Quick start for daily development with hot-reload.
-
-```bash
-cd back
-./dev.sh
-```
-
-**Features:**
-- 🔥 Hot-reload enabled (code changes apply instantly)
-- 📁 Source code mounted as volume
-- 🔍 Detailed logging
-- ⚡ Smart infrastructure detection (only starts what's needed)
-
-**What it does:**
-
-<Steps>
-
-1. Checks prerequisites
-2. Detects running services
-3. Starts infrastructure if needed (DB, Redis, Nextcloud)
-4. Waits for services with health checks
-5. Stops production API if running
-6. Starts development API with live logs
-
-</Steps>
-
----
-
-### 🛑 shutdown.sh - Interactive Shutdown
-
-Stop services with data preservation options.
-
-<Tabs>
-  <TabItem label="Interactive">
-    ```bash
-    cd back
-    ./shutdown.sh
-    ```
-    
-    Prompts you to choose:
-    1. Stop containers (keep data)
-    2. Stop and delete all data
-  </TabItem>
-  
-  <TabItem label="Keep Data">
-    ```bash
-    ./shutdown.sh --keep-data
-    ```
-    
-    Quick shutdown preserving all data
-  </TabItem>
-  
-  <TabItem label="Clean All">
-    ```bash
-    ./shutdown.sh --clean
-    ```
-    
-    Stop and delete all data (requires confirmation)
-  </TabItem>
-  
-  <TabItem label="Help">
-    ```bash
-    ./shutdown.sh --help
-    ```
-    
-    Show usage and options
-  </TabItem>
-</Tabs>
-
-## Scripts Comparison
-
-| Script | Purpose | When to Use | Interactive |
-|--------|---------|-------------|-------------|
-| `setup.sh` | Complete setup and deployment | First time, after cleanup, config changes | ✅ Yes |
-| `dev.sh` | Quick development start | Daily development, API changes | Minimal |
-| `shutdown.sh` | Stop services | End of work, cleanup, restart | ✅ Yes |
 
 ## Access Points
-
-After setup, services are available at:
 
 <CardGrid>
   <Card title="API" icon="rocket">
     **http://localhost:8000**
-    
+
     Main FastAPI application
   </Card>
-  
+
   <Card title="API Docs (Swagger)" icon="document">
     **http://localhost:8000/docs**
-    
+
     Interactive API documentation
   </Card>
-  
+
   <Card title="API Docs (ReDoc)" icon="open-book">
     **http://localhost:8000/redoc**
-    
+
     Alternative documentation view
   </Card>
-  
+
   <Card title="Nextcloud" icon="puzzle">
     **http://localhost:8081**
-    
+
     Nextcloud web interface
   </Card>
 </CardGrid>
 
 ## Environment Configuration
 
-Configuration is stored in `back/.env` (gitignored).
+There is one `.env`, at the repository root, created from the tracked `.env.example`.
+Compose uses it for two things at once:
 
-### Required Variables
+1. resolving the `${VAR}` substitutions inside `docker-compose.yml`, and
+2. as the `env_file` injected into the `db`, `nextcloud` and `backend` containers.
+
+The first is why it must sit next to `docker-compose.yml`, and why compose has to be run
+from the repository root — Compose looks for `.env` in the directory you invoke it from.
+It is gitignored; never commit it.
+
+<Aside type="note">
+  This used to be split between a repo-root `.env` and a `back/.env` that had to be kept in sync by hand. They were merged: the drift silently produced blank credentials.
+</Aside>
+
+### Key variables
 
 ```bash
 # MariaDB root
-MARIADB_ROOT_PASSWORD=your_root_password
-MYSQL_ROOT_PASSWORD=your_root_password
+MYSQL_ROOT_PASSWORD=root_password
 
-# App database
-MYSQL_DATABASE=my_app_db
+# App database (the backend's own, separate from Nextcloud's)
 MYSQL_USER=my_app_user
-MYSQL_PASSWORD=your_db_password
+MYSQL_PASSWORD=my_app_password
+MYSQL_DATABASE=my_app_db
 MYSQL_HOST=db
 MYSQL_PORT=3306
 
 # Nextcloud database
 NEXTCLOUD_DB_NAME=nextcloud
 NEXTCLOUD_DB_USER=nextcloud
-NEXTCLOUD_DB_PASSWORD=your_nextcloud_db_password
+NEXTCLOUD_DB_PASSWORD=nextcloud_db_password
 
-# Nextcloud API
+# Nextcloud API — NEXTCLOUD_URL resolves only inside the docker network,
+# NEXTCLOUD_PUBLIC_URL is what a browser can reach
 NEXTCLOUD_URL=http://nextcloud
-NEXTCLOUD_USER=admin
-NEXTCLOUD_PASSWORD=your_nextcloud_admin_password
+NEXTCLOUD_PUBLIC_URL=http://localhost:8081
+NEXTCLOUD_ADMIN_USER=admin
+NEXTCLOUD_ADMIN_PASSWORD=admin
 
-# JWT — MUST be changed before any deployment
-SECRET_KEY=change-me-to-a-random-secret-in-production
+# Auth
+SECRET_KEY=change-me-in-production
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
+REFRESH_GRACE_SECONDS=10
+AUTH_REDIS_STRICT=false
 
-# Optional — overrides the individual MYSQL_* vars
-# DATABASE_URL=mysql+aiomysql://user:pass@host:port/db
+# Bootstrap admin — without ADMIN_PASSWORD no admin is seeded
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=ChangeMe132!
+ADMIN_EMAIL=admin@assocore.local
 ```
 
 <Aside type="caution">
-  **`SECRET_KEY` must be set to a strong random value in production.** All JWTs are signed with this key — if it leaks, any user's session can be forged. Generate one with `python -c "import secrets; print(secrets.token_hex(32))"`.
+  **`SECRET_KEY` must be set to a strong random value before any deployment.** All JWTs are signed with it — if it leaks, any user's session can be forged. Generate one with `openssl rand -hex 32`.
+
+  In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key; it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password.
 </Aside>
 
-### Creating `.env`
-
-<Tabs>
-  <TabItem label="Automatic (Recommended)">
-    ```bash
-    # Let setup.sh guide you
-    ./setup.sh
-    # Script will detect missing .env and provide instructions
-    ```
-  </TabItem>
-  
-  <TabItem label="Manual">
-    ```bash
-    # Copy from example
-    cp .env.example .env
-    
-    # Edit with your values
-    nano .env
-    ```
-  </TabItem>
-</Tabs>
+<Aside type="note">
+  Setting `DATABASE_URL` overrides the individual `MYSQL_*` variables that
+  `db/database.py` otherwise composes the connection string from.
+</Aside>
 
 ## Project Structure
 
@@ -259,32 +165,39 @@ back/
 │   ├── main.py              # FastAPI app — lifespan, CORS, router mount
 │   ├── core/
 │   │   ├── security.py      # bcrypt + PyJWT helpers
-│   │   └── dependencies.py  # get_current_user dependency
+│   │   ├── tokens.py        # redis-backed blacklist + refresh rotation
+│   │   └── dependencies.py  # get_current_user, require_roles
 │   ├── db/
 │   │   ├── database.py      # Async engine, session factory, init_db()
-│   │   └── models.py        # SQLAlchemy ORM models
+│   │   ├── models.py        # SQLAlchemy ORM models
+│   │   └── seed.py          # Default roles + bootstrap admin
 │   ├── schemas/
 │   │   └── classes.py       # Pydantic request/response schemas
 │   └── routes/              # Auto-discovered route modules
-│       ├── __init__.py      # pkgutil discovery + /api prefix
+│       ├── __init__.py      # pkgutil discovery, mounted at the app root
 │       ├── user.py          # Auth, users, notifications, reminders
 │       ├── events.py        # Event CRUD (stubs)
 │       ├── apps.py          # Nextcloud app proxies (stubs)
-│       └── nextcloud.py     # Nextcloud admin routes (functional)
+│       ├── storage.py       # Nextcloud-backed storage
+│       └── nextcloud.py     # Nextcloud admin routes (admin-gated)
 ├── pyproject.toml           # uv dependencies
-├── uv.lock
-├── setup.sh / dev.sh / shutdown.sh
-├── docker-compose.yml
-└── docker-compose.dev.yml
+└── uv.lock
 ```
 
+The Dockerfile lives at `docker/backend.Dockerfile` (multi-stage, with `development`
+and `production` targets) and is shared by Compose and CI.
+
 ## API Endpoints
+
+<Aside type="note">
+  Routers mount at the **app root**. There is no `/api` prefix.
+</Aside>
 
 ### Health & Documentation
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Root health check |
+| `/health` | GET | Static health check (does not touch the DB) |
 | `/docs` | GET | Swagger UI (interactive) |
 | `/redoc` | GET | ReDoc |
 
@@ -292,35 +205,34 @@ back/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/user/login` | POST | public | Authenticate, returns JWT |
-| `/api/user/` | POST | public | Register new user |
-| `/api/user/me` | GET | required | Current user profile |
-| `/api/user/me` | PUT | required | Update current user |
-| `/api/user/me` | DELETE | required | Delete current user |
-| `/api/user/` | GET | required | List all users |
-| `/api/user/{id}` | GET | required | Get user by ID |
-| `/api/user/{id}` | DELETE | required | Delete user by ID |
-| `/api/user/notification/` | GET | required | List notifications |
-| `/api/user/notification/{id}` | GET/DELETE | required | Single notification |
-| `/api/user/notification/read/{id}` | PUT | required | Mark as read |
-| `/api/user/notification/unread/{id}` | PUT | required | Mark as unread |
-| `/api/user/reminder/` | GET/POST/DELETE | required | Reminders |
-| `/api/user/reminder/{id}` | GET/DELETE | required | Single reminder |
+| `/user/login` | POST | public | Authenticate, returns an access/refresh token pair |
+| `/user/refresh` | POST | public | Rotate a refresh token |
+| `/user/logout` | POST | required | Blacklist the access token, kill the refresh family |
+| `/user/` | POST | public | Register new user |
+| `/user/me` | GET/PUT/DELETE | required | Current user profile |
+| `/user/` | GET | required | List all users |
+| `/user/{id}` | GET/DELETE | required | Get / delete user by ID |
+| `/user/notification/` | GET | required | List notifications |
+| `/user/notification/{id}` | GET/DELETE | required | Single notification |
+| `/user/notification/read/{id}` | PUT | required | Mark as read |
+| `/user/notification/unread/{id}` | PUT | required | Mark as unread |
+| `/user/reminder/` | GET/POST/DELETE | required | Reminders |
 
 ### Events (stubs — not yet wired to DB)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/event/` | GET/POST | List / create events |
-| `/api/event/{id}` | GET/PUT/DELETE | Single event |
+| `/event/` | GET/POST | List / create events |
+| `/event/{id}` | GET/PUT/DELETE | Single event |
 
-### Nextcloud Admin
+### Nextcloud
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/nextcloud/users` | GET | List Nextcloud users |
-| `/api/nextcloud/users` | POST | Create Nextcloud user |
-| `/api/nextcloud/files/{user_id}` | GET | List user files |
+| `/nextcloud/users` | GET/POST | List / create Nextcloud users (admin only) |
+| `/nextcloud/link/init` | POST | Begin Login Flow v2 account linking |
+| `/nextcloud/link/poll/{handle}` | GET | Complete linking, store the app password |
+| `/storage/...` | — | Nextcloud-backed file operations |
 
 ## Development Workflows
 
@@ -328,34 +240,29 @@ back/
 
 <Steps>
 
-1. **Start development environment**
+1. **Start the stack**
    ```bash
-   cd back
-   ./dev.sh
+   docker compose up --wait
    ```
 
 2. **Make code changes**
-   - Edit files in `app/`
+   - Edit files in `back/app/`
    - Hot-reload applies changes automatically
-   - View logs in terminal
 
 3. **Test endpoints**
    - Open http://localhost:8000/docs
-   - Use Swagger UI to test APIs
-   - Check logs for errors
+   - Use Swagger UI to exercise the API
 
-4. **View service logs** (if needed)
+4. **View logs**
    ```bash
-   # In another terminal
-   docker compose logs -f api-dev
+   docker compose logs -f backend
    docker compose logs -f db
    docker compose logs -f nextcloud
    ```
 
 5. **Stop when done**
    ```bash
-   # Press Ctrl+C to stop API
-   ./shutdown.sh --keep-data
+   docker compose down
    ```
 
 </Steps>
@@ -364,25 +271,19 @@ back/
 
 ### Fresh Start Workflow
 
-When you need to start completely fresh (clean database, etc.):
+When you need a completely clean database:
 
-<Steps>
+```bash
+docker compose down -v
+# the bind-mounted data dirs are owned by the container user
+sudo rm -rf data/db data/nextcloud
+docker compose up --wait
+```
 
-1. **Clean everything**
-   ```bash
-   ./shutdown.sh --clean
-   ```
-
-2. **Start fresh setup**
-   ```bash
-   ./setup.sh
-   ```
-
-3. **Complete Nextcloud setup** (if needed)
-   - Visit http://localhost:8081
-   - Use credentials from `.env`
-
-</Steps>
+Nextcloud reinstalls itself on first boot from `NEXTCLOUD_ADMIN_USER` /
+`NEXTCLOUD_ADMIN_PASSWORD` / `NEXTCLOUD_TRUSTED_DOMAINS`; no manual `occ` step is
+needed. Confirm with `curl -s http://localhost:8081/status.php`, which should report
+`"installed":true`.
 
 ---
 
@@ -390,9 +291,9 @@ When you need to start completely fresh (clean database, etc.):
 
 <Steps>
 
-1. **Create a route file** in `app/routes/`
+1. **Create a route file** in `back/app/routes/`
    ```bash
-   touch app/routes/myfeature.py
+   touch back/app/routes/myfeature.py
    ```
 
 2. **Define a router and handlers**
@@ -415,15 +316,20 @@ When you need to start completely fresh (clean database, etc.):
 
 3. **Done — no manual registration needed**
 
-   `routes/__init__.py` auto-discovers every module in the package that exports `router: APIRouter` and mounts it under `/api`. Hot-reload picks up the new file immediately.
+   `routes/__init__.py` auto-discovers every module in the package that exports
+   `router: APIRouter` and mounts it at the app root. Hot-reload picks up the new
+   file immediately.
 
-4. **Test in Swagger UI**
-   - Visit http://localhost:8000/docs
+4. **Test in Swagger UI** at http://localhost:8000/docs
 
 </Steps>
 
 <Aside type="tip">
-  Use `Depends(get_current_user)` from `app.core.dependencies` to protect any route. It validates the JWT and returns the current `User` ORM object, or raises 401 automatically.
+  Use `Depends(get_current_user)` from `app.core.dependencies` to protect a route, or `Depends(require_admin)` for admin-only routes — prefer putting the gate in `APIRouter(dependencies=[...])` so new routes in that file cannot forget it.
+</Aside>
+
+<Aside type="caution">
+  Async SQLAlchemy does not support lazy loading. Always use `selectinload` or `joinedload` when a route needs relationships.
 </Aside>
 
 ## Docker Compose
@@ -433,90 +339,73 @@ When you need to start completely fresh (clean database, etc.):
 <CardGrid>
   <Card title="db" icon="seti:db">
     **MariaDB 10.11**
-    
-    - Health checks enabled
+
+    - Credentialed TCP healthcheck
     - Data persisted to `./data/db`
     - Port: 3306 (internal)
   </Card>
-  
+
   <Card title="redis" icon="seti:db">
-    **Redis Alpine**
-    
-    - In-memory cache
+    **redis:7-alpine**
+
+    - Auth state on DB 1, separate from Nextcloud's DB 0
     - Port: 6379 (internal)
   </Card>
-  
+
   <Card title="nextcloud" icon="puzzle">
-    **Nextcloud Latest**
-    
+    **nextcloud:34-apache**
+
     - Web interface on port 8081
     - Data persisted to `./data/nextcloud`
-    - Integrated with MariaDB
   </Card>
-  
-  <Card title="api" icon="rocket">
-    **FastAPI (Production)**
-    
-    - Production mode
-    - Port: 8000
-    - Using docker-compose.yml
+
+  <Card title="backend" icon="rocket">
+    **FastAPI — `dev` profile**
+
+    - Hot-reload, `./back` mounted
+    - Built from `docker/backend.Dockerfile` target `development`
   </Card>
-  
-  <Card title="api-dev" icon="rocket">
-    **FastAPI (Development)**
-    
-    - Hot-reload enabled
-    - Source mounted as volume
-    - Using docker-compose.dev.yml
+
+  <Card title="backend_prod" icon="rocket">
+    **FastAPI — `prod` profile**
+
+    - No reload, production build
+    - Same Dockerfile, target `production`
   </Card>
 </CardGrid>
 
-### Manual Commands
+### Common Commands
 
 <Tabs>
-  <TabItem label="Production">
+  <TabItem label="Development">
     ```bash
-    # Start all services
-    docker compose up -d
-    
-    # View logs
-    docker compose logs -f
-    
-    # Stop services
+    docker compose up --wait
+    docker compose logs -f backend
     docker compose down
     ```
   </TabItem>
-  
-  <TabItem label="Development">
+
+  <TabItem label="Production">
     ```bash
-    # Start dev API
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up api-dev
-    
-    # View dev logs
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f api-dev
+    docker compose --profile prod up --build
+    docker compose logs -f backend_prod
     ```
   </TabItem>
-  
+
   <TabItem label="Specific Service">
     ```bash
-    # Start only database
-    docker compose up -d db
-    
-    # View database logs
+    # Infrastructure only
+    docker compose up -d db redis nextcloud
+
     docker compose logs -f db
-    
-    # Restart service
-    docker compose restart api
+    docker compose restart backend
     ```
   </TabItem>
-  
+
   <TabItem label="Clean">
     ```bash
-    # Stop and remove volumes
     docker compose down -v
-    
-    # Remove data directory
-    rm -rf data/
+    sudo rm -rf data/
     ```
   </TabItem>
 </Tabs>
@@ -528,34 +417,27 @@ When you need to start completely fresh (clean database, etc.):
 <Tabs>
   <TabItem label="Check Docker">
     ```bash
-    # Verify Docker is running
     docker info
-    
-    # Check running containers
     docker compose ps
-    
-    # View all logs
     docker compose logs -f
     ```
   </TabItem>
-  
+
+  <TabItem label="Check Config">
+    ```bash
+    # Resolves every ${VAR}; errors if one is missing
+    docker compose config
+    ```
+
+    If this prints `required variable ... is missing a value`, your repo-root `.env`
+    is absent or incomplete — `cp .env.example .env`.
+  </TabItem>
+
   <TabItem label="Check Ports">
     ```bash
-    # Check what's using ports
     sudo lsof -i :8000  # API
     sudo lsof -i :8081  # Nextcloud
     sudo lsof -i :3306  # MariaDB
-    
-    # Kill process if needed
-    kill -9 <PID>
-    ```
-  </TabItem>
-  
-  <TabItem label="Clean Restart">
-    ```bash
-    # Complete cleanup and restart
-    ./shutdown.sh --clean
-    ./setup.sh
     ```
   </TabItem>
 </Tabs>
@@ -564,37 +446,37 @@ When you need to start completely fresh (clean database, etc.):
 
 ### Database Issues
 
-**Database not ready:**
-- Scripts include proper health checks
-- No more arbitrary sleep timers
-- Automatic retry with 90s timeout
-
-**Connection errors:**
 ```bash
-# Check database health
-docker compose exec db mariadb-admin ping -h localhost
+# Health, the same way the healthcheck does it
+docker compose exec db mariadb-admin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
 
-# Connect to database
+# Interactive shell
 docker compose exec db mariadb -u root -p
-
-# Check DATABASE_URL in .env
-cat .env | grep DATABASE_URL
 ```
+
+<Aside type="caution">
+  `mariadb-admin ping -h localhost` (without credentials) connects over the unix socket as a passwordless root and logs `Access denied for user 'root'@'localhost' (using password: NO)` on the server. Use `-h 127.0.0.1` with credentials — the socket path can also report healthy before TCP is actually accepting connections.
+</Aside>
+
+**`Access denied ... (using password: NO)` repeating every few seconds** almost always
+means a healthcheck or script is pinging without credentials, not that your password
+is wrong.
+
+**Credentials look right but auth still fails:** MariaDB only applies
+`MARIADB_ROOT_PASSWORD` when it *initialises* an empty data directory. If `./data/db`
+already exists from an earlier run, changing `.env` has no effect — remove the
+directory and let it reinitialise.
 
 ---
 
 ### Nextcloud Issues
 
-**Nextcloud slow to start:**
-- First start can take 2-3 minutes
-- Health check timeout is 120s
-- Check logs: `docker compose logs -f nextcloud`
+**Slow to start:** first boot installs the app and can take a couple of minutes.
+Watch `docker compose logs -f nextcloud` for `installed`.
 
 **Trusted domain errors:**
 ```bash
-# Reconfigure trusted domains
 docker compose exec -u www-data nextcloud php occ config:system:set trusted_domains 0 --value=localhost:8081
-docker compose exec -u www-data nextcloud php occ config:system:set trusted_domains 1 --value=nextcloud
 ```
 
 ---
@@ -603,104 +485,55 @@ docker compose exec -u www-data nextcloud php occ config:system:set trusted_doma
 
 **Hot-reload not working:**
 ```bash
-# Ensure using dev.sh or docker-compose.dev.yml
-./dev.sh
-
-# Check mounted volumes
-docker compose -f docker-compose.yml -f docker-compose.dev.yml config | grep volumes
+# Confirm ./back is mounted into the dev container
+docker compose config | grep -A5 'backend:'
 ```
 
-**Import errors:**
+**Import errors after adding a dependency:** the image installs dependencies at build
+time from `pyproject.toml`/`uv.lock`, so pulling new code is not enough — rebuild:
 ```bash
-# Rebuild image
-docker compose build api-dev
-
-# Check Python environment
-docker compose exec api-dev uv pip list
+docker compose build backend
 ```
 
 ## Advanced Usage
 
 ### Local Development (No Docker)
 
-For API development without Docker:
-
 <Steps>
 
 1. **Setup Python environment**
    ```bash
-   uv sync
+   cd back && uv sync
    ```
 
-2. **Start external services**
+2. **Start infrastructure only**
    ```bash
-   # Start only infrastructure
    docker compose up -d db redis nextcloud
    ```
 
-3. **Run API locally**
+3. **Run the API locally**
    ```bash
-   uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   cd back && uv run dev
    ```
 
 </Steps>
 
 <Aside type="note">
-  You still need MariaDB, Redis, and Nextcloud running (via Docker or natively).
+  `MYSQL_HOST` in `.env` is `db`, which only resolves inside the docker network. Point it at `127.0.0.1` when running the API on the host.
 </Aside>
-
----
-
-### Custom Docker Image
-
-Build a custom backend image:
-
-```bash
-# Build with custom tag
-docker build -t assocore-backend:custom .
-
-# Use in docker-compose.yml
-# Change `build: .` to `image: assocore-backend:custom`
-```
 
 ---
 
 ### Database Migrations
 
 <Aside type="caution">
-  Alembic migrations are not yet implemented. This is a future enhancement.
+  There is no migration tool. `metadata.create_all` only creates missing **tables** — it never adds a column to an existing one, so adding a field to a live model is a silent no-op against an existing database. Model new data as a new table, or introduce Alembic.
 </Aside>
-
-If using Alembic in the future:
-
-```bash
-# Generate migration
-docker compose exec api alembic revision --autogenerate -m "Add users table"
-
-# Apply migrations
-docker compose exec api alembic upgrade head
-
-# Rollback
-docker compose exec api alembic downgrade -1
-```
-
-## Performance Tips
-
-### Development
-
-- Use `dev.sh` for instant hot-reload
-- Keep infrastructure services running between coding sessions
-- Use `shutdown.sh --keep-data` to preserve database state
-
-### Production
-
-- Use production mode: `docker compose up -d`
-- Monitor logs: `docker compose logs -f api`
-- Set proper resource limits in docker-compose.yml
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+CI builds images directly from `docker/backend.Dockerfile` — see
+`.github/workflows/docker-build.yml`. A test job against the stack looks like:
 
 ```yaml
 name: Backend Tests
@@ -711,22 +544,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Environment
+      - uses: actions/checkout@v4
+
+      - name: Setup environment
         run: |
-          cd back
           cp .env.example .env
-          
-      - name: Start Services
-        run: |
-          cd back
-          docker compose up -d --wait
-          
-      - name: Run Tests
-        run: |
-          cd back
-          docker compose exec -T api pytest
+
+      - name: Start services
+        run: docker compose up -d --wait
+
+      - name: Run tests
+        run: docker compose exec -T backend pytest
 ```
 
 ## Related Documentation
@@ -735,15 +563,11 @@ jobs:
   <Card title="Docker Dev/Prod Guide" icon="open-book">
     [Complete Docker workflows](/guides/how-to/docker-dev-prod/)
   </Card>
-  
-  <Card title="Scripts Reference" icon="document">
-    [Automation scripts documentation](/reference/scripts/)
-  </Card>
-  
+
   <Card title="Architecture" icon="puzzle">
     [Backend architecture overview](/architecture/backend-architecture/)
   </Card>
-  
+
   <Card title="API Reference" icon="rocket">
     [API endpoints documentation](/reference/api/)
   </Card>
@@ -753,18 +577,15 @@ jobs:
 
 <Steps>
 
-1. **Setup your backend**
+1. **Start the stack**
    ```bash
-   cd back && ./setup.sh
+   cp .env.example .env
+   docker compose up --wait
    ```
 
-2. **Explore the API**
-   - Visit http://localhost:8000/docs
-   - Try out the endpoints
+2. **Explore the API** at http://localhost:8000/docs
 
-3. **Start developing**
-   - Use `./dev.sh` for hot-reload
-   - Add new routes in `app/routes/`
+3. **Start developing** — add new routes in `back/app/routes/`
 
 4. **Read architecture docs**
    - [Backend Architecture](/architecture/backend-architecture/)

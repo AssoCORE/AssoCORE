@@ -108,44 +108,53 @@ Our comprehensive documentation is available in the `docs/` folder and covers ev
 - **[Kubernetes Deployment](./docs/src/content/docs/guides/how-to/kubernetes-deployment.mdx)** - Deploy on Kubernetes (beginner-friendly)
 - **[DevOps Infrastructure](./docs/src/content/docs/architecture/devops-infrastructure.mdx)** - Architecture overview
 
-### 🚀 Quick Start (Docker - Interactive)
-
-Use our interactive scripts for guided deployment:
-
-```bash
-# Complete deployment with guided setup (development or production)
-./scripts/docker-deploy.sh
-
-# Or use quick-start scripts:
-./scripts/docker-dev.sh   # Development with hot-reload
-./scripts/docker-prod.sh  # Production optimized builds
-```
-
-**Features:**
-- 🎨 Clean, colorful output (like k8s/deploy-all.sh)
-- 🔒 Secure password generation
-- ✅ Automatic health checks
-- 📝 Step-by-step guidance
-- ⚡ Smart defaults
-
-### 🐳 Quick Start (Docker - Manual)
+### 🐳 Quick Start (Docker)
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/AssoCORE/AssoCORE.git
 cd AssoCORE
 
-# 2. Development mode (default - with hot-reload)
-docker compose up
+# 2. Create the env file (first time only)
+cp .env.example .env
 
-# 3. Production mode (optimized builds)
-docker compose --profile prod up
+# 3. Run the app (hot-reload). --wait blocks until every service is healthy.
+docker compose up --wait
 
-# 4. Access the application
-# Frontend: http://localhost:3000
+# 4. Production mode (optimized builds)
+docker compose --profile prod up --build
+
+# Flutter APK — a one-shot build tool, deliberately outside the dev/prod profiles
+docker compose --profile mobile up --build        # debug → ./build/mobile/
+docker compose --profile mobile-prod up --build   # release
+
+# 5. Access the application
+# Frontend:    http://localhost:3000
 # Backend API: http://localhost:8000/docs
-# Nextcloud: http://localhost:8081
+# Nextcloud:   http://localhost:8081
 ```
+
+### 🔐 Environment configuration
+
+There is **one** `.env`, at the repository root, created from `.env.example`. Compose
+uses it for two things at once:
+
+1. resolving the `${VAR}` substitutions inside `docker-compose.yml`, and
+2. as the `env_file` injected into the `db`, `nextcloud` and `backend` containers.
+
+The first of those is why it must sit next to `docker-compose.yml`, and why you should
+run `docker compose` **from the repository root** — Compose looks for `.env` in the
+directory you invoke it from, not in the compose file's directory.
+
+Required variables are declared as `${VAR:?message}`, so a missing or incomplete `.env`
+makes Compose stop and name the offending variable rather than starting MariaDB and
+Nextcloud with blank credentials.
+
+`.env` also sets `COMPOSE_PROFILES=dev`, which is what makes a bare `docker compose up`
+run the app. Passing `--profile` explicitly overrides it.
+
+Before any deployment, set `SECRET_KEY` to a strong random value, and in production also
+set `NC_APP_PASSWORD_KEY` (an independent Fernet key) and `ADMIN_PASSWORD`.
 
 ### ☸️ Quick Start (Kubernetes)
 

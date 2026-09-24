@@ -10,16 +10,30 @@ AssoCORE is a self-hosted association management platform (Epitech EIP). It is m
 
 ### Full stack (Docker)
 
+One compose stack and one env file, both at the repo root. Run compose from the repo
+root — it resolves `.env` relative to the directory you invoke it from.
+
 ```bash
-# Start infrastructure + API in dev mode (hot-reload)
-cd back && ./dev.sh
+# First time only
+cp .env.example .env
 
-# Start everything (dev profile)
-docker compose --profile dev up
+# Run the app (hot-reload). --wait blocks until every service is healthy.
+docker compose up --wait
 
-# Start everything (prod profile)
+# Production builds
 docker compose --profile prod up --build
+
+# Flutter APK — a one-shot build tool, deliberately outside dev/prod
+docker compose --profile mobile up --build        # debug → ./build/mobile/
+docker compose --profile mobile-prod up --build   # release
 ```
+
+`.env` sets `COMPOSE_PROFILES=dev`, which is why a bare `docker compose up` runs the
+app; an explicit `--profile` on the command line overrides it.
+
+Required variables use `${VAR:?message}`, so a missing or incomplete `.env` makes
+Compose refuse to start and name the variable, rather than starting containers with
+blank credentials.
 
 ### Backend (FastAPI — `back/`)
 
@@ -73,6 +87,8 @@ pnpm build  # static build
 | `core/redis_client.py` | Process-wide async redis client (auth state on DB 1, separate from Nextcloud's DB 0) |
 | `core/crypto.py` | Fernet `encrypt_secret` / `decrypt_secret` for Nextcloud app passwords stored in the DB |
 | `core/roles.py` | Role name constants — `admin`, `staff`, `member` |
+| `core/notifications.py` | `notify()` / `notify_many()` / `notify_role()` — the only writers of the `notifications` table |
+| `core/pagination.py` | `paginate()` plus the shared `limit`/`offset` query params for list endpoints |
 | `core/dependencies.py` | `get_current_user` (validates the bearer token, checks the blacklist, eager-loads relations) and the `require_roles(*names)` / `require_admin` gates |
 | `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. Routers mount at the app root (`/user/...`, `/storage/...`) — there is **no** `/api` prefix. |
 | `routes/user.py` | Full user system: login, refresh, logout, register, me, CRUD, notifications, reminders — all wired to DB |
@@ -97,6 +113,20 @@ pnpm build  # static build
 - `POST /user/logout` blacklists the current access token and, when given a refresh token, kills its family.
 - Revocation state lives in redis. If redis is down, revocation checks are skipped (`AUTH_REDIS_STRICT=false`) but refresh and logout return 503 — they cannot be honoured without it.
 
+#### Notifications
+
+Nothing writes to `notifications` except `core/notifications.py`. Send one with
+`notify(session, user_id, message, from_id=...)`, or `notify_role(...)` to reach everyone
+holding a role. `from_id` records who caused it and is null for system-generated ones.
+
+Call these **after** committing whatever triggered them: they manage their own
+commit/rollback and swallow every `Exception`, so a notification that fails to insert
+rolls back only itself and returns 0 rather than turning a successful action into a 500.
+That only holds if the triggering work is already committed — notify last.
+
+`POST /user/notification/` is the exception: creating one is the caller's whole intent
+there, so it raises normally.
+
 #### Nextcloud accounts
 
 Every AssoCORE user has a matching Nextcloud account. By default its password is derived from `SECRET_KEY` + username, so a `SECRET_KEY` leak exposes every account. Users can instead link their real Nextcloud account through `POST /nextcloud/link/init` → browser approval → `GET /nextcloud/link/poll/{handle}`, which stores an encrypted per-user app password that `storage.py` prefers. Login re-checks the account at most once every `NC_PROBE_INTERVAL_HOURS` and re-provisions it if missing — but never resets the password of a linked account.
@@ -104,12 +134,13 @@ Every AssoCORE user has a matching Nextcloud account. By default its password is
 ### Frontend (`front/`)
 
 Next.js 16 App Router, React 19, TypeScript.
-- **shadcn/ui** (new-york style, Radix primitives) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Newer CLI-generated components import `cn` from the real [`cn`](https://github.com/shadcn-ui/cn) package rather than `@/lib/utils`; the components already in `front/components/ui/` (hand-written before this was diagnosed) still use the local `cn()` in `front/lib/utils.ts` — both work, but pick one convention before this drifts further.
-- **Material-UI v7** available alongside shadcn/ui
+- **shadcn/ui** (new-york style, Radix primitives, Lucide icons) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Every component in `front/components/ui/` imports the local `cn()` from `@/lib/utils`; if the CLI ever emits an import from the standalone [`cn`](https://github.com/shadcn-ui/cn) package, rewrite it to match rather than adding the dependency.
 - **Tailwind CSS v4** with OKLch CSS custom properties for theming (`.dark` class toggles dark mode)
 - Path alias `@/` maps to `front/` root (`tsconfig.json` + `components.json`)
 - `cn()` utility in `front/lib/utils.ts` for conditional Tailwind classes
-- `front/.env.example` documents `BACKEND_URL` (server-only, no `NEXT_PUBLIC_` prefix)
+- **Two linters, on purpose**: Biome (root `biome.json`) formats and lints; ESLint (`front/eslint.config.mjs`, run by `pnpm lint`) exists only for the Next-specific `core-web-vitals` rules Biome has no equivalent for. Don't add Prettier.
+- `BACKEND_URL` is server-only (no `NEXT_PUBLIC_` prefix) and defaults to `http://localhost:8000` in `front/lib/backend.ts`; Compose overrides it per profile. There is deliberately no `front/.env.example` — the only value it could document is already the code default.
+- `lucide-react` currently has no imports but is the configured `iconLibrary` in `components.json`, so `shadcn add` will emit Lucide imports. Don't remove it as "unused".
 
 #### Auth (frontend)
 
@@ -143,11 +174,24 @@ design is tracked separately under issues #79/#80, which rebase onto this work.
 
 ### Infrastructure
 
-Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload) and `prod` (production builds). Infrastructure services (`db`, `redis`, `nextcloud`) run in both profiles.
+Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload, the default via
+`COMPOSE_PROFILES` in `.env`), `prod` (production builds), and `mobile`/`mobile-prod`
+for the Flutter APK builders. Infrastructure (`db`, `redis`, `nextcloud`) declares no
+profile, so it runs in all of them. The APK builders are deliberately outside
+`dev`/`prod`: they are one-shot build tools with no ready state, and in the dev profile
+they ran a slow Flutter build on every `up` and broke `--wait`.
 
-`back/.env` drives all secrets; `back/.env.example` lists every key with placeholder values. Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
+**There is one `.env`, at the repo root** (`.env.example` is the template). Compose reads
+it twice over — to resolve the `${VAR}` substitutions inside `docker-compose.yml`, and as
+the `env_file` injected into the `db`, `nextcloud` and `backend` containers. It has to sit
+next to the compose file for the first of those, which is why compose must be run from the
+repo root. This used to be split across a root `.env` and a `back/.env` that had to be kept
+in sync by hand; they were merged because the drift silently produced blank credentials.
 
-**A separate root-level `.env`** (see `.env.example` at the repo root) is also required for `docker compose up` itself — Compose resolves the `${VAR}` substitutions inside `docker-compose.yml` (the `db` and `nextcloud` service definitions) from a `.env` next to the compose file, which is a different mechanism from `env_file: back/.env` (that only injects vars into the specific containers listing it). Without this root `.env`, those substitutions silently resolve to empty strings — Compose warns about it, but still starts containers with blank DB/Nextcloud credentials, so the backend and Nextcloud will fail against a persisted `./data/db` volume that already has a real root password set. Keep both `.env` files' overlapping keys (`MYSQL_ROOT_PASSWORD`, `NEXTCLOUD_DB_*`, `NEXTCLOUD_ADMIN_*`) in sync.
+Required substitutions use `${VAR:?message}`, so a missing or incomplete `.env` aborts the
+run naming the variable instead of starting MariaDB and Nextcloud with empty passwords.
+
+Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
 
 Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command.
 
@@ -156,6 +200,7 @@ The frontend's `BACKEND_URL` points at the backend service reachable from wherev
 ## Key Conventions
 
 - **New route files** need only to export `router = APIRouter()` — auto-discovered.
+- **List endpoints return `Page[T]`** (`{items, total, limit, offset}`), never a bare array — `total` is the count before `limit`/`offset` so a client can render page counts. Use `paginate()` with the `limit_param()` / `offset_param()` helpers from `app.core.pagination`, and filter in SQL rather than post-filtering the result list: paging over a set you then discard rows from returns short pages and a `total` that disagrees with them.
 - **Schemas** in `back/app/schemas/classes.py`; **ORM models** in `back/app/db/models.py` — keep them separate.
 - **Frontend components** go in `front/components/`.
 - **Biome** (`biome.json` at root) is the formatter/linter for JS/TS — use it rather than Prettier.

@@ -90,19 +90,19 @@ These services are used by both development and production environments:
   </TabItem>
 
   <TabItem label="Cache">
-    **Redis Alpine**
+    **Redis 7 Alpine**
     
     ```yaml
     Service: redis
     Port: 6379 (internal)
-    Image: redis:alpine
+    Image: redis:7-alpine
     ```
     
     Provides caching for Nextcloud and application sessions.
   </TabItem>
 
   <TabItem label="File Storage">
-    **Nextcloud Latest**
+    **Nextcloud 34 (pinned)**
     
     ```yaml
     Service: nextcloud
@@ -156,11 +156,11 @@ Development services include hot-reload and mounted volumes for rapid iteration:
 3. **Mobile (Flutter)**
 
    ```bash
-   docker compose up mobile
+   docker compose --profile mobile up --build
    ```
 
    <Aside type="note">
-     - **Profile**: `dev` (default)
+     - **Profile**: `mobile` (deliberately not `dev` — it is a one-shot build tool)
      - **Output**: `./build/mobile/app-debug.apk`
      - **Features**:
        - Debug APK build
@@ -213,7 +213,7 @@ Production services are optimized for performance and security:
 3. **Mobile Production**
 
    ```bash
-   docker compose --profile prod up mobile_prod
+   docker compose --profile mobile-prod up --build
    ```
 
    <Aside type="caution">
@@ -284,46 +284,38 @@ USER nextjs
 CMD ["node", "server.js"]
 ```
 
-## Automated Scripts
+## Common Workflows
 
-Use the provided scripts for common workflows:
+Run these from the repository root.
 
 ### Development Setup
 
 ```bash
-# Quick start development environment
-./scripts/docker-dev.sh
+# First time only
+cp .env.example .env
+
+# Start the dev profile; --wait blocks until every service is healthy
+docker compose up --wait
 ```
 
 <Aside>
-  This script:
-  - Checks prerequisites (Docker, env files)
-  - Creates necessary directories
-  - Starts dev services with live logs
-  - Opens services in browser
+  Prerequisites are enforced by Compose itself rather than by a wrapper script:
+  required variables are declared as `${VAR:?message}`, so a missing or incomplete
+  repo-root `.env` stops the run and names the variable instead of starting MariaDB
+  and Nextcloud with blank credentials.
 </Aside>
 
 ### Production Build
 
 ```bash
-# Build and test production images
-./scripts/docker-prod.sh
+docker compose --profile prod up --build
 ```
 
 <Aside>
-  This script:
-  - Validates environment configuration
-  - Builds production images
-  - Runs health checks
-  - Provides access URLs
+  Both profiles build from the same `docker/backend.Dockerfile` and
+  `docker/frontend.Dockerfile`, differing only in the stage they target
+  (`development` vs `production`) — the same images CI publishes to GHCR.
 </Aside>
-
-### Complete Deployment
-
-```bash
-# One-command deployment (interactive)
-./scripts/docker-deploy.sh
-```
 
 <Aside type="tip">
   Similar to `k8s/deploy-all.sh`, this script provides:
@@ -338,7 +330,7 @@ Use the provided scripts for common workflows:
 
 ### Development Environment
 
-Create `back/.env` for development:
+Create `.env` at the repository root:
 
 ```bash
 # Database
@@ -557,7 +549,7 @@ docker compose exec db mariadb-admin ping -h localhost
 
 2. Verify environment file exists:
    ```bash
-   ls -la back/.env
+   ls -la .env
    ```
 
 3. Check Docker daemon:
@@ -729,9 +721,9 @@ docker scan $(docker compose --profile prod images -q backend_prod)
    ```
 
 3. **Push to Registry**
-   ```bash
-   ./scripts/build-and-push.sh v1.0.0
-   ```
+
+   Images are built and pushed by CI (`.github/workflows/docker-build.yml`) on push
+   to `main`/`develop` and on tags — tag a release rather than pushing by hand.
 
 4. **Deploy to Kubernetes**
    ```bash
@@ -751,12 +743,12 @@ docker scan $(docker compose --profile prod images -q backend_prod)
 
 <CardGrid>
   <Card title="Try Development" icon="laptop">
-    Run `./scripts/docker-dev.sh` to start developing immediately
+    Run `docker compose up --wait` to start developing immediately
   </Card>
   <Card title="Test Production" icon="rocket">
-    Run `./scripts/docker-prod.sh` to test prod builds locally
+    Run `docker compose --profile prod up --build` to test prod builds locally
   </Card>
   <Card title="Full Deployment" icon="star">
-    Run `./scripts/docker-deploy.sh` for complete guided setup
+    Run `./k8s/deploy-all.sh` to deploy the cluster
   </Card>
 </CardGrid>

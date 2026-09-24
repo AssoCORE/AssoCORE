@@ -22,14 +22,13 @@ CMD ["sh", "-c", "pnpm install && pnpm dev"]
 # ==============================================================================
 
 # Stage 1: Dependencies
-FROM nixos/nix:latest AS deps
+# Same base as the development and production stages: building on the image we
+# actually run on keeps native modules on the same libc, and avoids depending on
+# a moving nixos/nix channel.
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Enable flakes and configure Nix
-RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-
-# Install Node.js 20, pnpm, and required tools via Nix
-RUN nix-env -iA nixpkgs.nodejs_20 nixpkgs.pnpm nixpkgs.gnused nixpkgs.coreutils
+RUN npm install -g pnpm
 
 # Copy package files
 COPY front/package.json front/pnpm-lock.yaml front/pnpm-workspace.yaml* ./
@@ -38,14 +37,10 @@ COPY front/package.json front/pnpm-lock.yaml front/pnpm-workspace.yaml* ./
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Build
-FROM nixos/nix:latest AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Enable flakes and configure Nix
-RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-
-# Install Node.js 20, pnpm, and required tools via Nix
-RUN nix-env -iA nixpkgs.nodejs_20 nixpkgs.pnpm nixpkgs.gnused nixpkgs.coreutils
+RUN npm install -g pnpm
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
