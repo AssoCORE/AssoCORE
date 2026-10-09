@@ -47,11 +47,22 @@ Immediate and near-term work, by component.
 - [ ] Provision Nextcloud quota per user (currently unlimited)
 - [x] Delete NC user when AssoCORE user is deleted (`DELETE /user/me` / `DELETE /user/{id}`)
 
+### Password reset (C)
+
+- [x] `POST /user/password/forgot` — rate-limited, always 202 (no enumeration oracle), stores SHA-256-hashed reset token in redis with TTL
+- [x] `POST /user/password/reset` — consumes token (single-use GETDEL), validates password policy, kills all active sessions, notifies user
+- [x] Integration tests for the full reset flow (token capture, single-use, session kill, weak-password rejection)
+
+### Mail (D)
+
+- [x] `back/app/core/mail.py` — `send_mail()` via `aiosmtplib`; `MAIL_ENABLED=false` logs and returns without connecting (safe on dev boxes); transport errors log at ERROR and return `False`, never raise
+- [x] Mailpit mail catcher added to `docker-compose.yml` (no profile, SMTP :1025, web UI :8025) — outbound email visible at http://localhost:8025 with no external SMTP needed
+
 ### General
 
 - [ ] Separate app database from the Nextcloud database (currently both share the same MariaDB instance and credentials)
 - [x] Request logging middleware — HTTP middleware logs method, path, status, duration on every request
-- [ ] Integration tests for the auth flow: register → login → protected route → 401 on bad token
+- [x] Integration tests for the auth flow: register → login → protected route → 401 on bad token
 
 ---
 
