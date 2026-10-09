@@ -48,6 +48,7 @@ uv sync
 - API: http://localhost:8000
 - Swagger UI: http://localhost:8000/docs
 - Nextcloud: http://localhost:8081
+- Mailpit (mail catcher): http://localhost:8025
 
 ### Frontend (Next.js — `front/`)
 
@@ -194,6 +195,22 @@ run naming the variable instead of starting MariaDB and Nextcloud with empty pas
 Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
 
 Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command.
+
+**Mail** is delivered via `back/app/core/mail.py` (`send_mail()`). Config keys (all read via `os.getenv`):
+
+| Variable | Default | Notes |
+|---|---|---|
+| `MAIL_ENABLED` | `false` | `true` to actually send; `false` logs and returns without connecting |
+| `SMTP_HOST` | `mailpit` | In dev the Compose `mailpit` service catches all mail |
+| `SMTP_PORT` | `1025` | 587 for STARTTLS against a real provider |
+| `SMTP_USER` / `SMTP_PASSWORD` | `""` | Leave blank for unauthenticated relay (Mailpit) |
+| `SMTP_STARTTLS` | `false` | Set `true` on port 587 |
+| `MAIL_FROM` | `no-reply@assocore.local` | Envelope From address |
+| `MAIL_FROM_NAME` | `AssoCORE` | Display name in From header |
+| `FRONTEND_URL` | `http://localhost:3000` | Base URL for links in emails (e.g. password-reset links) |
+| `PASSWORD_RESET_EXPIRE_MINUTES` | `30` | How long a reset token is valid |
+
+With `MAIL_ENABLED=true` and `SMTP_HOST=mailpit` (the `.env.example` defaults), every outbound email lands in Mailpit at http://localhost:8025. `send_mail()` never raises — transport failures log at ERROR and return `False`. The forgot-password endpoint returns 202 regardless to prevent email enumeration.
 
 The frontend's `BACKEND_URL` points at the backend service reachable from wherever Next.js itself runs — `http://backend:8000` / `http://backend_prod:8000` in the two `docker-compose.yml` profiles, `http://backend.assocore.svc.cluster.local:8000` in `k8s/10-frontend/frontend-config.yaml`. It's a plain server-only env var, not `NEXT_PUBLIC_*`.
 
