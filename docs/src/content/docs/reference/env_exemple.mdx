@@ -1,29 +1,138 @@
 ---
-title: Environment Variables Example
-description: Example of environment variables configuration for AssoCORE
+title: Environment Variables Reference
+description: All environment variables for AssoCORE, with defaults and notes
 ---
 
-This is an example of the environment variables configuration for AssoCORE's backend.
-Edit the `.env` file in the `back/` directory with your specific configuration.
+import { Aside } from '@astrojs/starlight/components';
+
+There is **one `.env` file** at the repository root (`.env.example` is the template). Compose reads it for `${VAR}` substitution in `docker-compose.yml` *and* injects it into the `backend` container — it must stay next to the compose file.
+
+```bash
+cp .env.example .env   # first time only — never commit .env
+```
+
+Required variables use `${VAR:?message}`, so a missing value aborts `docker compose up` with the variable name rather than starting containers with blank credentials.
+
+<Aside type="caution">
+  Change `SECRET_KEY` before any deployment. Set an independent `NC_APP_PASSWORD_KEY` in production — if both derive from `SECRET_KEY`, one leak decrypts every stored Nextcloud app password.
+</Aside>
 
 ```sh
-# MariaDB Root
+# =====================================================================
+# COMPOSE
+# =====================================================================
+
+# Services to run by default; override with --profile (e.g. --profile prod)
+COMPOSE_PROFILES=dev
+
+# =====================================================================
+# DATABASE
+# =====================================================================
+
+# MariaDB root
 MYSQL_ROOT_PASSWORD=root_password
 
-# Nextcloud Database
-NEXTCLOUD_DB_NAME=nextcloud
-NEXTCLOUD_DB_USER=nextcloud
-NEXTCLOUD_DB_PASSWORD=nextcloud_db_password
-
-# App Database
+# Backend app database
 MYSQL_USER=my_app_user
 MYSQL_PASSWORD=my_app_password
 MYSQL_DATABASE=my_app_db
 MYSQL_HOST=db
 MYSQL_PORT=3306
 
-# Nextcloud API
+# Nextcloud database (separate user/DB on the same MariaDB instance)
+NEXTCLOUD_DB_NAME=nextcloud
+NEXTCLOUD_DB_USER=nextcloud
+NEXTCLOUD_DB_PASSWORD=nextcloud_db_password
+
+# =====================================================================
+# NEXTCLOUD
+# =====================================================================
+
+# Internal URL (Docker network) and public URL (browser)
 NEXTCLOUD_URL=http://nextcloud
-NEXTCLOUD_USER=admin
-NEXTCLOUD_PASSWORD=admin
+NEXTCLOUD_PUBLIC_URL=http://localhost:8081
+NEXTCLOUD_ADMIN_USER=admin
+NEXTCLOUD_ADMIN_PASSWORD=admin
+
+# Re-check and re-provision Nextcloud accounts at login (throttled by NC_PROBE_INTERVAL_HOURS)
+NC_LOGIN_SELF_HEAL=true
+
+# Fernet key for encrypting stored Nextcloud app passwords
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Leave blank to derive from SECRET_KEY (NOT recommended for production)
+NC_APP_PASSWORD_KEY=
+
+# =====================================================================
+# REDIS
+# =====================================================================
+
+# Auth state (revoked/refresh tokens). DB 1 — separate from Nextcloud's cache on DB 0.
+REDIS_URL=redis://redis:6379/1
+
+# =====================================================================
+# AUTH
+# =====================================================================
+
+# JWT signing key — MUST be changed before any deployment
+# Generate: openssl rand -hex 32
+SECRET_KEY=change-me-in-production
+
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
+
+# Grace window for replayed refresh tokens (prevents concurrent-tab logout)
+REFRESH_GRACE_SECONDS=10
+
+# Fail closed on Redis outage for revocation checks (instead of silently skipping)
+AUTH_REDIS_STRICT=false
+
+# =====================================================================
+# MAIL
+# =====================================================================
+
+# Set to true to actually send. false = log only, safe on a dev box with no SMTP.
+MAIL_ENABLED=true
+
+# In dev, the Mailpit catcher (http://localhost:8025) receives all mail.
+# Point at a real SMTP relay in production.
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASSWORD=
+# Set to true when connecting to a real provider on port 587
+SMTP_STARTTLS=false
+
+MAIL_FROM=no-reply@assocore.local
+MAIL_FROM_NAME=AssoCORE
+
+# Base URL for links in emails (password reset, etc.)
+FRONTEND_URL=http://localhost:3000
+
+# How long a password-reset token is valid (minutes)
+PASSWORD_RESET_EXPIRE_MINUTES=30
+
+# =====================================================================
+# BOOTSTRAP ADMIN
+# =====================================================================
+
+# Seed an admin account on first startup (skipped if ADMIN_PASSWORD is unset)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=ChangeMe132!
+ADMIN_EMAIL=admin@assocore.local
 ```
+
+## Key notes
+
+| Variable | Default | Production guidance |
+|---|---|---|
+| `SECRET_KEY` | placeholder | `openssl rand -hex 32` — change before first deploy |
+| `NC_APP_PASSWORD_KEY` | derived from `SECRET_KEY` | Set an independent Fernet key |
+| `MAIL_ENABLED` | `false` (template: `true`) | Set `true` with real SMTP credentials |
+| `SMTP_STARTTLS` | `false` | Set `true` on port 587 with a real provider |
+| `AUTH_REDIS_STRICT` | `false` | Consider `true` in production to fail closed |
+| `ADMIN_PASSWORD` | `ChangeMe132!` | Change — without it no admin is seeded |
+| `DATABASE_URL` | (built from `MYSQL_*`) | Setting this overrides all `MYSQL_*` vars |
+
+<Aside type="note">
+  `DATABASE_URL` is intentionally **not** set in `docker-compose.yml` — the backend builds its connection string from the individual `MYSQL_*` vars. Setting `DATABASE_URL` to the Nextcloud credentials was a past bug that silently produced empty-credential connections.
+</Aside>

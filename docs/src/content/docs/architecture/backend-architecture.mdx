@@ -5,46 +5,62 @@ description: FastAPI backend architecture and design patterns
 
 import { Tabs, TabItem, Aside, Card, CardGrid } from '@astrojs/starlight/components';
 
-AssoCORE's backend is built with FastAPI, using async Python, SQLAlchemy, and MariaDB.
+AssoCORE's backend is built with FastAPI, using async Python, SQLAlchemy 2.0, and MariaDB.
 
 ## Project Structure
 
 ```
 back/
 ├── app/
-│   ├── main.py              # FastAPI app — lifespan, CORS, router mount
+│   ├── main.py              # FastAPI app — lifespan, CORS, rate-limit handler, HTTP logging, /health, /ready
 │   │
 │   ├── core/                # Cross-cutting concerns
-│   │   ├── security.py      # bcrypt hashing + PyJWT helpers
-│   │   ├── dependencies.py  # get_current_user FastAPI dependency
-│   │   └── nextcloud.py     # NC client factory, password derivation, provisioning
+│   │   ├── security.py      # bcrypt + PyJWT helpers, token creation/decoding
+│   │   ├── tokens.py        # Redis-backed TokenStore — access blacklist, refresh rotation, pwreset
+│   │   ├── dependencies.py  # get_current_user, require_roles, require_admin FastAPI deps
+│   │   ├── notifications.py # notify() / notify_many() / notify_role() — only writers of the notifications table
+│   │   ├── mail.py          # send_mail() via aiosmtplib — MAIL_ENABLED gate, never raises
+│   │   ├── pagination.py    # paginate() + limit_param() / offset_param() for list endpoints
+│   │   ├── rate_limit.py    # slowapi Limiter instance (key = remote IP)
+│   │   ├── roles.py         # Role name constants — admin, staff, member
+│   │   ├── redis_client.py  # Process-wide async Redis client (auth state on DB 1)
+│   │   ├── crypto.py        # Fernet encrypt/decrypt for Nextcloud app passwords
+│   │   └── nextcloud.py     # NC client factory, password derivation, account provisioning
 │   │
 │   ├── db/                  # Database layer
 │   │   ├── database.py      # Async engine, session factory, init_db()
-│   │   └── models.py        # SQLAlchemy ORM models
+│   │   ├── models.py        # SQLAlchemy ORM models
+│   │   └── seed.py          # Startup seeding — default roles, bootstrap admin, member backfill
 │   │
 │   ├── schemas/             # Pydantic I/O models
-│   │   └── classes.py       # FileNode, MoveRequest, CopyRequest added
+│   │   └── classes.py
 │   │
-│   └── routes/              # HTTP endpoints (auto-discovered)
+│   └── routes/              # HTTP endpoints (auto-discovered via pkgutil)
 │       ├── __init__.py      # pkgutil discovery + api_router aggregation
-│       ├── user.py          # Auth, users, notifications, reminders
+│       ├── user.py          # Auth, users, notifications, reminders, password reset
+│       ├── events.py        # Full event CRUD + registration + check-in
 │       ├── storage.py       # User-scoped file storage via Nextcloud
 │       ├── apps.py          # Nextcloud embedded-app URL helpers
-│       ├── events.py        # Event CRUD (wiring in progress)
-│       └── nextcloud.py     # Admin Nextcloud user/file management
+│       ├── nextcloud.py     # Admin Nextcloud user/file management (admin-gated)
+│       └── nc_link.py       # Link a real Nextcloud account via Login Flow v2
+│
+├── tests/
+│   ├── conftest.py          # SQLite in-memory DB + fakeredis + NC patches
+│   ├── test_auth.py         # Auth flow integration tests
+│   ├── test_password_reset.py
+│   ├── test_event_listing.py
+│   ├── test_notifications.py
+│   └── test_pagination.py
 │
 ├── pyproject.toml           # uv dependencies
 └── uv.lock
 ```
 
-The backend image is built from `docker/backend.Dockerfile` (multi-stage, `development`
-and `production` targets) and orchestrated by the single `docker-compose.yml` at the
-repository root.
+The backend image is built from `docker/backend.Dockerfile` (multi-stage, `development` and `production` targets) and orchestrated by the single `docker-compose.yml` at the repository root.
 
 ## Route Auto-Discovery
 
-`routes/__init__.py` uses `pkgutil.iter_modules` to discover every module in the `routes` package and register any `APIRouter` it finds as `router`. Routers mount at the app root (`/user/...`, `/storage/...`) — there is no `/api` prefix.
+`routes/__init__.py` uses `pkgutil.iter_modules` to discover every module in the `routes` package and register any `APIRouter` it exports as `router`. Routers mount at the app root (`/user/...`, `/event/...`) — there is **no** `/api` prefix.
 
 **To add a new route file:** create `app/routes/myfeature.py` with `router = APIRouter(...)` — no other wiring needed.
 
@@ -52,10 +68,12 @@ repository root.
 
 <Tabs>
   <TabItem label="Flow">
-    1. Client sends `POST /api/user/login` with `{ username, password }` JSON
-    2. Backend verifies bcrypt hash; returns `{ access_token, token_type: "bearer" }`
-    3. Client includes `Authorization: Bearer <token>` on subsequent requests
-    4. `get_current_user` dependency decodes the JWT, resolves the user ID, and returns the `User` ORM object — or raises 401
+    1. `POST /user/login` → `{ access_token, refresh_token, expires_in }`. Access token lasts 15 min; refresh token 30 days.
+    2. Client includes `Authorization: Bearer <access_token>` on protected requests.
+    3. `get_current_user` dependency validates the token, checks the redis blacklist, and returns the `User` ORM object — or raises 401.
+    4. `POST /user/refresh` rotates the refresh token. Replaying an already-used token outside a 10 s grace window is treated as theft: the whole family is revoked.
+    5. `POST /user/logout` blacklists the access token and (if given) kills its refresh family.
+    6. `POST /user/logout/all` kills every refresh family for the user.
 
     ```python
     from app.core.dependencies import get_current_user
@@ -66,46 +84,74 @@ repository root.
     ```
   </TabItem>
 
-  <TabItem label="core/security.py">
+  <TabItem label="RBAC">
     ```python
-    # Tokens are HS256, 24 h expiry, sub = str(user_id)
-    def hash_password(password: str) -> str: ...
-    def verify_password(plain: str, hashed: str) -> bool: ...
-    def create_access_token(user_id: int) -> str: ...
-    def decode_token(token: str) -> int: ...
+    from app.core.dependencies import require_admin, require_roles
+
+    # Admin only
+    @router.delete("/{id}", dependencies=[Depends(require_admin)])
+    async def delete_something(id: int, ...): ...
+
+    # Admin or staff
+    @router.post("/", dependencies=[Depends(require_roles("admin", "staff"))])
+    async def create_something(...): ...
     ```
 
-    `SECRET_KEY` is read from the `SECRET_KEY` environment variable. The default in `.env` is a placeholder — **change it before any deployment**.
+    Put the gate in `APIRouter(dependencies=[...])` so new routes in a file cannot forget it.
   </TabItem>
 
-  <TabItem label="core/dependencies.py">
-    ```python
-    bearer = HTTPBearer()
+  <TabItem label="Redis">
+    Token revocation state lives in Redis (DB 1, separate from Nextcloud's cache on DB 0). `TokenStore` in `core/tokens.py` manages:
 
-    async def get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(bearer),
-        session: AsyncSession = Depends(get_session),
-    ) -> User:
-        user_id = decode_token(credentials.credentials)  # raises 401 on bad/expired token
-        user = await session.get(User, user_id)
-        if not user:
-            raise HTTPException(401)
-        return user
-    ```
+    - Access token blacklist (key TTL = token remaining life)
+    - Refresh token rotation with Lua atomic consume
+    - Per-user family set for `logout/all`
+    - Password-reset tokens (SHA-256 hash → user_id, single-use GETDEL)
+
+    If Redis is down: revocation checks are skipped (`AUTH_REDIS_STRICT=false`), but refresh and logout return 503 — they cannot be honoured without Redis.
   </TabItem>
 </Tabs>
+
+## Password Reset
+
+<Tabs>
+  <TabItem label="Flow">
+    1. `POST /user/password/forgot` — always returns 202 (no enumeration oracle). Generates a `secrets.token_urlsafe(32)` token, stores its SHA-256 hash in Redis with a `PASSWORD_RESET_EXPIRE_MINUTES` TTL, sends a reset link via `send_mail()`.
+    2. `POST /user/password/reset` — consumes the token (single-use GETDEL), validates the new password, commits, **kills all active sessions** (`kill_user_sessions`), notifies the user.
+
+    The session-kill step is the security point: someone resetting a compromised password must not leave the attacker's refresh tokens alive.
+  </TabItem>
+  <TabItem label="Security properties">
+    - Token stored as SHA-256 hash — a Redis dump never grants a reset.
+    - Single use — GETDEL is atomic; a second call with the same token returns 400.
+    - Rate-limited — `5/min` on the forgot endpoint, same as login.
+    - Enumeration-safe — 202 regardless of whether the address exists.
+    - SMTP failure logged at ERROR and returns 202 — the caller cannot distinguish an SMTP outage from an unknown address.
+  </TabItem>
+</Tabs>
+
+## Mail
+
+`core/mail.py` exposes a single `async def send_mail(to, subject, body, html=None) -> bool` function backed by `aiosmtplib`.
+
+Key behaviour:
+- `MAIL_ENABLED=false` (default): logs at INFO and returns `False` without connecting. Safe on a dev box with no SMTP.
+- Transport failures: logs at ERROR, returns `False`. **Never raises.** Bulk/courtesy email cannot 500 a request that already succeeded.
+- In dev, Mailpit (`:1025` SMTP, `:8025` web UI) catches all mail with nothing leaving the machine.
+
+See the [Environment Variables](#environment-variables) section for all `MAIL_*` / `SMTP_*` config keys.
 
 ## Database
 
 <Tabs>
   <TabItem label="Setup">
-    `db/database.py` creates the async SQLAlchemy engine from `DATABASE_URL` (or the individual `MYSQL_*` env vars). `init_db()` runs on app startup via the FastAPI lifespan:
+    `db/database.py` creates the async SQLAlchemy engine from `DATABASE_URL` (or the individual `MYSQL_*` env vars). `init_db()` runs on app startup:
 
-    1. Connects as root and creates the app database + user if missing
-    2. Calls `Base.metadata.create_all` — tables are created from models, no migration tool
+    1. Creates the app database and user if missing
+    2. Calls `Base.metadata.create_all` — tables are created from models
 
     <Aside type="caution">
-      There is no Alembic migration system. Schema changes require manual `ALTER TABLE` or a full DB reset in dev.
+      There is no Alembic migration system. `create_all` only creates **missing tables** — it never adds a column to an existing one. Adding a field to a live model is a silent no-op against an existing database. Model new data as a new table, or introduce Alembic.
     </Aside>
   </TabItem>
 
@@ -134,7 +180,7 @@ repository root.
     user = result.scalar_one_or_none()
     ```
 
-    The `_user_q()` helper in `routes/user.py` is the established pattern for loading a user with all relationships.
+    The `_user_q()` helper in `routes/user.py` is the established pattern. Relationships read on every request (e.g. `User.nc_account`) declare `lazy="selectin"` on the model instead.
   </TabItem>
 </Tabs>
 
@@ -144,146 +190,170 @@ repository root.
 User ──< user_roles >── Role
 User ──< Notification
 User ──< Reminder
-User ──< Event (creator)
+User ──< Event (creator_id)
 User ──< event_registrations >── Event
 User ──< event_staff >── Event
+User ──< event_attendances >── Event
+User ──1 NextcloudAccount
 ```
 
-All foreign keys use `ondelete="CASCADE` so deleting a user removes their notifications, reminders, and events.
+All foreign keys use `ondelete="CASCADE"` so deleting a user removes their notifications, reminders, and event memberships.
 
 ## Schemas
 
-`schemas/classes.py` defines Pydantic models with `from_attributes=True` (ORM mode) for all I/O:
+`schemas/classes.py` defines Pydantic models with `from_attributes=True` for all I/O:
 
 | Schema | Purpose |
 |--------|---------|
 | `LoginRequest` | `POST /user/login` body |
-| `Token` | Login response |
-| `UserCreate` | Registration body (password validated by regex) |
-| `UserUpdate` | Partial update (all fields optional) |
-| `UserOut` | Response — no password field, includes roles/notifications/reminders |
-| `RoleOut` | Embedded in `UserOut` |
-| `NotificationOut` | Notification response |
-| `ReminderCreate` | Reminder creation body |
-| `ReminderOut` | Reminder response |
-| `EventCreate` / `EventOut` | Event I/O (routes not yet wired) |
+| `Token` | Login / refresh response |
+| `RefreshRequest` | `POST /user/refresh` body |
+| `LogoutRequest` | `POST /user/logout` body (refresh_token optional) |
+| `UserCreate` | Registration body |
+| `UserUpdate` | Partial profile update |
+| `UserOut` | Response — no password, includes roles/notifications/reminders |
+| `NotificationOut` / `NotificationCreate` | Notification I/O |
+| `ReminderCreate` / `ReminderOut` | Reminder I/O |
+| `EventCreate` / `EventUpdate` / `EventOut` | Event I/O |
+| `ForgotPasswordRequest` | `{ mail: EmailStr }` |
+| `ResetPasswordRequest` | `{ token: str, password: PasswordStr }` |
+| `Page[T]` | Generic paginated response `{ items, total, limit, offset }` |
 
 <Aside type="note">
-  `PasswordStr` is a custom annotated type enforcing min 8 chars, uppercase, lowercase, digit, and special character.
+  `PasswordStr` enforces: 8–50 chars, at least one uppercase, one lowercase, one digit, and one of `#?!@$%^&*-`. `front/lib/auth/schemas.ts` mirrors this regex exactly so client-side validation matches server 422s.
 </Aside>
 
 ## API Surface
 
-### Auth & Users (`/api/user`)
+### Auth (`/user`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/user/login` | public | Authenticate, get JWT |
+| POST | `/user/login` | public | Authenticate, get token pair (rate-limited 5/min) |
+| POST | `/user/refresh` | public | Rotate refresh token |
+| POST | `/user/logout` | required | Revoke access token + refresh family |
+| POST | `/user/logout/all` | required | Kill every session for this user |
+| POST | `/user/password/forgot` | public | Request reset email — always 202 (rate-limited 5/min) |
+| POST | `/user/password/reset` | public | Consume token, set new password, kill all sessions |
+
+### Users (`/user`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | POST | `/user/` | public | Register new user |
 | GET | `/user/me` | required | Current user profile |
 | PUT | `/user/me` | required | Update current user |
-| DELETE | `/user/me` | required | Delete current user |
-| GET | `/user/` | required | List all users |
-| GET | `/user/{id}` | required | Get user by ID |
-| DELETE | `/user/{id}` | required | Delete user by ID |
+| DELETE | `/user/me` | required | Delete current user + NC account |
+| GET | `/user/` | admin | List all users (paginated, filterable) |
+| GET | `/user/{id}` | admin | Get user by ID |
+| DELETE | `/user/{id}` | admin | Delete user by ID + NC account |
 
-### Notifications (`/api/user/notification`)
+### Notifications (`/user/notification`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/user/notification/` | required | All notifications for current user |
-| GET | `/user/notification/{id}` | required | Specific notification |
-| PUT | `/user/notification/read/{id}` | required | Mark as read |
-| PUT | `/user/notification/unread/{id}` | required | Mark as unread |
-| DELETE | `/user/notification/{id}` | required | Delete notification |
+| GET | `/user/notification/` | required | List (paginated, `?unread_only`) |
+| POST | `/user/notification/` | admin/staff | Send to a user |
+| POST | `/user/notification/broadcast` | admin | Send to everyone or a role |
+| PUT | `/user/notification/read-all` | required | Mark all as read |
+| PUT | `/user/notification/read/{id}` | required | Mark one as read |
+| PUT | `/user/notification/unread/{id}` | required | Mark one as unread |
+| GET | `/user/notification/{id}` | required | Get one |
+| DELETE | `/user/notification/{id}` | required | Delete one |
 
-### Reminders (`/api/user/reminder`)
+### Reminders (`/user/reminder`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/user/reminder/` | required | Create reminder |
-| GET | `/user/reminder/` | required | All reminders for current user |
-| GET | `/user/reminder/{id}` | required | Specific reminder |
-| DELETE | `/user/reminder/` | required | Delete all reminders |
-| DELETE | `/user/reminder/{id}` | required | Delete specific reminder |
+| GET | `/user/reminder/` | required | List (`?upcoming`) |
+| GET | `/user/reminder/{id}` | required | Get one |
+| DELETE | `/user/reminder/` | required | Delete all |
+| DELETE | `/user/reminder/{id}` | required | Delete one |
 
-### Storage (`/api/storage`) — user-scoped via JWT
-
-All routes use the authenticated user's Nextcloud account. nc-py-api is called in a thread pool so the async event loop is never blocked.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/storage/?path=` | List files/folders (default: root) |
-| GET | `/storage/info?path=` | Metadata for a specific file or folder |
-| GET | `/storage/search?q=&path=` | Search by name (supports `*` wildcard) |
-| POST | `/storage/upload?path=` | Upload a file (multipart) |
-| GET | `/storage/download?path=` | Download a file (binary stream) |
-| POST | `/storage/folder` | Create a folder (and any missing parents) |
-| DELETE | `/storage/?path=` | Delete a file or folder |
-| POST | `/storage/move` | Move or rename `{ src, dst, overwrite }` |
-| POST | `/storage/copy` | Copy `{ src, dst, overwrite }` |
-| POST | `/storage/favourite?path=&value=` | Set/unset favourite flag |
-| GET | `/storage/favourites` | List all favourited items |
-
-### Apps (`/api/apps`) — Nextcloud UI URLs
-
-Returns Nextcloud embedded-app URLs for the frontend to open in an iframe or redirect to. All routes require auth.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/apps/cloud` | Files app root |
-| GET | `/apps/cloud/folder?dir=` | Files app at a specific directory |
-| GET | `/apps/cloud/file?dir=&file=` | Files app opened on a specific file |
-| GET | `/apps/cloud/search?q=` | Files search |
-| GET | `/apps/viewer?file_id=` | File viewer (PDF / Office) |
-| GET | `/apps/calendar` | Calendar app |
-| GET | `/apps/calendar/{view_type}` | Calendar with specific view |
-| GET | `/apps/contacts` | Contacts app |
-| GET | `/apps/contacts/{contact_id}` | Specific contact |
-| GET | `/apps/notes` | Notes app |
-| GET | `/apps/notes/{note_id}` | Specific note |
-
-### Events (`/api/event`) — stubs
+### Events (`/event`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/event/` | — | List events |
-| POST | `/event/` | — | Create event |
-| GET | `/event/{id}` | — | Get event |
-| PUT | `/event/{id}` | — | Update event |
-| DELETE | `/event/{id}` | — | Delete event |
+| GET | `/event/` | required | List (`?upcoming`, `?past`, `?my_events`) — paginated |
+| GET | `/event/{id}` | required | Get one |
+| POST | `/event/` | admin/staff | Create event |
+| PUT | `/event/{id}` | admin/staff/creator | Update event |
+| DELETE | `/event/{id}` | admin | Delete event |
+| POST | `/event/{id}/register` | required | Self-register (capacity enforced) |
+| DELETE | `/event/{id}/register` | required | Unregister |
+| POST | `/event/{id}/checkin/{user_id}` | admin/staff | Mark attendance |
+| DELETE | `/event/{id}/checkin/{user_id}` | admin/staff | Undo attendance |
 
-### Nextcloud Admin (`/api/nextcloud`)
+### Storage (`/storage`) — user-scoped via JWT
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/storage/?path=` | List files/folders |
+| GET | `/storage/info?path=` | File metadata |
+| GET | `/storage/search?q=` | Search by name |
+| POST | `/storage/upload?path=` | Upload file (multipart) |
+| GET | `/storage/download?path=` | Download file |
+| POST | `/storage/folder` | Create folder |
+| DELETE | `/storage/?path=` | Delete file or folder |
+| POST | `/storage/move` | Move / rename |
+| POST | `/storage/copy` | Copy |
+| POST | `/storage/favourite?path=&value=` | Set/unset favourite |
+| GET | `/storage/favourites` | List favourites |
+
+### Nextcloud Admin (`/nextcloud`) — admin-only
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/nextcloud/users` | List NC users |
+| POST | `/nextcloud/users` | Create NC user |
+| DELETE | `/nextcloud/users/{username}` | Delete NC user |
+| PUT | `/nextcloud/users/{username}/enable` | Enable user |
+| PUT | `/nextcloud/users/{username}/disable` | Disable user |
+| GET | `/nextcloud/files/{username}?path=` | Browse any user's files |
+
+### Nextcloud Linking (`/nextcloud/link`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/nextcloud/users` | required | List Nextcloud users |
-| POST | `/nextcloud/users` | required | Create Nextcloud user |
-| DELETE | `/nextcloud/users/{username}` | required | Delete Nextcloud user |
-| PUT | `/nextcloud/users/{username}/enable` | required | Enable user |
-| PUT | `/nextcloud/users/{username}/disable` | required | Disable user |
-| GET | `/nextcloud/files/{username}?path=` | required | Browse any user's files (admin) |
+| POST | `/nextcloud/link/init` | required | Start Login Flow v2, get browser URL |
+| GET | `/nextcloud/link/poll/{handle}` | required | Poll for approval |
+| GET | `/nextcloud/link/status` | required | Check link status |
+| DELETE | `/nextcloud/link/` | required | Unlink |
+
+### Health (`/health`, `/ready`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Liveness probe — static 200 (no DB check to avoid restart loops) |
+| GET | `/ready` | Readiness probe — checks DB (`SELECT 1`) and Redis (`PING`), returns 503 with error map if either is down |
 
 ## Security
 
 <CardGrid>
   <Card title="JWT — HS256" icon="rocket">
-    Tokens signed with `SECRET_KEY`, 24 h expiry, subject = user ID. Decoded and verified on every protected request by `get_current_user`.
+    15 min access tokens + 30 day refresh tokens. Refresh rotation with reuse detection — replaying a consumed token kills the whole family. `SECRET_KEY` must be changed before any deployment.
   </Card>
 
   <Card title="bcrypt" icon="star">
     Passwords hashed with bcrypt before storage. `verify_password` uses constant-time comparison.
   </Card>
 
-  <Card title="CORS" icon="puzzle">
-    Restricted to `http://localhost:3000` and `http://127.0.0.1:3000` in development. Update `allow_origins` in `main.py` for production.
+  <Card title="RBAC" icon="puzzle">
+    Three roles: `admin`, `staff`, `member`. `require_roles` / `require_admin` FastAPI dependencies gate routes. Put the gate in `APIRouter(dependencies=[...])` so new routes cannot forget it.
   </Card>
 
-  <Card title="Input validation" icon="approve-check">
-    All request bodies validated by Pydantic schemas. Email format, phone E.164 pattern, and password complexity are enforced at the schema level.
+  <Card title="Rate limiting" icon="approve-check">
+    `slowapi` limits login and password-forgot to 5 req/min per IP. `limiter.enabled = False` in tests.
   </Card>
 </CardGrid>
 
-<Aside type="caution" title="RBAC not yet enforced">
-  The `Role` model and `user_roles` M2M table exist, but role checks are not implemented in any route handler yet. All authenticated users currently have the same level of access.
-</Aside>
+## Notifications Contract
+
+Nothing writes to `notifications` except `core/notifications.py`. Always call `notify()` / `notify_role()` **after** committing the triggering work — they manage their own commit/rollback and swallow every `Exception`, so a failed notification never turns a successful action into a 500.
+
+`POST /user/notification/` is the exception: creating a notification is the caller's whole intent there, so it raises normally.
+
+## Pagination
+
+All list endpoints return `Page[T]` — `{ items, total, limit, offset }`. `total` is the count before `limit`/`offset` so clients can render page counts. Use `paginate()` with `limit_param()` / `offset_param()` from `app.core.pagination`, and filter in SQL rather than post-filtering in Python.
