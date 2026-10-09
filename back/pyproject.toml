@@ -15,7 +15,8 @@ dependencies = [
     "pyjwt>=2.12.1",
     "python-multipart>=0.0.22",
     "redis>=5.2.0",
-    "sqlalchemy>=2.0.48",
+    "sqlalchemy[asyncio]>=2.0.48",
+    "aiosmtplib>=3.0",
     "slowapi>=0.1.9",
     "uvicorn>=0.41.0",
 ]
