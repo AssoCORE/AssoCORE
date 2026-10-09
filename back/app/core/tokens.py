@@ -9,6 +9,7 @@ replay outside the grace window kills the whole token family (all tokens descend
 login), which is the standard OAuth 2.1 response to a stolen refresh token.
 """
 
+import hashlib
 import logging
 import os
 import time
@@ -228,6 +229,38 @@ class TokenStore:
             await self._redis.delete(key)
         except RedisError as e:
             raise RedisUnavailable(str(e)) from e
+
+    # -- password reset tokens --------------------------------------------
+
+    async def store_pwreset(self, token_hash: str, user_id: int) -> None:
+        """Store a password-reset token (as SHA-256 hash) mapped to user_id."""
+        ttl = PASSWORD_RESET_EXPIRE_MINUTES * 60
+        try:
+            await self._redis.set(_pwreset_key(token_hash), str(user_id), ex=ttl)
+        except RedisError as e:
+            raise RedisUnavailable(str(e)) from e
+
+    async def consume_pwreset(self, token_hash: str) -> int | None:
+        """Consume a reset token atomically (GETDEL). Returns user_id or None."""
+        try:
+            value = await self._redis.getdel(_pwreset_key(token_hash))
+            return int(value) if value is not None else None
+        except RedisError as e:
+            raise RedisUnavailable(str(e)) from e
+
+
+PASSWORD_RESET_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_EXPIRE_MINUTES", "30"))
+
+PWRESET_PREFIX = "assocore:pwreset:"
+
+
+def _pwreset_key(token_hash: str) -> str:
+    return f"{PWRESET_PREFIX}{token_hash}"
+
+
+def hash_reset_token(token: str) -> str:
+    """SHA-256 of the raw token — stored in redis so a dump never grants a reset."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def get_token_store() -> TokenStore:

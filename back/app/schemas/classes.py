@@ -255,3 +255,15 @@ class EventOut(BaseSchema):
     registered_user_ids: list[int]
     staff_ids: list[int]
     attendee_ids: list[int]
+
+
+# --- Password reset ---
+
+
+class ForgotPasswordRequest(BaseSchema):
+    mail: EmailStr
+
+
+class ResetPasswordRequest(BaseSchema):
+    token: str
+    password: PasswordStr
