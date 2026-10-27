@@ -1,17 +1,8 @@
-import Link from "next/link";
-import { AppSidebar } from "@/components/custom/sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
-
-export default function Home() {
+export default function CalendarPage() {
   return (
-    <SidebarProvider>
-      <div className="flex">
-        <AppSidebar />
-        <main className="flex-1">
-          <h1>Page Calendar</h1>
-
-        </main>
-      </div>
-    </SidebarProvider>
+    <div className="flex flex-1 flex-col rounded-lg bg-card p-6">
+      <h1 className="text-xl font-semibold">Calendrier</h1>
+      <p className="text-sm text-muted-foreground">Placeholder — à implémenter.</p>
+    </div>
   );
 }
