@@ -1,58 +1,33 @@
-"use client";
-
-import {
-  Clock,
-  FileText,
-  Folder,
-  FolderTree,
-  Share2,
-  Star,
-  Tag,
-  User,
-} from "lucide-react";
+import { FileText, Star } from "lucide-react";
+import Link from "next/link";
 import type { ComponentType } from "react";
-import type { FileCategory } from "@/lib/types";
+
 import { cn } from "@/lib/utils";
 
-const icons: Record<FileCategory, ComponentType<{ className?: string }>> = {
-  "Tous les fichiers": FileText,
-  Favoris: Star,
-  "Arbre de fichier": FolderTree,
-  "Fichiers personnels": User,
-  "Fichiers partagés": Share2,
-  Récents: Clock,
-  Catégories: Tag,
-};
+// Only the views the storage API can serve: GET /storage/ and GET /storage/favourites.
+export type FileView = "all" | "favourites";
 
-export function FileCategoryList({
-  categories,
-  active,
-  onSelect,
-}: {
-  categories: FileCategory[];
-  active: FileCategory;
-  onSelect: (cat: FileCategory) => void;
-}) {
+const views: { key: FileView; label: string; href: string; icon: ComponentType<{ className?: string }> }[] = [
+  { key: "all", label: "Tous les fichiers", href: "/file", icon: FileText },
+  { key: "favourites", label: "Favoris", href: "/file?view=favourites", icon: Star },
+];
+
+export function FileCategoryList({ active }: { active: FileView }) {
   return (
     <nav className="flex flex-col gap-1">
-      {categories.map((cat) => {
-        const Icon = icons[cat] ?? Folder;
-        const isActive = cat === active;
-        return (
-          <button
-            type="button"
-            key={cat}
-            onClick={() => onSelect(cat)}
-            className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition hover:bg-primary/5",
-              isActive && "bg-primary/10 font-medium text-primary",
-            )}
-          >
-            <Icon className="size-4" />
-            {cat}
-          </button>
-        );
-      })}
+      {views.map(({ key, label, href, icon: Icon }) => (
+        <Link
+          key={key}
+          href={href}
+          className={cn(
+            "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-foreground transition hover:bg-primary/5",
+            key === active && "bg-primary/10 font-medium text-primary",
+          )}
+        >
+          <Icon className="size-4" />
+          {label}
+        </Link>
+      ))}
     </nav>
   );
 }

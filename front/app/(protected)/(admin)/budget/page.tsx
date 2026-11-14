@@ -65,6 +65,9 @@ export default function BudgetPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 md:gap-6">
+      <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+        Données fictives : le backend n&apos;expose pas encore d&apos;API budget.
+      </p>
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:p-6">
           <div className="flex flex-wrap items-center gap-3">

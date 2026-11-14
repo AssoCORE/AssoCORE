@@ -1,10 +1,10 @@
-import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { getCurrentUser } from "@/lib/auth/session"
-import { isAdmin } from "@/lib/auth/roles"
 import { AuthProvider } from "@/components/auth/AuthProvider"
-import { LogoutButton } from "@/components/auth/LogoutButton"
+import { AppShell } from "@/components/custom/app-shell"
+import { apiJson } from "@/lib/api"
+import { getCurrentUser } from "@/lib/auth/session"
+import type { NotificationOut, Page } from "@/lib/types"
 
 export default async function ProtectedLayout({
   children,
@@ -14,23 +14,19 @@ export default async function ProtectedLayout({
   const user = await getCurrentUser()
   if (!user) redirect("/login")
 
+  // Newest first, and the unread count from `total` — as the backend documents.
+  const [latest, unread] = await Promise.all([
+    apiJson<Page<NotificationOut>>("/user/notification/?limit=8").catch(() => null),
+    apiJson<Page<NotificationOut>>("/user/notification/?unread_only=true&limit=1").catch(
+      () => null
+    ),
+  ])
+
   return (
     <AuthProvider user={user}>
-      <div className="flex min-h-screen flex-col">
-        <header className="flex items-center justify-between border-b p-4">
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/dashboard">Dashboard</Link>
-            {isAdmin(user) && <Link href="/admin">Admin</Link>}
-          </nav>
-          <div className="flex items-center gap-3 text-sm">
-            <span>
-              {user.firstname} {user.name} ({user.roles.map((r) => r.name).join(", ") || "no roles"})
-            </span>
-            <LogoutButton />
-          </div>
-        </header>
-        <main className="flex-1 p-6">{children}</main>
-      </div>
+      <AppShell notifications={latest?.items ?? []} unreadCount={unread?.total ?? 0}>
+        {children}
+      </AppShell>
     </AuthProvider>
   )
 }
