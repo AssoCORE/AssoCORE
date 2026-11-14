@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export function formatBytes(bytes: number): string {
@@ -20,4 +20,17 @@ export function formatEuros(amount: number): string {
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+export function formatEventRange(
+  event: { start_date: string; end_date: string },
+  dayFormat = "d MMMM yyyy",
+): string {
+  const start = new Date(event.start_date);
+  const end = new Date(event.end_date);
+  const day = format(start, dayFormat, { locale: fr });
+  if (isSameDay(start, end)) {
+    return `${day} · ${format(start, "HH:mm")} à ${format(end, "HH:mm")}`;
+  }
+  return `${day} ${format(start, "HH:mm")} → ${format(end, dayFormat, { locale: fr })} ${format(end, "HH:mm")}`;
 }

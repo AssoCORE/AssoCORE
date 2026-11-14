@@ -1,10 +1,12 @@
 "use client";
 
-import { Bell, LogOut, Moon, Sun, User as UserIcon } from "lucide-react";
+import { Bell, CheckCheck, LogOut, Moon, Sun, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { currentProfile } from "@/lib/mock/users";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useLogout } from "@/hooks/use-logout";
+import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions";
+import { fullName, initialsOf, labelOf } from "@/lib/roles";
+import type { NotificationOut } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const ROOT_LABEL = "AssoName";
 
@@ -34,7 +41,7 @@ const segmentLabel: Record<string, string> = {
   file: "Dossiers",
   profile: "Profil",
   adminUser: "Gestionnaire d'Adhérent",
-  adminEvent: "Gestionnaire-Dossier",
+  adminEvent: "Gestionnaire Dossier",
   budget: "Budget",
 };
 
@@ -42,7 +49,13 @@ function humanize(segment: string) {
   return segmentLabel[segment] ?? segment.replace(/-/g, " ");
 }
 
-export function TopBar() {
+export function TopBar({
+  notifications,
+  unreadCount,
+}: {
+  notifications: NotificationOut[];
+  unreadCount: number;
+}) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const trail = segments.map((seg, idx) => ({
@@ -96,9 +109,7 @@ export function TopBar() {
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <ThemeToggle />
-        <Button variant="ghost" size="icon" aria-label="Notifications">
-          <Bell className="size-5" />
-        </Button>
+        <NotificationsMenu notifications={notifications} unreadCount={unreadCount} />
         <UserMenu />
       </div>
     </header>
@@ -130,13 +141,76 @@ function ThemeToggle() {
   );
 }
 
+function NotificationsMenu({
+  notifications,
+  unreadCount,
+}: {
+  notifications: NotificationOut[];
+  unreadCount: number;
+}) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label={`Notifications (${unreadCount} non lues)`}
+        >
+          <Bell className="size-5" />
+          {unreadCount > 0 && (
+            <span className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-semibold leading-4 text-white">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={pending}
+              onClick={() => startTransition(async () => void (await markAllNotificationsRead()))}
+            >
+              <CheckCheck />
+              Tout marquer lu
+            </Button>
+          )}
+        </div>
+        <DropdownMenuSeparator />
+        {notifications.length === 0 ? (
+          <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+            Aucune notification.
+          </p>
+        ) : (
+          notifications.map((n) => (
+            <DropdownMenuItem
+              key={n.id}
+              className="flex flex-col items-start gap-0.5"
+              onSelect={() => {
+                if (!n.read) startTransition(async () => void (await markNotificationRead(n.id)));
+              }}
+            >
+              <span className={cn("text-sm", !n.read && "font-semibold")}>{n.message}</span>
+              <span className="text-xs text-muted-foreground">
+                {format(new Date(n.date), "d MMM yyyy · HH:mm", { locale: fr })}
+              </span>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function UserMenu() {
-  const initials = currentProfile.fullName
-    .split(" ")
-    .map((s) => s[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const user = useAuth();
+  const logout = useLogout();
+  const initials = initialsOf(user.firstname, user.name);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -153,7 +227,12 @@ function UserMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel>{currentProfile.fullName}</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex flex-col">
+          <span>{fullName(user)}</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {user.roles.map(labelOf).join(", ") || "Aucun rôle"}
+          </span>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/profile">
@@ -162,7 +241,10 @@ function UserMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-brand-red focus:text-brand-red">
+        <DropdownMenuItem
+          className="text-brand-red focus:text-brand-red"
+          onSelect={() => void logout()}
+        >
           <LogOut className="mr-2 size-4" />
           Se déconnecter
         </DropdownMenuItem>

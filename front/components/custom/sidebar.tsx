@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   LogOut,
   Search,
-  ShieldCheck,
   Users,
   Wallet,
   User as UserIcon,
@@ -36,11 +35,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useLogout } from "@/hooks/use-logout";
+import { isAdmin as hasAdminRole } from "@/lib/auth/roles";
+import { labelOf } from "@/lib/roles";
 import { cn } from "@/lib/utils";
-import { useAdmin } from "@/hooks/use-admin";
-import { userStats } from "@/lib/mock/users";
 
 type NavItem = {
   label: string;
@@ -63,7 +62,10 @@ const adminItems: NavItem[] = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { isAdmin, setIsAdmin } = useAdmin();
+  const user = useAuth();
+  const logout = useLogout();
+  // UX only — the backend's require_admin enforces it on every admin call.
+  const isAdmin = hasAdminRole(user);
   const collapsed = state === "collapsed";
 
   return (
@@ -80,7 +82,7 @@ export function AppSidebar() {
               </span>
               <span className="flex items-center gap-1 text-xs text-sidebar-foreground/60">
                 <UserIcon className="size-3" />
-                {userStats.members} membres
+                {user.roles.map(labelOf).join(", ") || "Aucun rôle"}
               </span>
             </div>
           )}
@@ -121,37 +123,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="gap-3 p-3">
-        {collapsed ? (
-          <button
-            type="button"
-            onClick={() => setIsAdmin(!isAdmin)}
-            aria-label={isAdmin ? "Désactiver le mode admin (dev)" : "Activer le mode admin (dev)"}
-            title={isAdmin ? "Mode admin actif (dev)" : "Mode admin inactif (dev)"}
-            className={cn(
-              "mx-auto flex size-8 items-center justify-center rounded-md transition",
-              isAdmin
-                ? "bg-primary/20 text-primary hover:bg-primary/30"
-                : "bg-white/5 text-sidebar-foreground/50 hover:bg-white/10",
-            )}
-          >
-            <ShieldCheck className="size-4" />
-          </button>
-        ) : (
-          <div className="flex items-center justify-between rounded-md bg-white/5 px-3 py-2">
-            <Label
-              htmlFor="admin-toggle"
-              className="flex items-center gap-2 text-xs text-sidebar-foreground/70"
-            >
-              <ShieldCheck className="size-3.5" />
-              Mode admin (dev)
-            </Label>
-            <Switch
-              id="admin-toggle"
-              checked={isAdmin}
-              onCheckedChange={setIsAdmin}
-            />
-          </div>
-        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -159,7 +130,7 @@ export function AppSidebar() {
               tooltip="Se déconnecter"
               className="text-brand-red hover:bg-white/5 hover:text-brand-red"
             >
-              <button type="button" aria-label="Se déconnecter">
+              <button type="button" aria-label="Se déconnecter" onClick={() => void logout()}>
                 <LogOut />
                 {!collapsed && <span>Se déconnecter</span>}
               </button>

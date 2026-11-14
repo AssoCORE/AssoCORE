@@ -1,98 +1,118 @@
 "use client";
 
-import { MoreVertical } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { MoreVertical, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
 
+import { useAuth } from "@/components/auth/AuthProvider";
 import { DataTable, type DataTableColumn } from "@/components/custom/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { deleteUser } from "@/lib/actions";
+import { fullName, initialsOf, labelOf, roleToneClass } from "@/lib/roles";
+import type { UserOut } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import type { User, UserRole } from "@/lib/types";
 
-const roleToneClass: Record<UserRole, string> = {
-  Utilisateur: "text-role-user decoration-role-user",
-  Admin: "text-role-admin decoration-role-admin",
-  Trésorier: "text-role-tresorier decoration-role-tresorier",
-  Président: "text-role-president decoration-role-president",
-};
+export function UsersTable({ users }: { users: UserOut[] }) {
+  const me = useAuth();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-const initialsOf = (name: string) =>
-  name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  function onDelete(user: UserOut) {
+    if (!window.confirm(`Supprimer définitivement ${fullName(user)} (et son compte Nextcloud) ?`)) {
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await deleteUser(user.id);
+      if (!res.ok) setError(res.error);
+    });
+  }
 
-const columns: DataTableColumn<User>[] = [
-  {
-    key: "user",
-    header: "Utilisateur",
-    render: (u) => (
-      <div className="flex items-center gap-3">
-        <Avatar className="size-8">
-          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
-            {initialsOf(u.fullName)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="font-medium">{u.fullName}</span>
-      </div>
-    ),
-  },
-  {
-    key: "email",
-    header: "Email",
-    render: (u) => <span className="text-muted-foreground">{u.email}</span>,
-  },
-  {
-    key: "role",
-    header: "Rôle",
-    render: (u) => (
-      <span
-        className={cn(
-          "font-medium underline decoration-2 underline-offset-4",
-          roleToneClass[u.role],
-        )}
-      >
-        {u.role}
-      </span>
-    ),
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (u) => (
-      <span
-        className={cn(
-          "font-semibold",
-          u.status === "Actif" ? "text-primary" : "text-brand-red",
-        )}
-      >
-        {u.status}
-      </span>
-    ),
-  },
-  {
-    key: "createdAt",
-    header: "Date de création",
-    render: (u) => (
-      <span className="tabular-nums">{format(u.createdAt, "d MMM yyyy", { locale: fr })}</span>
-    ),
-  },
-  {
-    key: "actions",
-    header: "Actions",
-    render: () => (
-      <Button variant="ghost" size="icon" aria-label="Actions">
-        <MoreVertical className="size-4" />
-      </Button>
-    ),
-    className: "w-16 text-right",
-    headerClassName: "w-16 text-right",
-  },
-];
+  const columns: DataTableColumn<UserOut>[] = [
+    {
+      key: "user",
+      header: "Utilisateur",
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
+              {initialsOf(u.firstname, u.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="font-medium">{fullName(u)}</span>
+            <span className="text-xs text-muted-foreground">@{u.username}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "email",
+      header: "Email",
+      render: (u) => <span className="text-muted-foreground">{u.mail}</span>,
+    },
+    {
+      key: "phone",
+      header: "Téléphone",
+      render: (u) => <span className="tabular-nums text-muted-foreground">{u.phone ?? "—"}</span>,
+    },
+    {
+      key: "role",
+      header: "Rôles",
+      render: (u) => (
+        <div className="flex flex-wrap gap-2">
+          {u.roles.length === 0 && <span className="text-muted-foreground">—</span>}
+          {u.roles.map((r) => (
+            <span
+              key={r.id}
+              className={cn(
+                "font-medium underline decoration-2 underline-offset-4",
+                roleToneClass[r.name],
+              )}
+            >
+              {labelOf(r)}
+            </span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (u) =>
+        u.id === me.id ? null : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Actions" disabled={pending}>
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-brand-red focus:text-brand-red"
+                onSelect={() => onDelete(u)}
+              >
+                <Trash2 className="mr-2 size-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      className: "w-16 text-right",
+      headerClassName: "w-16 text-right",
+    },
+  ];
 
-export function UsersTable({ users }: { users: User[] }) {
-  return <DataTable columns={columns} data={users} rowKey={(u) => u.id} />;
+  return (
+    <>
+      {error && <p className="px-4 py-2 text-sm text-destructive">{error}</p>}
+      <DataTable columns={columns} data={users} rowKey={(u) => String(u.id)} />
+    </>
+  );
 }

@@ -18,6 +18,20 @@ import {
 } from "@/components/ui/form"
 import { loginSchema, type LoginInput } from "@/lib/auth/schemas"
 
+// Only same-origin targets. Checking the raw string isn't enough ("//evil.com",
+// "/\evil.com", or "/\t/evil.com" once the browser strips the tab), so resolve
+// it the way the browser will and compare origins.
+function safeNext(next: string | null): string {
+  if (!next) return "/"
+  try {
+    const url = new URL(next, window.location.origin)
+    if (url.origin !== window.location.origin) return "/"
+    return url.pathname + url.search + url.hash
+  } catch {
+    return "/"
+  }
+}
+
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -40,7 +54,7 @@ export function LoginForm() {
       })
 
       if (res.ok) {
-        router.push(searchParams.get("next") || "/dashboard")
+        router.push(safeNext(searchParams.get("next")))
         router.refresh()
         return
       }

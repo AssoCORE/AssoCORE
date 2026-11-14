@@ -1,65 +1,59 @@
-export type UserStatus = "Actif" | "Inactif";
-export type UserRole = "Utilisateur" | "Admin" | "Trésorier" | "Président";
+// Mirrors of back/app/schemas/classes.py — the backend is the source of truth.
+// Datetimes arrive as ISO strings (naive, no timezone): parse with `new Date()`.
 
-export type User = {
-  id: string;
-  fullName: string;
-  email: string;
-  role: UserRole;
-  status: UserStatus;
-  createdAt: Date;
-  avatarUrl?: string;
+export type { Page, Role, UserOut } from "@/lib/auth/types";
+
+export type NotificationOut = {
+  id: number;
+  date: string;
+  message: string;
+  from_id: number | null;
+  read: boolean;
 };
 
-export type EventCategory = {
-  label: string;
-  tone: "green" | "purple" | "red" | "blue" | "amber";
-};
-
-export type Event = {
-  id: string;
+export type ReminderOut = {
+  id: number;
+  date: string;
   title: string;
-  description: string;
-  startsAt: Date;
-  endsAt: Date;
-  location: string;
-  participants: { current: number; max: number };
-  price: number | "Gratuit";
-  imageUrl?: string;
-  category: EventCategory;
+  description: string | null;
 };
 
-export type Activity = {
-  id: string;
-  actor: string;
-  verb: "a créé" | "a rejoint" | "a quitté";
-  target: string;
-  targetKind: "l'événement" | "le groupe";
+export type EventOut = {
+  id: number;
+  title: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  registrations_limits: number;
+  creator_id: number | null;
+  registered_count: number;
+  spots_left: number;
+  is_full: boolean;
+  registered_user_ids: number[];
+  staff_ids: number[];
+  attendee_ids: number[];
 };
 
-export type FileNode = {
-  id: string;
+/** `FileNode` from the storage routes (Nextcloud, acting as the current user). */
+export type StorageNode = {
   name: string;
-  kind: "folder" | "file";
-  sizeBytes: number;
-  modifiedAt: Date;
-  shared?: boolean;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  mime_type: string;
+  last_modified: string;
+  etag: string;
+  file_id: string;
 };
 
-export type FileCategory =
-  | "Tous les fichiers"
-  | "Favoris"
-  | "Arbre de fichier"
-  | "Fichiers personnels"
-  | "Fichiers partagés"
-  | "Récents"
-  | "Catégories";
-
-export type StorageStat = {
-  label: string;
-  usedGb: number;
-  totalGb: number;
+/** Shape returned by the admin-only `GET /nextcloud/files/{username}`. */
+export type AdminFileEntry = {
+  name: string;
+  is_dir: boolean;
+  size: number;
 };
+
+// --- Not backed by the API yet (mock data only) ---
 
 export type BudgetRequest = {
   id: string;
@@ -67,16 +61,4 @@ export type BudgetRequest = {
   name: string;
   reason: string;
   amountEur: number;
-};
-
-export type Profile = {
-  username: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: UserRole;
-  memberSince: Date;
-  participations: number;
-  volunteering: number;
-  bannerUrl?: string;
 };
