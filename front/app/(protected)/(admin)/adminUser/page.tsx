@@ -1,4 +1,4 @@
-import { UsersSearch } from "@/app/(protected)/(admin)/adminUser/users-search";
+import { UsersSearch } from "@/components/custom/users-search";
 import { StatCard } from "@/components/custom/stat-card";
 import { UsersTable } from "@/components/custom/users-table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,13 +8,13 @@ import { ROLE_ADMIN, ROLE_STAFF } from "@/lib/auth/roles";
 export default async function AdminUserPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; role?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, role } = await searchParams;
 
   // Counts read `total` with limit=1; the backend filters by role in SQL.
   const [page, all, staff, admins] = await Promise.all([
-    listUsers({ q, limit: 200 }),
+    listUsers({ q, role, limit: 200 }),
     listUsers({ limit: 1 }),
     listUsers({ role: ROLE_STAFF, limit: 1 }),
     listUsers({ role: ROLE_ADMIN, limit: 1 }),

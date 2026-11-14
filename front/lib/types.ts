@@ -1,5 +1,7 @@
 // Mirrors of back/app/schemas/classes.py — the backend is the source of truth.
-// Datetimes arrive as ISO strings (naive, no timezone): parse with `new Date()`.
+// Datetimes arrive as ISO strings without a timezone. User-entered ones (events,
+// reminders) are local: `new Date()`. Server-generated ones (notification `date`,
+// `linked_at`) are UTC: `parseServerDate()` from lib/format.
 
 export type { Page, Role, UserOut } from "@/lib/auth/types";
 
@@ -53,6 +55,24 @@ export type AdminFileEntry = {
   size: number;
 };
 
+/** `POST /nextcloud/link/init` — open `login_url`, then poll with `handle`. */
+export type NcLinkInit = {
+  login_url: string;
+  handle: string;
+  expires_in: number;
+};
+
+export type NcLinkPoll = {
+  status: "pending" | "linked";
+  nc_username: string | null;
+};
+
+export type NcLinkStatus = {
+  linked: boolean;
+  nc_username: string | null;
+  linked_at: string | null;
+};
+
 // --- Not backed by the API yet (mock data only) ---
 
 export type BudgetRequest = {
@@ -62,3 +82,6 @@ export type BudgetRequest = {
   reason: string;
   amountEur: number;
 };
+
+/** Display names by user id, for lists of participants. Only admins can build it. */
+export type PeopleById = Record<number, { firstname: string; name: string; username: string }>;

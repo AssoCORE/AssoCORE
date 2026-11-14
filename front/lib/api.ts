@@ -59,14 +59,30 @@ export function query(params: Record<string, string | number | boolean | undefin
   return s ? `?${s}` : "";
 }
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult<T = undefined> =
+  | (T extends undefined ? { ok: true; data?: undefined } : { ok: true; data: T })
+  | { ok: false; error: string };
+
+// The backend's `detail` strings are English; translate the ones a user can hit.
+const knownDetails: Record<string, string> = {
+  "Event not found": "Évènement introuvable.",
+  "Already registered": "Vous êtes déjà inscrit à cet évènement.",
+  "Event is full": "Cet évènement est complet.",
+  "User not found": "Utilisateur introuvable.",
+  "User already checked in": "Présence déjà enregistrée.",
+  "File already exists": "Un fichier porte déjà ce nom.",
+  "end_date must be after start_date": "La fin doit être après le début.",
+  "Unknown or expired handle": "La demande de liaison a expiré, recommencez.",
+  "Could not start the Nextcloud login flow": "Impossible de joindre Nextcloud.",
+};
 
 /** Turns a thrown error into a result a Client Component can display. */
-export function toActionError(err: unknown): ActionResult {
+export function toActionError(err: unknown): { ok: false; error: string } {
   if (err instanceof BackendError) {
     if (err.status === 401) return { ok: false, error: "Session expirée, reconnectez-vous." };
     if (err.status === 403) return { ok: false, error: "Action non autorisée." };
-    return { ok: false, error: err.detail };
+    if (err.status === 503) return { ok: false, error: "Service indisponible, réessayez plus tard." };
+    return { ok: false, error: knownDetails[err.detail] ?? err.detail };
   }
   return { ok: false, error: "Service indisponible, réessayez plus tard." };
 }

@@ -1,6 +1,7 @@
 import { ChevronLeft, FileText, Folder, User } from "lucide-react";
 import Link from "next/link";
 
+import { NcAccountMenu } from "@/components/custom/nc-account-menu";
 import { StatCard } from "@/components/custom/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,9 +87,10 @@ export default async function AdminFilesPage({
                   </Link>
                 </Button>
               )}
-              <span className="truncate font-medium">
+              <span className="flex-1 truncate font-medium">
                 {user ? `${user} : /${current}` : "Sélectionnez un compte"}
               </span>
+              {user && <NcAccountMenu username={user} />}
             </div>
             <div className="flex-1 overflow-y-auto">
               {user && !files ? (

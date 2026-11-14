@@ -1,6 +1,16 @@
 import { format, formatDistanceToNow, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 
+/**
+ * Parses a timestamp the backend generated itself (`datetime.now(timezone.utc)`,
+ * e.g. a notification's `date`). It is UTC but serialized without an offset, so
+ * `new Date()` alone would read it as local time and shift it by the UTC offset.
+ * Dates a user typed in (event, reminder) are naive local times: use `new Date()`.
+ */
+export function parseServerDate(iso: string): Date {
+  return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`);
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];

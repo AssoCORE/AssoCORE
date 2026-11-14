@@ -35,3 +35,25 @@ export function useUrlSearch(param = "q", delayMs = 300) {
 
   return { value, setValue, pending };
 }
+
+/**
+ * A single URL query param (e.g. a filter choice) the Server Component reads.
+ * Setting it to `fallback` removes it, so the default state keeps a clean URL.
+ */
+export function useUrlParam(param: string, fallback = "") {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
+  const value = searchParams.get(param) ?? fallback;
+
+  function setValue(next: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next && next !== fallback) params.set(param, next);
+    else params.delete(param);
+    const qs = params.toString();
+    startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname));
+  }
+
+  return { value, setValue, pending };
+}

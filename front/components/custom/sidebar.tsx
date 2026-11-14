@@ -2,6 +2,7 @@
 
 import {
   Calendar,
+  CalendarDays,
   ChevronDown,
   FileText,
   Folder,
@@ -50,6 +51,7 @@ type NavItem = {
 const publicItems: NavItem[] = [
   { label: "Accueil", href: "/", icon: LayoutGrid },
   { label: "Évènements", href: "/event", icon: Calendar },
+  { label: "Calendrier", href: "/calendar", icon: CalendarDays },
   { label: "Dossiers", href: "/file", icon: FileText },
   { label: "Profile", href: "/profile", icon: UserIcon },
 ];
@@ -196,7 +198,9 @@ function NavItemRow({
   item: NavItem;
   pathname: string;
 }) {
-  const active = pathname === item.href;
+  // Sub-pages (/event/12, /adminUser/3) keep their section highlighted.
+  const active =
+    pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
   return (
     <SidebarMenuItem>
       <SidebarMenuButton

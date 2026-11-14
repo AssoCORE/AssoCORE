@@ -1,4 +1,4 @@
-import { FilesView } from "@/app/(protected)/file/files-view";
+import { FilesView } from "@/components/custom/files-view";
 import type { FileView } from "@/components/custom/file-category-list";
 import { apiJson, query } from "@/lib/api";
 import { BackendError } from "@/lib/backend";

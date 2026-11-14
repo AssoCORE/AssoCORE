@@ -2,17 +2,22 @@
 
 import {
   ChevronLeft,
+  Copy,
   Download,
   FileText,
   Folder,
+  FolderInput,
   FolderPlus,
   MoreHorizontal,
+  Pencil,
   Star,
   StarOff,
   Trash2,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 
 import { DataTable, type DataTableColumn } from "@/components/custom/data-table";
 import { FileCategoryList, type FileView } from "@/components/custom/file-category-list";
@@ -27,7 +32,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUrlSearch } from "@/hooks/use-url-search";
-import { createFolder, deleteStorageNode, setFavourite } from "@/lib/actions";
+import {
+  copyStorageNode,
+  createFolder,
+  deleteStorageNode,
+  moveStorageNode,
+  setFavourite,
+} from "@/lib/actions";
 import type { ActionResult } from "@/lib/api";
 import { formatBytes, formatRelativeFromNow } from "@/lib/format";
 import type { StorageNode } from "@/lib/types";
@@ -39,6 +50,8 @@ function parentOf(path: string) {
   parts.pop();
   return parts.join("/");
 }
+
+const join = (...parts: string[]) => parts.map(trim).filter(Boolean).join("/");
 
 export function FilesView({
   view,
@@ -54,8 +67,10 @@ export function FilesView({
   error: string | null;
 }) {
   const search = useUrlSearch();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   function run(action: () => Promise<ActionResult>) {
     setActionError(null);
@@ -68,7 +83,58 @@ export function FilesView({
   function onNewFolder() {
     const name = window.prompt("Nom du nouveau dossier")?.trim();
     if (!name) return;
-    run(() => createFolder([trim(path), name].filter(Boolean).join("/")));
+    run(() => createFolder(join(path, name)));
+  }
+
+  function onRename(row: StorageNode) {
+    const name = window.prompt("Nouveau nom", row.name)?.trim();
+    if (!name || name === row.name) return;
+    run(() => moveStorageNode(row.path, join(parentOf(row.path), name)));
+  }
+
+  function onMove(row: StorageNode) {
+    const dir = window.prompt("Déplacer vers le dossier (vide = racine)", parentOf(row.path));
+    if (dir === null || trim(dir) === parentOf(row.path)) return;
+    run(() => moveStorageNode(row.path, join(dir, row.name)));
+  }
+
+  function onCopy(row: StorageNode) {
+    const dst = window.prompt(
+      "Chemin de la copie",
+      join(parentOf(row.path), `Copie de ${row.name}`),
+    );
+    if (!dst?.trim()) return;
+    run(() => copyStorageNode(row.path, join(dst)));
+  }
+
+  // Uploads go through /api/storage/upload (multipart), one request per file.
+  function onUpload(files: FileList | null) {
+    if (!files?.length) return;
+    const selected = Array.from(files);
+    if (fileInput.current) fileInput.current.value = "";
+    setActionError(null);
+    startTransition(async () => {
+      const errors: string[] = [];
+      for (const file of selected) {
+        const body = new FormData();
+        body.set("file", file);
+        const res = await fetch(`/api/storage/upload?${new URLSearchParams({ dir: trim(path) })}`, {
+          method: "POST",
+          body,
+        }).catch(() => null);
+        if (!res?.ok) {
+          const detail = await res?.json().then(
+            (b) => b?.detail,
+            () => null,
+          );
+          errors.push(
+            typeof detail === "string" ? detail : `Échec de l'envoi de « ${file.name} ».`,
+          );
+        }
+      }
+      if (errors.length) setActionError(errors.join(" "));
+      router.refresh();
+    });
   }
 
   const columns: DataTableColumn<StorageNode>[] = [
@@ -114,6 +180,18 @@ export function FilesView({
                 </a>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem onSelect={() => onRename(row)}>
+              <Pencil className="mr-2 size-4" />
+              Renommer
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onMove(row)}>
+              <FolderInput className="mr-2 size-4" />
+              Déplacer
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onCopy(row)}>
+              <Copy className="mr-2 size-4" />
+              Copier
+            </DropdownMenuItem>
             {view === "favourites" ? (
               <DropdownMenuItem onSelect={() => run(() => setFavourite(row.path, false))}>
                 <StarOff className="mr-2 size-4" />
@@ -176,7 +254,7 @@ export function FilesView({
         placeholder="Rechercher un fichier (* pour joker)"
       />
 
-      <div className="grid flex-1 min-h-0 auto-rows-fr gap-4 md:gap-6 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)] gap-4 md:gap-6 lg:auto-rows-fr lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
         <Card className="h-full">
           <CardContent className="p-3">
             <FileCategoryList active={view} />
@@ -185,7 +263,7 @@ export function FilesView({
 
         <Card className="h-full min-h-0">
           <CardContent className="flex h-full flex-col p-0">
-            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 text-sm">
               <div className="flex min-w-0 items-center gap-2">
                 {view === "all" && !searching && current && (
                   <Button asChild variant="ghost" size="icon-sm" aria-label="Dossier parent">
@@ -209,10 +287,28 @@ export function FilesView({
                 </span>
               </div>
               {view === "all" && !searching && (
-                <Button variant="outline" size="sm" onClick={onNewFolder} disabled={pending}>
-                  <FolderPlus />
-                  Nouveau dossier
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(e) => onUpload(e.target.files)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInput.current?.click()}
+                    disabled={pending}
+                  >
+                    <Upload />
+                    Importer
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={onNewFolder} disabled={pending}>
+                    <FolderPlus />
+                    Nouveau dossier
+                  </Button>
+                </div>
               )}
             </div>
             {actionError && (

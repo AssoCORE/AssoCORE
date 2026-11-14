@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { getCurrentUser } from "@/lib/auth/session"
-import { RegisterForm } from "./RegisterForm"
+import { RegisterForm } from "@/components/auth/RegisterForm"
 
 export default async function RegisterPage() {
   const user = await getCurrentUser()
