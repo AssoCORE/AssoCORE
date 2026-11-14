@@ -7,6 +7,13 @@ export const roleLabel: Record<string, string> = {
   member: "Membre",
 };
 
+/** Plural, lower-case — for sentences like "Notifier les membres". */
+export const roleLabelPlural: Record<string, string> = {
+  admin: "admins",
+  staff: "membres du staff",
+  member: "membres",
+};
+
 export const roleToneClass: Record<string, string> = {
   admin: "text-role-admin decoration-role-admin",
   staff: "text-role-tresorier decoration-role-tresorier",

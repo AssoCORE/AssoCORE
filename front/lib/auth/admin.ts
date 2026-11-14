@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { backendFetch } from "@/lib/backend";
 import { ACCESS_COOKIE } from "@/lib/auth/cookies";
 import type { Page, UserOut } from "@/lib/auth/types";
+import type { PeopleById } from "@/lib/types";
 
 export interface ListUsersOptions {
   /** Case-insensitive search across username, name, firstname and mail. */
@@ -37,4 +38,17 @@ export async function listUsers(
   });
   if (res.status !== 200) return null;
   return res.json();
+}
+
+/**
+ * Names of every user by id, for an admin's participant lists — null for anyone
+ * else, since GET /user/ is admin-only. Only display fields are kept: UserOut also
+ * carries each user's notifications and reminders, which must not reach the client.
+ */
+export async function peopleById(): Promise<PeopleById | undefined> {
+  const page = await listUsers({ limit: 200 });
+  if (!page) return undefined;
+  return Object.fromEntries(
+    page.items.map((u) => [u.id, { firstname: u.firstname, name: u.name, username: u.username }])
+  );
 }

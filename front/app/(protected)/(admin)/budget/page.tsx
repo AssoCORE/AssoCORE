@@ -91,7 +91,7 @@ export default function BudgetPage() {
         </CardContent>
       </Card>
 
-      <div className="grid flex-1 min-h-0 auto-rows-fr gap-4 md:gap-6 lg:grid-cols-2">
+      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)] auto-rows-fr gap-4 md:gap-6 lg:grid-cols-2">
         <BudgetTable title="Demande en attente :" data={pending} />
         <BudgetTable
           title="Historique :"

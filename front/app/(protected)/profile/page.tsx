@@ -1,21 +1,25 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ProfileForm } from "@/app/(protected)/profile/profile-form";
+import { AccountSettings } from "@/components/custom/account-settings";
+import { ProfileForm } from "@/components/custom/profile-form";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiJson } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth/session";
 import { fullName, initialsOf, labelOf } from "@/lib/roles";
-import type { EventOut, Page } from "@/lib/types";
+import type { EventOut, NcLinkStatus, Page, ReminderOut } from "@/lib/types";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   // Counts come from `total` with limit=1 — no dedicated stats endpoint exists.
-  const [registered, upcoming] = await Promise.all([
+  const [registered, upcoming, reminders, ncLink] = await Promise.all([
     apiJson<Page<EventOut>>("/event/?my_events=true&limit=1").catch(() => null),
     apiJson<Page<EventOut>>("/event/?my_events=true&upcoming=true&limit=1").catch(() => null),
+    apiJson<Page<ReminderOut>>("/user/reminder/?upcoming=true&limit=1").catch(() => null),
+    apiJson<NcLinkStatus>("/nextcloud/link").catch(() => null),
   ]);
 
   return (
@@ -43,6 +47,7 @@ export default async function ProfilePage() {
             </header>
 
             <ProfileForm user={user} />
+            <AccountSettings link={ncLink} />
           </CardContent>
         </Card>
 
@@ -51,7 +56,14 @@ export default async function ProfilePage() {
             <h2 className="text-lg font-semibold">Statistiques :</h2>
             <StatRow label="Inscriptions à des évènements" value={registered?.total ?? "—"} />
             <StatRow label="Évènements à venir" value={upcoming?.total ?? "—"} />
-            <StatRow label="Rappels" value={user.reminders.length} />
+            <StatRow
+              label="Rappels à venir"
+              value={
+                <Link href="/calendar" className="hover:underline">
+                  {reminders?.total ?? "—"}
+                </Link>
+              }
+            />
           </CardContent>
         </Card>
       </div>

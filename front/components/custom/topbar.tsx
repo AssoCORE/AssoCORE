@@ -1,6 +1,15 @@
 "use client";
 
-import { Bell, CheckCheck, LogOut, Moon, Sun, User as UserIcon } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  LogOut,
+  Mail,
+  Moon,
+  Sun,
+  Trash2,
+  User as UserIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -28,7 +37,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useLogout } from "@/hooks/use-logout";
-import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions";
+import {
+  deleteNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+  markNotificationUnread,
+} from "@/lib/actions";
+import { parseServerDate } from "@/lib/format";
 import { fullName, initialsOf, labelOf } from "@/lib/roles";
 import type { NotificationOut } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -46,6 +61,8 @@ const segmentLabel: Record<string, string> = {
 };
 
 function humanize(segment: string) {
+  // Ids (/event/12, /adminUser/3) read as a detail page, not as a number.
+  if (/^\d+$/.test(segment)) return "Détail";
   return segmentLabel[segment] ?? segment.replace(/-/g, " ");
 }
 
@@ -190,15 +207,48 @@ function NotificationsMenu({
           notifications.map((n) => (
             <DropdownMenuItem
               key={n.id}
-              className="flex flex-col items-start gap-0.5"
+              className="group/notif flex items-start gap-2"
               onSelect={() => {
                 if (!n.read) startTransition(async () => void (await markNotificationRead(n.id)));
               }}
             >
-              <span className={cn("text-sm", !n.read && "font-semibold")}>{n.message}</span>
-              <span className="text-xs text-muted-foreground">
-                {format(new Date(n.date), "d MMM yyyy · HH:mm", { locale: fr })}
-              </span>
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                <span className={cn("text-sm", !n.read && "font-semibold")}>{n.message}</span>
+                <span className="text-xs text-muted-foreground">
+                  {format(parseServerDate(n.date), "d MMM yyyy · HH:mm", { locale: fr })}
+                </span>
+              </div>
+              {/* Revealed on hover/focus; stopPropagation keeps the item's own onSelect out of it. */}
+              <div className="flex shrink-0 gap-0.5 opacity-0 transition group-hover/notif:opacity-100 group-focus/notif:opacity-100 pointer-coarse:opacity-100">
+                {n.read && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Marquer non lue"
+                    disabled={pending}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      startTransition(async () => void (await markNotificationUnread(n.id)));
+                    }}
+                  >
+                    <Mail className="size-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Supprimer la notification"
+                  disabled={pending}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    startTransition(async () => void (await deleteNotification(n.id)));
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
             </DropdownMenuItem>
           ))
         )}

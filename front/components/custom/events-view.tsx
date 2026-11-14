@@ -1,21 +1,55 @@
 "use client";
 
 import { isSameDay } from "date-fns";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import type { PeopleById } from "@/lib/types";
 import { EventCard } from "@/components/custom/event-card";
+import { EventFormSheet } from "@/components/custom/event-form-sheet";
 import { MiniCalendar } from "@/components/custom/mini-calendar";
 import { SearchBar } from "@/components/custom/search-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useUrlSearch } from "@/hooks/use-url-search";
+import {
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useUrlParam, useUrlSearch } from "@/hooks/use-url-search";
+import { hasRole, ROLE_ADMIN, ROLE_STAFF } from "@/lib/auth/roles";
 import type { EventOut } from "@/lib/types";
 
-export function EventsView({ events, total }: { events: EventOut[] | null; total: number }) {
+/** Maps to GET /event/'s upcoming / past / my_events flags. */
+export type EventFilter = "all" | "upcoming" | "past" | "mine";
+
+const filterLabels: Record<EventFilter, string> = {
+  all: "Tous les évènements",
+  upcoming: "À venir",
+  past: "Passés",
+  mine: "Mes inscriptions",
+};
+
+export function EventsView({
+  events,
+  total,
+  filter,
+  people,
+}: {
+  events: EventOut[] | null;
+  total: number;
+  filter: EventFilter;
+  people?: PeopleById;
+}) {
   const user = useAuth();
   const search = useUrlSearch();
+  const filterParam = useUrlParam("filter", "all");
   const [selectedDay, setSelectedDay] = useState<Date | undefined>();
+  const [creating, setCreating] = useState(false);
+  // UX only — POST /event/ is gated to staff/admin server-side.
+  const canCreate = hasRole(user, ROLE_ADMIN, ROLE_STAFF);
 
   const markedDays = useMemo(
     () =>
@@ -47,7 +81,33 @@ export function EventsView({ events, total }: { events: EventOut[] | null; total
       </Card>
 
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <SearchBar value={search.value} onChange={search.setValue} />
+        <SearchBar
+          value={search.value}
+          onChange={search.setValue}
+          filterActive={filter !== "all"}
+          filters={
+            <>
+              <DropdownMenuLabel>Afficher</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={filter} onValueChange={filterParam.setValue}>
+                {(Object.keys(filterLabels) as EventFilter[]).map((key) => (
+                  <DropdownMenuRadioItem key={key} value={key}>
+                    {filterLabels[key]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </>
+          }
+        />
+        {canCreate && (
+          <>
+            <Button variant="outline" size="sm" className="self-end" onClick={() => setCreating(true)}>
+              <Plus />
+              Nouvel évènement
+            </Button>
+            <EventFormSheet open={creating} onOpenChange={setCreating} />
+          </>
+        )}
         {selectedDay && (
           <Button
             variant="ghost"
@@ -64,7 +124,7 @@ export function EventsView({ events, total }: { events: EventOut[] | null; total
           ) : (
             <>
               {visible.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard key={event.id} event={event} people={people} />
               ))}
               {visible.length === 0 && (
                 <p className="text-sm text-muted-foreground">Aucun événement.</p>

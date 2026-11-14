@@ -1,42 +1,21 @@
 "use client";
 
 import { Calendar, Users } from "lucide-react";
-import { useState, useTransition } from "react";
+import Link from "next/link";
 
-import { useAuth } from "@/components/auth/AuthProvider";
+import { EventManageMenu } from "@/components/custom/event-manage-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { registerForEvent, unregisterFromEvent } from "@/lib/actions";
+import { eventStatus, useEventActions } from "@/hooks/use-event-actions";
 import { formatEventRange } from "@/lib/format";
-import type { EventOut } from "@/lib/types";
+import type { EventOut, PeopleById } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function EventCard({ event }: { event: EventOut }) {
-  const user = useAuth();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  const registered = event.registered_user_ids.includes(user.id);
-  const past = new Date(event.end_date) < new Date();
-  const status = registered
-    ? { label: "Inscrit", className: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" }
-    : event.is_full
-      ? { label: "Complet", className: "bg-red-100 text-red-800 hover:bg-red-100" }
-      : {
-          label: `${event.spots_left} place${event.spots_left > 1 ? "s" : ""}`,
-          className: "bg-sky-100 text-sky-800 hover:bg-sky-100",
-        };
-
-  function toggle() {
-    setError(null);
-    startTransition(async () => {
-      const res = registered
-        ? await unregisterFromEvent(event.id)
-        : await registerForEvent(event.id);
-      if (!res.ok) setError(res.error);
-    });
-  }
+export function EventCard({ event, people }: { event: EventOut; people?: PeopleById }) {
+  const actions = useEventActions(event);
+  const { registered, past, pending, error } = actions;
+  const status = eventStatus(event, registered);
 
   return (
     <Card>
@@ -53,9 +32,12 @@ export function EventCard({ event }: { event: EventOut }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate text-base font-semibold">{event.title}</h3>
-            <Badge className={cn("shrink-0 whitespace-nowrap", status.className)}>
-              {status.label}
-            </Badge>
+            <div className="flex shrink-0 items-center gap-1">
+              <Badge className={cn("shrink-0 whitespace-nowrap", status.className)}>
+                {status.label}
+              </Badge>
+              <EventManageMenu event={event} people={people} actions={actions} />
+            </div>
           </div>
           {event.description && (
             <p className="line-clamp-2 text-sm text-muted-foreground">{event.description}</p>
@@ -70,19 +52,22 @@ export function EventCard({ event }: { event: EventOut }) {
               {event.registered_count}/{event.registrations_limits} participants
             </span>
           </div>
-          {!past && (
-            <div className="mt-1 flex gap-2">
+          <div className="mt-1 flex gap-2">
+            <Button asChild size="sm" variant="secondary" className="flex-1">
+              <Link href={`/event/${event.id}`}>Voir plus</Link>
+            </Button>
+            {!past && (
               <Button
                 size="sm"
                 variant={registered ? "outline" : "default"}
                 className="flex-1"
                 disabled={pending || (!registered && event.is_full)}
-                onClick={toggle}
+                onClick={actions.toggleRegistration}
               >
                 {registered ? "Se désinscrire" : event.is_full ? "Complet" : "S'inscrire"}
               </Button>
-            </div>
-          )}
+            )}
+          </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       </CardContent>

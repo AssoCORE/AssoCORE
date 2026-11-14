@@ -18,9 +18,14 @@ export async function backendFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
+  // A FormData body must let fetch set its own multipart boundary header.
+  const json = !(init?.body instanceof FormData)
   return fetch(`${BACKEND_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      ...(json ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    },
     cache: "no-store",
   })
 }
