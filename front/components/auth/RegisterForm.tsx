@@ -56,10 +56,12 @@ export function RegisterForm() {
       }
 
       const data = await res.json().catch(() => ({}))
+      // Only ever render a string: an object here would crash the whole page.
+      const detail = typeof data.detail === "string" ? data.detail : null
       if (res.status === 409) {
-        setError(data.detail ?? "Username or email already taken")
+        setError(detail ?? "Username or email already taken")
       } else {
-        setError(data.detail ?? "Registration failed")
+        setError(detail ?? "Registration failed")
       }
     } catch {
       setError("Service unavailable — try again shortly")

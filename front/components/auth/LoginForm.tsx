@@ -20,13 +20,19 @@ import { loginSchema, type LoginInput } from "@/lib/auth/schemas"
 
 // Only same-origin targets. Checking the raw string isn't enough ("//evil.com",
 // "/\evil.com", or "/\t/evil.com" once the browser strips the tab), so resolve
-// it the way the browser will and compare origins.
+// it the way the browser will and compare origins. The resolved path must also
+// not start with "//" or "/\": "/.//evil.com" resolves same-origin to the path
+// "//evil.com", which router.push() then treats as a protocol-relative URL.
 function safeNext(next: string | null): string {
   if (!next) return "/"
   try {
     const url = new URL(next, window.location.origin)
     if (url.origin !== window.location.origin) return "/"
-    return url.pathname + url.search + url.hash
+    const out = url.pathname + url.search + url.hash
+    if (!out.startsWith("/") || out.startsWith("//") || out.startsWith("/\\")) {
+      return "/"
+    }
+    return out
   } catch {
     return "/"
   }
