@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -17,7 +18,8 @@ from app.core.dependencies import (
     require_roles,
 )
 from app.core.crypto import decrypt_secret
-from app.core.notifications import notify_role
+from app.core.mail import FRONTEND_URL, send_mail
+from app.core.notifications import notify, notify_role
 from app.core.nextcloud import get_admin_nc
 from app.core.nextcloud import (
     NC_PROBE_INTERVAL_HOURS,
@@ -37,12 +39,18 @@ from app.core.security import (
 )
 from app.core.pagination import limit_param, offset_param, paginate
 from app.core.rate_limit import limiter
-from app.core.tokens import RedisUnavailable, TokenStore, get_token_store
+from app.core.tokens import (
+    RedisUnavailable,
+    TokenStore,
+    get_token_store,
+    hash_reset_token,
+)
 from app.db.database import get_session
 from app.db.models import NextcloudAccount, Notification, Reminder, Role, User
 
 log = logging.getLogger(__name__)
 from app.schemas.classes import (
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     NotificationBroadcast,
@@ -53,6 +61,7 @@ from app.schemas.classes import (
     RefreshRequest,
     ReminderCreate,
     ReminderOut,
+    ResetPasswordRequest,
     Token,
     UserCreate,
     UserOut,
@@ -315,6 +324,104 @@ async def logout_all(
         )
     except RedisUnavailable:
         raise AUTH_BACKEND_DOWN
+
+
+@router.post(
+    "/password/forgot",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Request a password-reset email",
+)
+@limiter.limit("5/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+    store: TokenStore = Depends(get_token_store),
+):
+    """Always returns 202 — revealing whether the address exists would let attackers
+    enumerate accounts. Log SMTP failures at ERROR so operators notice the outage.
+    """
+    result = await session.execute(select(User).where(User.mail == str(body.mail)))
+    user = result.scalars().first()
+
+    if user:
+        token = secrets.token_urlsafe(32)
+        token_hash = hash_reset_token(token)
+        try:
+            await store.store_pwreset(token_hash, user.id)
+        except RedisUnavailable:
+            # Fail closed: we cannot store the token, so we must not send a link
+            # that will never work. Return 202 anyway — the enumeration protection
+            # must hold even during a backend outage.
+            log.error(
+                "Redis unavailable — could not issue password-reset for user %d",
+                user.id,
+            )
+            return
+
+        reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+        body_text = (
+            f"Hi {user.firstname},\n\n"
+            f"Someone requested a password reset for your AssoCORE account.\n\n"
+            f"Click the link below to set a new password (valid for 30 minutes):\n"
+            f"{reset_link}\n\n"
+            f"If you did not request this, you can safely ignore this email.\n\n"
+            f"— AssoCORE"
+        )
+        sent = await send_mail(
+            to=str(body.mail),
+            subject="Reset your AssoCORE password",
+            body=body_text,
+        )
+        if not sent:
+            log.error(
+                "Password-reset email delivery failed for user %d (%s)",
+                user.id,
+                body.mail,
+            )
+
+
+@router.post(
+    "/password/reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Consume a reset token and change the password",
+)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+    store: TokenStore = Depends(get_token_store),
+):
+    token_hash = hash_reset_token(body.token)
+    try:
+        user_id = await store.consume_pwreset(token_hash)
+    except RedisUnavailable:
+        raise AUTH_BACKEND_DOWN
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    user.password = hash_password(body.password)
+    await session.commit()
+
+    # Kill every active session — someone resetting a compromised password must not
+    # leave the attacker's refresh tokens alive.
+    try:
+        await store.kill_user_sessions(user_id, REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+    except RedisUnavailable:
+        raise AUTH_BACKEND_DOWN
+
+    # Notify after commit — per the notifications module contract.
+    await notify(session, user_id, "Your password was changed.")
 
 
 # ---------------------------------------------------------------------------

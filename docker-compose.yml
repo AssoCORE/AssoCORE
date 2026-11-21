@@ -43,6 +43,22 @@ services:
     networks:
       - assocore
 
+  # Mail catcher — receives all outbound email in dev so nothing leaves the machine.
+  # SMTP on 1025, web UI on 8025 (http://localhost:8025).
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - assocore
+
   # Nextcloud instance
   # Pinned: a floating tag means teammates silently get different majors, and
   # Nextcloud refuses to start against a data volume written by a newer version.
