@@ -149,6 +149,26 @@ kubectl create secret generic traefik-dashboard-auth-secret \
 echo -e "${GREEN}✓ Traefik Dashboard Auth secret created/updated${NC}"
 echo ""
 
+# Create the BFF shared secret, read by both the backend and the frontend.
+# Generated when k8s/.env doesn't set it, and kept on re-runs: rotating it
+# means restarting both deployments, which this script doesn't do.
+echo -e "${YELLOW}Creating BFF shared secret...${NC}"
+if [ -z "$BFF_SHARED_SECRET" ]; then
+    BFF_SHARED_SECRET=$(kubectl get secret bff-secret --namespace="$NAMESPACE" \
+        -o jsonpath='{.data.BFF_SHARED_SECRET}' 2>/dev/null | base64 -d || true)
+fi
+if [ -z "$BFF_SHARED_SECRET" ]; then
+    BFF_SHARED_SECRET=$(openssl rand -hex 32)
+fi
+
+kubectl create secret generic bff-secret \
+    --from-literal=BFF_SHARED_SECRET="$BFF_SHARED_SECRET" \
+    --namespace="$NAMESPACE" \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+echo -e "${GREEN}✓ BFF shared secret created/updated${NC}"
+echo ""
+
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Secrets Created Successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"

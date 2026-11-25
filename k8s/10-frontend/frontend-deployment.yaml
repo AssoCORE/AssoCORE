@@ -68,6 +68,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: frontend-config
+            # BFF_SHARED_SECRET, shared with the backend through this one Secret so
+            # the two can never drift. Sent with the browser's IP on every backend
+            # call (lib/backend.ts) so rate limits apply per person. Created by
+            # k8s/01-secrets/create-app-secrets.sh; optional so a cluster without
+            # it still rolls out (rate limiting is then shared, not blocked).
+            - secretRef:
+                name: bff-secret
+                optional: true
           livenessProbe:
             httpGet:
               path: /
