@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
 data:
+  # Matches compose's prod profile. Production-only behaviour keys on it: the
+  # missing-BFF_SHARED_SECRET warning (core/rate_limit.py) and, with A3 (#212),
+  # hiding the API docs.
+  ENVIRONMENT: "production"
   # The backend's DB connection comes from backend-db-secret's DATABASE_URL, not
   # from here — DB_HOST/DB_PORT were never read (the code reads MYSQL_HOST/MYSQL_PORT).
   # Auth state (revoked access tokens, refresh tokens). DB 1 keeps it off Nextcloud's DB 0.

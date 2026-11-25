@@ -101,6 +101,16 @@ spec:
             - secretRef:
                 name: backend-secret
                 optional: true
+            # BFF_SHARED_SECRET, shared with the frontend through this one Secret
+            # so the two can never drift. The backend trusts the client IP the
+            # frontend forwards only with this secret; without it every request
+            # through the frontend shares one rate limit. Created by
+            # k8s/01-secrets/create-app-secrets.sh. optional: true for the same
+            # reason as above: a missing secret degrades rate limiting, it
+            # doesn't block the rollout.
+            - secretRef:
+                name: bff-secret
+                optional: true
           livenessProbe:
             httpGet:
               path: /health
