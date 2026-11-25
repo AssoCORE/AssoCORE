@@ -23,14 +23,5 @@ export default async function AdminUserDetailPage({
     throw err;
   }
 
-  // Only the fields the page shows cross to the client: UserOut also carries the
-  // user's notifications and reminders, which stay private.
-  const { notifications, reminders, ...profile } = user;
-  return (
-    <UserDetail
-      user={profile}
-      unread={notifications.filter((n) => !n.read).length}
-      reminders={reminders.length}
-    />
-  );
+  return <UserDetail user={user} />;
 }

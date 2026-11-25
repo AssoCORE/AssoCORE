@@ -1,5 +1,3 @@
-import type { NotificationOut, ReminderOut } from "@/lib/types";
-
 export interface Role {
   id: number;
   name: string;
@@ -14,8 +12,6 @@ export interface UserOut {
   phone: string | null;
   birth_date: string | null;
   roles: Role[];
-  notifications: NotificationOut[];
-  reminders: ReminderOut[];
 }
 
 /** Mirrors the backend's `Page[T]` envelope (`back/app/schemas/classes.py`). */
