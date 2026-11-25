@@ -35,6 +35,17 @@ Only `core/notifications.py` writes the `notifications` table. Call `notify()` /
 swallow every exception, so a failed notification costs only itself, provided the triggering work is already
 committed. `POST /user/notification/` raises normally, since creating one is its whole purpose.
 
+## Roles
+
+Only `core/roles.py` `set_roles(session, user, names, changed_by)` changes a user's roles (the seeder aside).
+It keeps `member` whatever it is given, refuses unknown names (`UnknownRoles` → 422) and demoting the last
+admin (`LastAdmin` → 409), writes a `role_changes` audit row per grant or revoke, commits, then notifies the user
+and runs every `on_roles_changed` hook. A feature reacting to role changes (chat channels, Nextcloud groups…)
+registers a hook instead of being called from the route; hooks run after the commit, best-effort, failures
+logged by ID. Changes apply on the next request: `get_current_user` reads roles from the database each time.
+
+Schemas for a new domain go in their own module (`schemas/roles.py` is the first), not in `classes.py`.
+
 ## Background worker
 
 `core/worker.py` runs one in-process loop, started in `lifespan`, on every backend replica. There is no broker:
