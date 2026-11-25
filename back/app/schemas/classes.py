@@ -158,8 +158,10 @@ class UserOut(BaseSchema):
     phone: str | None
     birth_date: datetime | None
     roles: list[RoleOut] = Field(default_factory=list)
-    notifications: list[NotificationOut] = Field(default_factory=list)
-    reminders: list[ReminderOut] = Field(default_factory=list)
+    # No notifications or reminders: /user/me is read on every page, and the
+    # admin's GET /user/{id} must not expose a member's private reminders.
+    # Both have their own paginated endpoints under /user/notification/ and
+    # /user/reminder/.
 
 
 # --- Nextcloud account linking ---

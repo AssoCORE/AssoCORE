@@ -133,6 +133,23 @@ async def test_get_me_with_valid_token(client):
     assert resp.json()["username"] == payload["username"]
 
 
+async def test_get_me_omits_notifications_and_reminders(client):
+    # /user/me is read on every page, and the same UserOut is what an admin gets
+    # for someone else: neither list belongs in it. Both have paginated routes.
+    _, _, tokens = await _register_and_login(client, "slim")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    created = await client.post(
+        "/user/reminder/",
+        json={"title": "private", "date": "2030-01-01T09:00:00"},
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+
+    body = (await client.get("/user/me", headers=headers)).json()
+    assert "notifications" not in body
+    assert "reminders" not in body
+
+
 @pytest.mark.parametrize(
     "auth_header",
     [

@@ -17,17 +17,7 @@ import { notificationMessageError } from "@/lib/schemas";
 import type { UserOut } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Profile = Omit<UserOut, "notifications" | "reminders">;
-
-export function UserDetail({
-  user,
-  unread,
-  reminders,
-}: {
-  user: Profile;
-  unread: number;
-  reminders: number;
-}) {
+export function UserDetail({ user }: { user: UserOut }) {
   const me = useAuth();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -79,7 +69,7 @@ export function UserDetail({
         </Link>
       </Button>
 
-      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)] gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid flex-1 min-h-0 grid-cols-[minmax(0,1fr)] gap-4 md:gap-6">
         <Card className="h-full">
           <CardContent className="flex h-full flex-col gap-6 p-6">
             <header className="flex items-center gap-4">
@@ -171,14 +161,6 @@ export function UserDetail({
             )}
           </CardContent>
         </Card>
-
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-4 p-6">
-            <h2 className="text-lg font-semibold">Statistiques :</h2>
-            <Stat label="Notifications non lues" value={unread} />
-            <Stat label="Rappels" value={reminders} />
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
@@ -195,15 +177,6 @@ function Field({
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="truncate font-medium">{children}</dd>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 border-b border-border pb-3 last:border-0 last:pb-0">
-      <span className="text-xs text-muted-foreground">{label} :</span>
-      <span className="text-2xl font-bold">{value}</span>
     </div>
   );
 }

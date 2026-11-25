@@ -42,7 +42,7 @@ export async function listUsers(
 /**
  * Names of every user by id, for an admin's participant lists — null for anyone
  * else, since GET /user/ is admin-only. Only display fields are kept: UserOut also
- * carries each user's notifications and reminders, which must not reach the client.
+ * carries contact details (mail, phone) that participant lists have no use for.
  */
 export async function peopleById(): Promise<PeopleById | undefined> {
   const page = await listUsers({ limit: 200 });
