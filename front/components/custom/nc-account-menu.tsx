@@ -16,7 +16,9 @@ import { setNextcloudUserEnabled } from "@/lib/actions";
 // actions are always offered and the result is reported back.
 export function NcAccountMenu({ username }: { username: string }) {
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   function set(enabled: boolean) {
     setMessage(null);
@@ -25,7 +27,7 @@ export function NcAccountMenu({ username }: { username: string }) {
       setMessage(
         res.ok
           ? { ok: true, text: enabled ? "Compte activé." : "Compte désactivé." }
-          : { ok: false, text: res.error },
+          : { ok: false, text: res.error }
       );
     });
   }
@@ -33,13 +35,22 @@ export function NcAccountMenu({ username }: { username: string }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       {message && (
-        <span className={message.ok ? "text-xs text-primary" : "text-xs text-destructive"}>
+        <span
+          className={
+            message.ok ? "text-xs text-primary" : "text-xs text-destructive"
+          }
+        >
           {message.text}
         </span>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Compte Nextcloud" disabled={pending}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Compte Nextcloud"
+            disabled={pending}
+          >
             <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>
@@ -51,7 +62,12 @@ export function NcAccountMenu({ username }: { username: string }) {
           <DropdownMenuItem
             className="text-brand-red focus:text-brand-red"
             onSelect={() => {
-              if (window.confirm(`Désactiver le compte Nextcloud « ${username} » ?`)) set(false);
+              if (
+                window.confirm(
+                  `Désactiver le compte Nextcloud « ${username} » ?`
+                )
+              )
+                set(false);
             }}
           >
             <UserX className="mr-2 size-4" />

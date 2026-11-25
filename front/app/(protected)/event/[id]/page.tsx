@@ -8,7 +8,11 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { BackendError } from "@/lib/backend";
 import type { EventOut } from "@/lib/types";
 
-export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   if (!/^\d+$/.test(id)) notFound();
 

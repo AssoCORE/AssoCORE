@@ -10,5 +10,10 @@ export default async function CalendarPage() {
     apiJson<Page<ReminderOut>>("/user/reminder/?limit=200").catch(() => null),
   ]);
 
-  return <CalendarView events={events?.items ?? null} reminders={reminders?.items ?? null} />;
+  return (
+    <CalendarView
+      events={events?.items ?? null}
+      reminders={reminders?.items ?? null}
+    />
+  );
 }

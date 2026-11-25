@@ -1,5 +1,5 @@
-import { FilesView } from "@/components/custom/files-view";
 import type { FileView } from "@/components/custom/file-category-list";
+import { FilesView } from "@/components/custom/files-view";
 import { apiJson, query } from "@/lib/api";
 import { BackendError } from "@/lib/backend";
 import type { StorageNode } from "@/lib/types";
@@ -31,5 +31,13 @@ export default async function FilePage({
         : "Le stockage Nextcloud est indisponible pour le moment.";
   }
 
-  return <FilesView view={view} path={path} searching={!!q} nodes={nodes} error={error} />;
+  return (
+    <FilesView
+      view={view}
+      path={path}
+      searching={!!q}
+      nodes={nodes}
+      error={error}
+    />
+  );
 }

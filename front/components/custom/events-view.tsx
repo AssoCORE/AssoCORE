@@ -5,7 +5,6 @@ import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import type { PeopleById } from "@/lib/types";
 import { EventCard } from "@/components/custom/event-card";
 import { EventFormSheet } from "@/components/custom/event-form-sheet";
 import { MiniCalendar } from "@/components/custom/mini-calendar";
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUrlParam, useUrlSearch } from "@/hooks/use-url-search";
 import { hasRole, ROLE_ADMIN, ROLE_STAFF } from "@/lib/auth/roles";
-import type { EventOut } from "@/lib/types";
+import type { EventOut, PeopleById } from "@/lib/types";
 
 /** Maps to GET /event/'s upcoming / past / my_events flags. */
 export type EventFilter = "all" | "upcoming" | "past" | "mine";
@@ -55,9 +54,11 @@ export function EventsView({
     () =>
       (events ?? []).map((e) => ({
         date: new Date(e.start_date),
-        tone: e.registered_user_ids.includes(user.id) ? ("green" as const) : ("blue" as const),
+        tone: e.registered_user_ids.includes(user.id)
+          ? ("green" as const)
+          : ("blue" as const),
       })),
-    [events, user.id],
+    [events, user.id]
   );
 
   const visible = useMemo(() => {
@@ -74,7 +75,9 @@ export function EventsView({
             markedDays={markedDays}
             selectedDay={selectedDay}
             onSelectDay={(day) =>
-              setSelectedDay(selectedDay && isSameDay(day, selectedDay) ? undefined : day)
+              setSelectedDay(
+                selectedDay && isSameDay(day, selectedDay) ? undefined : day
+              )
             }
           />
         </CardContent>
@@ -89,7 +92,10 @@ export function EventsView({
             <>
               <DropdownMenuLabel>Afficher</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup value={filter} onValueChange={filterParam.setValue}>
+              <DropdownMenuRadioGroup
+                value={filter}
+                onValueChange={filterParam.setValue}
+              >
                 {(Object.keys(filterLabels) as EventFilter[]).map((key) => (
                   <DropdownMenuRadioItem key={key} value={key}>
                     {filterLabels[key]}
@@ -101,7 +107,12 @@ export function EventsView({
         />
         {canCreate && (
           <>
-            <Button variant="outline" size="sm" className="self-end" onClick={() => setCreating(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-end"
+              onClick={() => setCreating(true)}
+            >
               <Plus />
               Nouvel évènement
             </Button>
@@ -120,14 +131,18 @@ export function EventsView({
         )}
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
           {events === null ? (
-            <p className="text-sm text-destructive">Impossible de charger les événements.</p>
+            <p className="text-sm text-destructive">
+              Impossible de charger les événements.
+            </p>
           ) : (
             <>
               {visible.map((event) => (
                 <EventCard key={event.id} event={event} people={people} />
               ))}
               {visible.length === 0 && (
-                <p className="text-sm text-muted-foreground">Aucun événement.</p>
+                <p className="text-sm text-muted-foreground">
+                  Aucun événement.
+                </p>
               )}
               {total > events.length && (
                 <p className="text-xs text-muted-foreground">

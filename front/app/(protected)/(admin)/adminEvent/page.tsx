@@ -19,7 +19,8 @@ import type { AdminFileEntry } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const trim = (p: string) => p.replace(/^\/+|\/+$/g, "");
-const href = (user: string, path = "") => `/adminEvent${query({ user, path: trim(path) })}`;
+const href = (user: string, path = "") =>
+  `/adminEvent${query({ user, path: trim(path) })}`;
 
 // Admin view over every member's Nextcloud storage. Both endpoints are gated by
 // require_admin on the backend router itself.
@@ -30,10 +31,12 @@ export default async function AdminFilesPage({
 }) {
   const { user, path = "" } = await searchParams;
 
-  const ncUsers = await apiJson<{ users: string[] }>("/nextcloud/users").catch(() => null);
+  const ncUsers = await apiJson<{ users: string[] }>("/nextcloud/users").catch(
+    () => null
+  );
   const files = user
     ? await apiJson<{ files: AdminFileEntry[] }>(
-        `/nextcloud/files/${encodeURIComponent(user)}${query({ path })}`,
+        `/nextcloud/files/${encodeURIComponent(user)}${query({ path })}`
       ).catch(() => null)
     : null;
 
@@ -45,8 +48,14 @@ export default async function AdminFilesPage({
   return (
     <div className="flex flex-1 flex-col gap-4 md:gap-6">
       <div className="grid gap-4 md:gap-6 sm:grid-cols-3">
-        <StatCard label="Comptes Nextcloud :" value={ncUsers?.users.length ?? "—"} />
-        <StatCard label="Éléments dans ce dossier :" value={user ? entries.length : "—"} />
+        <StatCard
+          label="Comptes Nextcloud :"
+          value={ncUsers?.users.length ?? "—"}
+        />
+        <StatCard
+          label="Éléments dans ce dossier :"
+          value={user ? entries.length : "—"}
+        />
         <StatCard
           label="Taille de ce dossier :"
           value={user ? formatBytes(totalBytes) : "—"}
@@ -58,7 +67,9 @@ export default async function AdminFilesPage({
         <Card className="h-full min-h-0">
           <CardContent className="flex h-full flex-col gap-1 overflow-y-auto p-3">
             {!ncUsers ? (
-              <p className="p-2 text-sm text-destructive">Nextcloud est indisponible.</p>
+              <p className="p-2 text-sm text-destructive">
+                Nextcloud est indisponible.
+              </p>
             ) : (
               ncUsers.users.map((u) => (
                 <Link
@@ -66,7 +77,7 @@ export default async function AdminFilesPage({
                   href={href(u)}
                   className={cn(
                     "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition hover:bg-primary/5",
-                    u === user && "bg-primary/10 font-medium text-primary",
+                    u === user && "bg-primary/10 font-medium text-primary"
                   )}
                 >
                   <User className="size-4" />
@@ -81,7 +92,12 @@ export default async function AdminFilesPage({
           <CardContent className="flex h-full flex-col p-0">
             <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-sm">
               {user && current && (
-                <Button asChild variant="ghost" size="icon-sm" aria-label="Dossier parent">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Dossier parent"
+                >
                   <Link href={href(user, parent)}>
                     <ChevronLeft />
                   </Link>
@@ -94,7 +110,9 @@ export default async function AdminFilesPage({
             </div>
             <div className="flex-1 overflow-y-auto">
               {user && !files ? (
-                <p className="p-4 text-sm text-destructive">Impossible de lister ce dossier.</p>
+                <p className="p-4 text-sm text-destructive">
+                  Impossible de lister ce dossier.
+                </p>
               ) : user ? (
                 <Table>
                   <TableHeader>
@@ -106,7 +124,10 @@ export default async function AdminFilesPage({
                   <TableBody>
                     {entries.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center text-muted-foreground">
+                        <TableCell
+                          colSpan={2}
+                          className="text-center text-muted-foreground"
+                        >
                           Dossier vide.
                         </TableCell>
                       </TableRow>
@@ -122,7 +143,10 @@ export default async function AdminFilesPage({
                             )}
                             {f.is_dir ? (
                               <Link
-                                href={href(user, [current, f.name].filter(Boolean).join("/"))}
+                                href={href(
+                                  user,
+                                  [current, f.name].filter(Boolean).join("/")
+                                )}
                                 className="truncate hover:underline"
                               >
                                 {f.name}

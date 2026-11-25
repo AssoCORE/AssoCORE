@@ -15,7 +15,9 @@ export default async function Home() {
   const [user, events, notifications] = await Promise.all([
     getCurrentUser(),
     apiJson<Page<EventOut>>("/event/?upcoming=true&limit=3").catch(() => null),
-    apiJson<Page<NotificationOut>>("/user/notification/?limit=5").catch(() => null),
+    apiJson<Page<NotificationOut>>("/user/notification/?limit=5").catch(
+      () => null
+    ),
   ]);
 
   return (
@@ -42,7 +44,9 @@ export default async function Home() {
           ) : events.items.length === 0 ? (
             <Empty>Aucun événement à venir.</Empty>
           ) : (
-            events.items.map((event) => <EventListItem key={event.id} event={event} />)
+            events.items.map((event) => (
+              <EventListItem key={event.id} event={event} />
+            ))
           )}
         </SectionCard>
 
@@ -56,7 +60,9 @@ export default async function Home() {
           ) : notifications.items.length === 0 ? (
             <Empty>Aucune notification.</Empty>
           ) : (
-            notifications.items.map((n) => <NotificationItem key={n.id} notification={n} />)
+            notifications.items.map((n) => (
+              <NotificationItem key={n.id} notification={n} />
+            ))
           )}
         </SectionCard>
       </div>

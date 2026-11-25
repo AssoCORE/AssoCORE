@@ -28,7 +28,7 @@ export function SectionCard({
       <CardContent
         className={cn(
           "flex flex-1 flex-col gap-3 overflow-y-auto",
-          contentClassName,
+          contentClassName
         )}
       >
         {children}

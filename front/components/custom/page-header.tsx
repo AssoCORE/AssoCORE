@@ -14,7 +14,7 @@ export function PageHeader({
     <div
       className={cn(
         "flex flex-col gap-2 rounded-lg bg-card p-6 shadow-sm md:flex-row md:items-center md:justify-between",
-        className,
+        className
       )}
     >
       <h1 className="text-center text-lg font-semibold md:text-left md:text-xl">

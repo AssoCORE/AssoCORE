@@ -47,7 +47,8 @@ export function EventAttendanceSheet({
         <SheetHeader>
           <SheetTitle>Présences</SheetTitle>
           <SheetDescription>
-            {event.title} — {event.attendee_ids.length}/{event.registered_count} présents
+            {event.title} — {event.attendee_ids.length}/{event.registered_count}{" "}
+            présents
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-2 px-4 pb-4">
@@ -70,7 +71,9 @@ export function EventAttendanceSheet({
                 </Avatar>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">
-                    {person ? `${person.firstname} ${person.name}` : `Adhérent n°${id}`}
+                    {person
+                      ? `${person.firstname} ${person.name}`
+                      : `Adhérent n°${id}`}
                   </span>
                   {person && (
                     <span className="truncate text-xs text-muted-foreground">

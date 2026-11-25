@@ -6,18 +6,24 @@ import {
   ChevronDown,
   FileText,
   Folder,
+  ImageIcon,
   LayoutGrid,
   LogOut,
   Search,
+  User as UserIcon,
   Users,
   Wallet,
-  User as UserIcon,
-  ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
-
+import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import {
   Sidebar,
   SidebarContent,
@@ -30,13 +36,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { useAuth } from "@/components/auth/AuthProvider";
 import { useLogout } from "@/hooks/use-logout";
 import { isAdmin as hasAdminRole } from "@/lib/auth/roles";
 import { labelOf } from "@/lib/roles";
@@ -112,7 +111,7 @@ export function AppSidebar() {
       <div className="relative">
         <SidebarTrigger
           className={cn(
-            "absolute -right-3 top-1 z-20 size-6 rounded-full border border-white/10 bg-white text-slate-800 shadow hover:bg-white",
+            "absolute -right-3 top-1 z-20 size-6 rounded-full border border-white/10 bg-white text-slate-800 shadow hover:bg-white"
           )}
         />
       </div>
@@ -132,7 +131,11 @@ export function AppSidebar() {
               tooltip="Se déconnecter"
               className="text-brand-red hover:bg-white/5 hover:text-brand-red"
             >
-              <button type="button" aria-label="Se déconnecter" onClick={() => void logout()}>
+              <button
+                type="button"
+                aria-label="Se déconnecter"
+                onClick={() => void logout()}
+              >
                 <LogOut />
                 {!collapsed && <span>Se déconnecter</span>}
               </button>
@@ -191,16 +194,11 @@ function NavSection({
   );
 }
 
-function NavItemRow({
-  item,
-  pathname,
-}: {
-  item: NavItem;
-  pathname: string;
-}) {
+function NavItemRow({ item, pathname }: { item: NavItem; pathname: string }) {
   // Sub-pages (/event/12, /adminUser/3) keep their section highlighted.
   const active =
-    pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+    pathname === item.href ||
+    (item.href !== "/" && pathname.startsWith(`${item.href}/`));
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -210,7 +208,7 @@ function NavItemRow({
         className={cn(
           "relative text-sidebar-foreground/80 hover:bg-white/5 hover:text-sidebar-foreground",
           active &&
-            "bg-transparent text-primary hover:bg-white/5 hover:text-primary data-[active=true]:bg-transparent data-[active=true]:text-primary",
+            "bg-transparent text-primary hover:bg-white/5 hover:text-primary data-[active=true]:bg-transparent data-[active=true]:text-primary"
         )}
       >
         <Link href={item.href}>
@@ -224,4 +222,3 @@ function NavItemRow({
     </SidebarMenuItem>
   );
 }
-

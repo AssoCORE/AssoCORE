@@ -1,11 +1,11 @@
 "use client";
 
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { BellPlus, ChevronLeft, Folder, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,7 +31,9 @@ export function UserDetail({
   const me = useAuth();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   function onNotify() {
     const text = window.prompt(`Message pour ${fullName(user)}`)?.trim();
@@ -45,13 +47,19 @@ export function UserDetail({
     startTransition(async () => {
       const res = await sendNotification(user.id, text);
       setMessage(
-        res.ok ? { ok: true, text: "Notification envoyée." } : { ok: false, text: res.error },
+        res.ok
+          ? { ok: true, text: "Notification envoyée." }
+          : { ok: false, text: res.error }
       );
     });
   }
 
   function onDelete() {
-    if (!window.confirm(`Supprimer définitivement ${fullName(user)} (et son compte Nextcloud) ?`)) {
+    if (
+      !window.confirm(
+        `Supprimer définitivement ${fullName(user)} (et son compte Nextcloud) ?`
+      )
+    ) {
       return;
     }
     setMessage(null);
@@ -81,16 +89,22 @@ export function UserDetail({
                 </AvatarFallback>
               </Avatar>
               <div className="flex min-w-0 flex-1 flex-col">
-                <h1 className="truncate text-xl font-semibold">{fullName(user)}</h1>
-                <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
+                <h1 className="truncate text-xl font-semibold">
+                  {fullName(user)}
+                </h1>
+                <p className="truncate text-sm text-muted-foreground">
+                  @{user.username}
+                </p>
                 <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                  {user.roles.length === 0 && <span className="text-muted-foreground">Aucun rôle</span>}
+                  {user.roles.length === 0 && (
+                    <span className="text-muted-foreground">Aucun rôle</span>
+                  )}
                   {user.roles.map((r) => (
                     <span
                       key={r.id}
                       className={cn(
                         "font-medium underline decoration-2 underline-offset-4",
-                        roleToneClass[r.name],
+                        roleToneClass[r.name]
                       )}
                     >
                       {labelOf(r)}
@@ -105,19 +119,28 @@ export function UserDetail({
               <Field label="Téléphone">{user.phone ?? "—"}</Field>
               <Field label="Date de naissance">
                 {user.birth_date
-                  ? format(new Date(user.birth_date), "d MMMM yyyy", { locale: fr })
+                  ? format(new Date(user.birth_date), "d MMMM yyyy", {
+                      locale: fr,
+                    })
                   : "—"}
               </Field>
               <Field label="Identifiant">n°{user.id}</Field>
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              <Button variant="outline" size="sm" onClick={onNotify} disabled={pending}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNotify}
+                disabled={pending}
+              >
                 <BellPlus />
                 Envoyer une notification
               </Button>
               <Button asChild variant="outline" size="sm">
-                <Link href={`/adminEvent?${new URLSearchParams({ user: user.username })}`}>
+                <Link
+                  href={`/adminEvent?${new URLSearchParams({ user: user.username })}`}
+                >
                   <Folder />
                   Voir ses dossiers
                 </Link>
@@ -136,7 +159,13 @@ export function UserDetail({
               )}
             </div>
             {message && (
-              <p className={message.ok ? "text-sm text-primary" : "text-sm text-destructive"}>
+              <p
+                className={
+                  message.ok
+                    ? "text-sm text-primary"
+                    : "text-sm text-destructive"
+                }
+              >
                 {message.text}
               </p>
             )}
@@ -155,7 +184,13 @@ export function UserDetail({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>

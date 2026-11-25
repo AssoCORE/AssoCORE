@@ -38,14 +38,29 @@ const profileSchema = z
   });
 type ProfileInput = z.infer<typeof profileSchema>;
 
-const fields: { name: keyof ProfileInput; label: string; type?: string; auto?: string }[] = [
+const fields: {
+  name: keyof ProfileInput;
+  label: string;
+  type?: string;
+  auto?: string;
+}[] = [
   { name: "username", label: "Utilisateur", auto: "username" },
   { name: "mail", label: "Email", type: "email", auto: "email" },
   { name: "firstname", label: "Prénom", auto: "given-name" },
   { name: "name", label: "Nom", auto: "family-name" },
   { name: "phone", label: "Téléphone", type: "tel", auto: "tel" },
-  { name: "birth_date", label: "Date de naissance", type: "date", auto: "bday" },
-  { name: "password", label: "Nouveau mot de passe", type: "password", auto: "new-password" },
+  {
+    name: "birth_date",
+    label: "Date de naissance",
+    type: "date",
+    auto: "bday",
+  },
+  {
+    name: "password",
+    label: "Nouveau mot de passe",
+    type: "password",
+    auto: "new-password",
+  },
   {
     name: "passwordConfirm",
     label: "Confirmer le nouveau mot de passe",
@@ -69,7 +84,9 @@ function defaultsOf(user: UserOut): ProfileInput {
 
 export function ProfileForm({ user }: { user: UserOut }) {
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
   const initial = defaultsOf(user);
 
   const form = useForm<ProfileInput>({
@@ -80,7 +97,13 @@ export function ProfileForm({ user }: { user: UserOut }) {
   function onSubmit(values: ProfileInput) {
     // Send only what changed: the backend applies every non-null field.
     const body: ProfileUpdate = {};
-    for (const key of ["username", "firstname", "name", "mail", "phone"] as const) {
+    for (const key of [
+      "username",
+      "firstname",
+      "name",
+      "mail",
+      "phone",
+    ] as const) {
       if (values[key] && values[key] !== initial[key]) body[key] = values[key];
     }
     if (values.birth_date && values.birth_date !== initial.birth_date) {
@@ -107,7 +130,10 @@ export function ProfileForm({ user }: { user: UserOut }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-4 sm:grid-cols-2"
+      >
         {fields.map((f) => (
           <FormField
             key={f.name}
@@ -131,7 +157,11 @@ export function ProfileForm({ user }: { user: UserOut }) {
             {pending ? "Enregistrement…" : "Enregistrer les modifications"}
           </Button>
           {message && (
-            <p className={message.ok ? "text-sm text-primary" : "text-sm text-destructive"}>
+            <p
+              className={
+                message.ok ? "text-sm text-primary" : "text-sm text-destructive"
+              }
+            >
               {message.text}
             </p>
           )}
