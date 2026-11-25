@@ -25,7 +25,7 @@ from app.core.nextcloud import (
     ensure_nc_account,
     provision_nc_user,
 )
-from app.core.roles import ROLE_ADMIN, ROLE_MEMBER, ROLE_STAFF
+from app.core.roles import ROLE_ADMIN, ROLE_MEMBER, ROLE_STAFF, erase_role_history
 from app.core.security import (
     REFRESH,
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -435,6 +435,7 @@ async def delete_me(
     user = result.scalars().first()
     if user:
         nc_username = user.nc_account.nc_username if user.nc_account else user.username
+        await erase_role_history(session, user.id)
         await session.delete(user)
         await session.commit()
         await _delete_nc_user(nc_username)
@@ -508,6 +509,7 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     nc_username = user.nc_account.nc_username if user.nc_account else user.username
+    await erase_role_history(session, user.id)
     await session.delete(user)
     await session.commit()
     await _delete_nc_user(nc_username)

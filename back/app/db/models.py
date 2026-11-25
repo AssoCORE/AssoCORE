@@ -7,6 +7,7 @@ from sqlalchemy import (
     String,
     DateTime,
     Boolean,
+    Enum,
     Text,
     Table,
     ForeignKey,
@@ -193,6 +194,44 @@ class Reminder(Base):
 
     def __repr__(self) -> str:
         return f"<Reminder id={self.id} user_id={self.user_id} title={self.title!r}>"
+
+
+class RoleChangeLog(Base):
+    """Audit log of role grants and revocations (GDPR art. 32: who gave whom admin).
+
+    Written only by `core/roles.py` `set_roles()`. Kept
+    `ROLE_AUDIT_RETENTION_MONTHS`; on erasure the user's own rows are deleted and
+    `changed_by` is nulled on rows they authored (`erase_role_history()`).
+    """
+
+    __tablename__ = "role_changes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role_id = Column(
+        Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False
+    )
+    action = Column(Enum("grant", "revoke", name="role_change_action"), nullable=False)
+    # Who made the change; null once their account is deleted, or for the system.
+    changed_by = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    role = relationship("Role")
+
+    def __repr__(self) -> str:
+        return (
+            f"<RoleChangeLog id={self.id} user_id={self.user_id} "
+            f"role_id={self.role_id} action={self.action}>"
+        )
 
 
 class Event(Base):
