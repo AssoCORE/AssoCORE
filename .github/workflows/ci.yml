@@ -1,0 +1,89 @@
+name: CI
+
+# Tests and lint on every PR into dev or main, and on every push to them.
+# The job names below are what branch protection requires — renaming one
+# means updating the required checks in the repo settings too.
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11" # matches docker/backend.Dockerfile
+          enable-cache: true
+          cache-dependency-glob: back/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # The suite runs on aiosqlite + fakeredis: no MariaDB, redis or
+      # Nextcloud service is needed.
+      - name: Run pytest
+        run: uv run pytest
+
+  biome:
+    name: Biome (format + lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Biome
+        uses: biomejs/setup-biome@v2
+        with:
+          version: 2.3.15 # matches the $schema in biome.json
+
+      # `ci` is `check` without --write: it fails on unformatted files, lint
+      # errors and unsorted imports. Warnings are reported but do not fail.
+      - name: Run Biome
+        run: biome ci .
+
+  frontend:
+    name: Frontend (ESLint + tsc)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20 # matches docker/frontend.Dockerfile
+          cache: pnpm
+          cache-dependency-path: front/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint (Next core-web-vitals rules)
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
