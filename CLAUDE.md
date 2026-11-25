@@ -183,6 +183,10 @@ which sidesteps browser CORS entirely.
   `(protected)/admin/layout.tsx` additionally requires the admin role, redirecting to
   `/unauthorized` otherwise — this is a UX gate only, the backend's own `require_admin` enforces
   it independently regardless of what the frontend does.
+- Every backend call (`backendFetch`, and `proxy.ts`'s refresh) forwards the browser's IP in `X-Client-IP`
+  with `BFF_SHARED_SECRET` in `X-BFF-Secret`, so the backend's rate limits apply per person rather than to this
+  server's single IP. The IP is the **last** `X-Forwarded-For` entry (written by Traefik, or by Next.js itself
+  in dev); earlier entries are client-controlled. Without the secret nothing is forwarded.
 - `front/lib/auth/schemas.ts` mirrors the backend's password/phone/email regexes exactly so
   client-side zod errors match the server's 422s.
 
