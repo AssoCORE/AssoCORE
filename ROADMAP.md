@@ -8,7 +8,7 @@ Feature milestones from the Beta Test Plan. Each feature maps to a test ID (F1�
 
 | ID | Feature | Backend | Frontend | Status |
 |----|---------|---------|----------|--------|
-| F1 | **Auth & RBAC** | ✅ JWT login, bcrypt, full user/notification/reminder CRUD, `get_current_user` dep | Login page, token storage, protected routes | In progress |
+| F1 | **Auth & RBAC** | ✅ JWT login, bcrypt, full user/notification/reminder CRUD, `get_current_user` dep, role assignment with audit log (R1) | Login page, token storage, protected routes | In progress |
 | F2 | **Cloud Storage** | Nextcloud admin routes functional; per-user proxy stubs | File explorer UI | In progress |
 | F3 | **Event Management** | Models & schemas defined; route handlers stubbed | Calendar UI | Not started |
 | F4 | **Attendance** | — | — | Not started |
