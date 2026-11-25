@@ -6,16 +6,21 @@ import {
   refreshCookieOptions,
 } from "@/lib/auth/cookies";
 import { isExpired } from "@/lib/auth/jwt";
-import { BACKEND_URL } from "@/lib/backend";
+import { BACKEND_URL, forwardingHeaders } from "@/lib/backend";
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|register).*)"],
 };
 
-async function callRefresh(refreshToken: string) {
+// next/headers isn't available here, so backendFetch can't read the browser's
+// IP on its own: pass the incoming request's headers explicitly.
+async function callRefresh(refreshToken: string, incoming: Headers) {
   return fetch(`${BACKEND_URL}/user/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...forwardingHeaders(incoming),
+    },
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
 }
@@ -33,11 +38,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  let res = await callRefresh(refresh);
+  let res = await callRefresh(refresh, request.headers);
   if (res.status === 503) {
     const retryAfter = Number(res.headers.get("Retry-After") ?? "1");
     await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
-    res = await callRefresh(refresh);
+    res = await callRefresh(refresh, request.headers);
   }
 
   if (res.status !== 200) {
