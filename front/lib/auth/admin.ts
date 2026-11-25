@@ -1,9 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
-
-import { backendFetch } from "@/lib/backend";
 import { ACCESS_COOKIE } from "@/lib/auth/cookies";
 import type { Page, UserOut } from "@/lib/auth/types";
+import { backendFetch } from "@/lib/backend";
 import type { PeopleById } from "@/lib/types";
 
 export interface ListUsersOptions {
@@ -49,6 +48,9 @@ export async function peopleById(): Promise<PeopleById | undefined> {
   const page = await listUsers({ limit: 200 });
   if (!page) return undefined;
   return Object.fromEntries(
-    page.items.map((u) => [u.id, { firstname: u.firstname, name: u.name, username: u.username }])
+    page.items.map((u) => [
+      u.id,
+      { firstname: u.firstname, name: u.name, username: u.username },
+    ])
   );
 }

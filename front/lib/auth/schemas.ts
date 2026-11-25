@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod";
 
 // Mirrors back/app/schemas/classes.py exactly, so client-side errors match
 // the backend's 422s instead of contradicting them.
@@ -9,19 +9,19 @@ export const passwordSchema = z
   .regex(
     /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/,
     "Must contain an uppercase letter, a lowercase letter, a digit, and one of #?!@$%^&*-"
-  )
+  );
 
 export const phoneSchema = z
   .string()
   .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number")
   .optional()
-  .or(z.literal(""))
+  .or(z.literal(""));
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Required"),
   password: z.string().min(1, "Required"),
-})
-export type LoginInput = z.infer<typeof loginSchema>
+});
+export type LoginInput = z.infer<typeof loginSchema>;
 
 export const registerSchema = z.object({
   name: z.string().min(1, "Required"),
@@ -31,5 +31,5 @@ export const registerSchema = z.object({
   mail: z.email("Invalid email"),
   phone: phoneSchema,
   birth_date: z.string().optional().or(z.literal("")),
-})
-export type RegisterInput = z.infer<typeof registerSchema>
+});
+export type RegisterInput = z.infer<typeof registerSchema>;

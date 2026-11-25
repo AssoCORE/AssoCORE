@@ -28,7 +28,7 @@ export function LocalTime({
   const inBrowser = useSyncExternalStore(
     noop,
     () => true,
-    () => false,
+    () => false
   );
   const date = parseServerDate(iso);
   return (
@@ -36,9 +36,15 @@ export function LocalTime({
       dateTime={date.toISOString()}
       className={cn(className, !inBrowser && "invisible")}
     >
-      {format(inBrowser ? date : new Date(date.getTime() + date.getTimezoneOffset() * 60_000), pattern, {
-        locale: fr,
-      })}
+      {format(
+        inBrowser
+          ? date
+          : new Date(date.getTime() + date.getTimezoneOffset() * 60_000),
+        pattern,
+        {
+          locale: fr,
+        }
+      )}
     </time>
   );
 }

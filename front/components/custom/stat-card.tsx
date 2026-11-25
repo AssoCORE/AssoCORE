@@ -16,12 +16,25 @@ const accentClass: Record<NonNullable<Props["accent"]>, string> = {
   danger: "text-brand-red",
 };
 
-export function StatCard({ label, value, hint, accent = "default", className }: Props) {
+export function StatCard({
+  label,
+  value,
+  hint,
+  accent = "default",
+  className,
+}: Props) {
   return (
     <Card className={cn("bg-card", className)}>
       <CardContent className="flex flex-col gap-1 p-5">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        <span className={cn("text-3xl font-semibold leading-tight", accentClass[accent])}>
+        <span className="text-sm font-medium text-muted-foreground">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "text-3xl font-semibold leading-tight",
+            accentClass[accent]
+          )}
+        >
           {value}
         </span>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}

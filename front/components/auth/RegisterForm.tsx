@@ -1,13 +1,18 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -15,13 +20,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { registerSchema, type RegisterInput } from "@/lib/auth/schemas"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { type RegisterInput, registerSchema } from "@/lib/auth/schemas";
 
 export function RegisterForm() {
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -34,11 +40,11 @@ export function RegisterForm() {
       phone: "",
       birth_date: "",
     },
-  })
+  });
 
   async function onSubmit(values: RegisterInput) {
-    setError(null)
-    setSubmitting(true)
+    setError(null);
+    setSubmitting(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -48,25 +54,25 @@ export function RegisterForm() {
           phone: values.phone || null,
           birth_date: values.birth_date || null,
         }),
-      })
+      });
 
       if (res.status === 201) {
-        router.push("/login?registered=1")
-        return
+        router.push("/login?registered=1");
+        return;
       }
 
-      const data = await res.json().catch(() => ({}))
+      const data = await res.json().catch(() => ({}));
       // Only ever render a string: an object here would crash the whole page.
-      const detail = typeof data.detail === "string" ? data.detail : null
+      const detail = typeof data.detail === "string" ? data.detail : null;
       if (res.status === 409) {
-        setError(detail ?? "Username or email already taken")
+        setError(detail ?? "Username or email already taken");
       } else {
-        setError(detail ?? "Registration failed")
+        setError(detail ?? "Registration failed");
       }
     } catch {
-      setError("Service unavailable — try again shortly")
+      setError("Service unavailable — try again shortly");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
@@ -137,7 +143,11 @@ export function RegisterForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" autoComplete="new-password" {...field} />
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -166,5 +176,5 @@ export function RegisterForm() {
         </form>
       </Form>
     </Card>
-  )
+  );
 }

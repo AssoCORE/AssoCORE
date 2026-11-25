@@ -19,8 +19,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
-import { DataTable, type DataTableColumn } from "@/components/custom/data-table";
-import { FileCategoryList, type FileView } from "@/components/custom/file-category-list";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/custom/data-table";
+import {
+  FileCategoryList,
+  type FileView,
+} from "@/components/custom/file-category-list";
 import { SearchBar } from "@/components/custom/search-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,7 +99,10 @@ export function FilesView({
   }
 
   function onMove(row: StorageNode) {
-    const dir = window.prompt("Déplacer vers le dossier (vide = racine)", parentOf(row.path));
+    const dir = window.prompt(
+      "Déplacer vers le dossier (vide = racine)",
+      parentOf(row.path)
+    );
     if (dir === null || trim(dir) === parentOf(row.path)) return;
     run(() => moveStorageNode(row.path, join(dir, row.name)));
   }
@@ -101,7 +110,7 @@ export function FilesView({
   function onCopy(row: StorageNode) {
     const dst = window.prompt(
       "Chemin de la copie",
-      join(parentOf(row.path), `Copie de ${row.name}`),
+      join(parentOf(row.path), `Copie de ${row.name}`)
     );
     if (!dst?.trim()) return;
     run(() => copyStorageNode(row.path, join(dst)));
@@ -118,17 +127,22 @@ export function FilesView({
       for (const file of selected) {
         const body = new FormData();
         body.set("file", file);
-        const res = await fetch(`/api/storage/upload?${new URLSearchParams({ dir: trim(path) })}`, {
-          method: "POST",
-          body,
-        }).catch(() => null);
+        const res = await fetch(
+          `/api/storage/upload?${new URLSearchParams({ dir: trim(path) })}`,
+          {
+            method: "POST",
+            body,
+          }
+        ).catch(() => null);
         if (!res?.ok) {
           const detail = await res?.json().then(
             (b) => b?.detail,
-            () => null,
+            () => null
           );
           errors.push(
-            typeof detail === "string" ? detail : `Échec de l'envoi de « ${file.name} ».`,
+            typeof detail === "string"
+              ? detail
+              : `Échec de l'envoi de « ${file.name} ».`
           );
         }
       }
@@ -167,14 +181,21 @@ export function FilesView({
       render: (row) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Options" disabled={pending}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Options"
+              disabled={pending}
+            >
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {!row.is_dir && (
               <DropdownMenuItem asChild>
-                <a href={`/api/storage/download?${new URLSearchParams({ path: row.path })}`}>
+                <a
+                  href={`/api/storage/download?${new URLSearchParams({ path: row.path })}`}
+                >
                   <Download className="mr-2 size-4" />
                   Télécharger
                 </a>
@@ -193,12 +214,16 @@ export function FilesView({
               Copier
             </DropdownMenuItem>
             {view === "favourites" ? (
-              <DropdownMenuItem onSelect={() => run(() => setFavourite(row.path, false))}>
+              <DropdownMenuItem
+                onSelect={() => run(() => setFavourite(row.path, false))}
+              >
                 <StarOff className="mr-2 size-4" />
                 Retirer des favoris
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onSelect={() => run(() => setFavourite(row.path, true))}>
+              <DropdownMenuItem
+                onSelect={() => run(() => setFavourite(row.path, true))}
+              >
                 <Star className="mr-2 size-4" />
                 Ajouter aux favoris
               </DropdownMenuItem>
@@ -224,7 +249,9 @@ export function FilesView({
     {
       key: "size",
       header: "Taille",
-      render: (row) => <span className="tabular-nums">{formatBytes(row.size)}</span>,
+      render: (row) => (
+        <span className="tabular-nums">{formatBytes(row.size)}</span>
+      ),
       className: "w-24 text-right tabular-nums",
       headerClassName: "w-24 text-right",
     },
@@ -266,7 +293,12 @@ export function FilesView({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 text-sm">
               <div className="flex min-w-0 items-center gap-2">
                 {view === "all" && !searching && current && (
-                  <Button asChild variant="ghost" size="icon-sm" aria-label="Dossier parent">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Dossier parent"
+                  >
                     <Link
                       href={
                         parentOf(current)
@@ -304,7 +336,12 @@ export function FilesView({
                     <Upload />
                     Importer
                   </Button>
-                  <Button variant="outline" size="sm" onClick={onNewFolder} disabled={pending}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onNewFolder}
+                    disabled={pending}
+                  >
                     <FolderPlus />
                     Nouveau dossier
                   </Button>

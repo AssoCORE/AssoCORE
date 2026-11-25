@@ -1,5 +1,5 @@
-import { formatEventRange } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { formatEventRange } from "@/lib/format";
 import type { EventOut } from "@/lib/types";
 
 export function EventListItem({ event }: { event: EventOut }) {

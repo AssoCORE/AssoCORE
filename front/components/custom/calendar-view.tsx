@@ -29,8 +29,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { createReminder, deleteAllReminders, deleteReminder } from "@/lib/actions";
-import { type ReminderInput, reminderSchema, toBackendDatetime } from "@/lib/schemas";
+import {
+  createReminder,
+  deleteAllReminders,
+  deleteReminder,
+} from "@/lib/actions";
+import {
+  type ReminderInput,
+  reminderSchema,
+  toBackendDatetime,
+} from "@/lib/schemas";
 import type { EventOut, ReminderOut } from "@/lib/types";
 
 export function CalendarView({
@@ -49,26 +57,35 @@ export function CalendarView({
   // Reminders win the underline over events on the same day: they are the user's own.
   const markedDays = useMemo(
     () => [
-      ...(reminders ?? []).map((r) => ({ date: new Date(r.date), tone: "amber" as const })),
+      ...(reminders ?? []).map((r) => ({
+        date: new Date(r.date),
+        tone: "amber" as const,
+      })),
       ...(events ?? []).map((e) => ({
         date: new Date(e.start_date),
-        tone: e.registered_user_ids.includes(user.id) ? ("green" as const) : ("blue" as const),
+        tone: e.registered_user_ids.includes(user.id)
+          ? ("green" as const)
+          : ("blue" as const),
       })),
     ],
-    [events, reminders, user.id],
+    [events, reminders, user.id]
   );
 
   // A selected day shows that day; otherwise everything from today on.
   const today = startOfDay(new Date());
-  const inView = (d: Date) => (selectedDay ? isSameDay(d, selectedDay) : d >= today);
+  const inView = (d: Date) =>
+    selectedDay ? isSameDay(d, selectedDay) : d >= today;
   const visibleReminders = (reminders ?? [])
     .filter((r) => inView(new Date(r.date)))
     .sort((a, b) => a.date.localeCompare(b.date));
-  const visibleEvents = (events ?? []).filter((e) => inView(new Date(e.start_date)));
+  const visibleEvents = (events ?? []).filter((e) =>
+    inView(new Date(e.start_date))
+  );
 
   function onDeleteAll() {
     const count = reminders?.length ?? 0;
-    if (!window.confirm(`Supprimer vos ${count} rappel(s), passés compris ?`)) return;
+    if (!window.confirm(`Supprimer vos ${count} rappel(s), passés compris ?`))
+      return;
     setError(null);
     startTransition(async () => {
       const res = await deleteAllReminders();
@@ -93,7 +110,9 @@ export function CalendarView({
             markedDays={markedDays}
             selectedDay={selectedDay}
             onSelectDay={(day) =>
-              setSelectedDay(selectedDay && isSameDay(day, selectedDay) ? undefined : day)
+              setSelectedDay(
+                selectedDay && isSameDay(day, selectedDay) ? undefined : day
+              )
             }
           />
         </CardContent>
@@ -102,15 +121,25 @@ export function CalendarView({
       <div className="flex h-full min-h-0 flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="truncate text-base font-semibold">
-            {selectedDay ? format(selectedDay, "EEEE d MMMM", { locale: fr }) : "À venir"}
+            {selectedDay
+              ? format(selectedDay, "EEEE d MMMM", { locale: fr })
+              : "À venir"}
           </h2>
           <div className="flex shrink-0 gap-2">
             {selectedDay && (
-              <Button variant="ghost" size="sm" onClick={() => setSelectedDay(undefined)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDay(undefined)}
+              >
                 Tout afficher
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreating(true)}
+            >
               <Plus />
               Nouveau rappel
             </Button>
@@ -120,7 +149,9 @@ export function CalendarView({
 
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
           {reminders === null ? (
-            <p className="text-sm text-destructive">Impossible de charger les rappels.</p>
+            <p className="text-sm text-destructive">
+              Impossible de charger les rappels.
+            </p>
           ) : (
             visibleReminders.map((r) => (
               <div
@@ -133,7 +164,9 @@ export function CalendarView({
                     {r.title}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {format(new Date(r.date), "d MMM yyyy · HH:mm", { locale: fr })}
+                    {format(new Date(r.date), "d MMM yyyy · HH:mm", {
+                      locale: fr,
+                    })}
                   </p>
                   {r.description && (
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -154,9 +187,13 @@ export function CalendarView({
             ))
           )}
           {events === null ? (
-            <p className="text-sm text-destructive">Impossible de charger les événements.</p>
+            <p className="text-sm text-destructive">
+              Impossible de charger les événements.
+            </p>
           ) : (
-            visibleEvents.map((e) => <EventListItem key={`e-${e.id}`} event={e} />)
+            visibleEvents.map((e) => (
+              <EventListItem key={`e-${e.id}`} event={e} />
+            ))
           )}
           {visibleReminders.length === 0 && visibleEvents.length === 0 && (
             <p className="text-sm text-muted-foreground">Rien de prévu.</p>
@@ -176,7 +213,11 @@ export function CalendarView({
         )}
       </div>
 
-      <ReminderSheet open={creating} onOpenChange={setCreating} day={selectedDay} />
+      <ReminderSheet
+        open={creating}
+        onOpenChange={setCreating}
+        day={selectedDay}
+      />
     </div>
   );
 }
@@ -233,13 +274,18 @@ function ReminderForm({ day, onDone }: { day?: Date; onDone: () => void }) {
         <SheetDescription>Visible uniquement par vous.</SheetDescription>
       </SheetHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 px-4 pb-4">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-4 px-4 pb-4"
+        >
           <FormField
             control={form.control}
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium text-muted-foreground">Titre</FormLabel>
+                <FormLabel className="text-xs font-medium text-muted-foreground">
+                  Titre
+                </FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -252,7 +298,9 @@ function ReminderForm({ day, onDone }: { day?: Date; onDone: () => void }) {
             name="date"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium text-muted-foreground">Date</FormLabel>
+                <FormLabel className="text-xs font-medium text-muted-foreground">
+                  Date
+                </FormLabel>
                 <FormControl>
                   <Input type="datetime-local" {...field} />
                 </FormControl>
