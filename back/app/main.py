@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core import redis_client
-from .core.rate_limit import limiter
+from .core.rate_limit import limiter, warn_if_unconfigured
 from .db import init_db
 from .db.database import get_session
 from .db.seed import seed_all
@@ -22,6 +22,7 @@ log = logging.getLogger("assocore.access")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    warn_if_unconfigured()
     await init_db()
     await seed_all()
     await redis_client.ping()
