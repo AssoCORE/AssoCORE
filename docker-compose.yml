@@ -143,6 +143,8 @@ services:
     environment:
       - NODE_ENV=development
       - BACKEND_URL=http://backend:8000
+      # Proves the forwarded client IP to the backend's rate limiter (core/rate_limit.py).
+      - BFF_SHARED_SECRET=${BFF_SHARED_SECRET:-}
     volumes:
       - ./front:/app
       - /app/node_modules
@@ -225,6 +227,8 @@ services:
     environment:
       - NODE_ENV=production
       - BACKEND_URL=http://backend_prod:8000
+      # Proves the forwarded client IP to the backend's rate limiter (core/rate_limit.py).
+      - BFF_SHARED_SECRET=${BFF_SHARED_SECRET:-}
     networks:
       - assocore
 
