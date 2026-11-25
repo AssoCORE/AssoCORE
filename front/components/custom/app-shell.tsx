@@ -21,7 +21,9 @@ export function AppShell({
       <AppSidebar />
       <SidebarInset className="flex min-h-svh flex-col bg-background">
         <TopBar notifications={notifications} unreadCount={unreadCount} />
-        <main className="flex flex-1 flex-col p-3 sm:p-4 md:p-6">{children}</main>
+        <main className="flex flex-1 flex-col p-3 sm:p-4 md:p-6">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

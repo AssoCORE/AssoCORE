@@ -1,12 +1,11 @@
-import Link from "next/link"
-import { redirect } from "next/navigation"
-
-import { getCurrentUser } from "@/lib/auth/session"
-import { RegisterForm } from "@/components/auth/RegisterForm"
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { RegisterForm } from "@/components/auth/RegisterForm";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export default async function RegisterPage() {
-  const user = await getCurrentUser()
-  if (user) redirect("/")
+  const user = await getCurrentUser();
+  if (user) redirect("/");
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
@@ -20,5 +19,5 @@ export default async function RegisterPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }

@@ -9,7 +9,11 @@ const datetimeLocal = z.string().min(1, "Requis");
 // EventCreate: title 1-255, registrations_limits > 0, end_date after start_date.
 export const eventSchema = z
   .object({
-    title: z.string().trim().min(1, "Requis").max(255, "255 caractères maximum"),
+    title: z
+      .string()
+      .trim()
+      .min(1, "Requis")
+      .max(255, "255 caractères maximum"),
     description: z.string(),
     start_date: datetimeLocal,
     end_date: datetimeLocal,
@@ -46,7 +50,8 @@ export function notificationMessageError(message: string): string | null {
 }
 
 /** `<input type="datetime-local">` value → naive ISO datetime the backend expects. */
-export const toBackendDatetime = (local: string) => (local.length === 16 ? `${local}:00` : local);
+export const toBackendDatetime = (local: string) =>
+  local.length === 16 ? `${local}:00` : local;
 
 /** Naive ISO datetime from the backend → `<input type="datetime-local">` value. */
 export const toLocalInput = (iso: string) => iso.slice(0, 16);

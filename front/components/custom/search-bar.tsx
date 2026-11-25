@@ -44,7 +44,12 @@ export function SearchBar({
   );
 
   return (
-    <div className={cn("flex items-center gap-2 rounded-md bg-card p-2 shadow-sm", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-md bg-card p-2 shadow-sm",
+        className
+      )}
+    >
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input

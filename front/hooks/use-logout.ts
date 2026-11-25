@@ -14,7 +14,9 @@ export function useLogout() {
     }).catch(() => null);
     if (everywhere && !res?.ok) {
       const body = await res?.json().catch(() => null);
-      return typeof body?.detail === "string" ? body.detail : "Service indisponible.";
+      return typeof body?.detail === "string"
+        ? body.detail
+        : "Service indisponible.";
     }
     router.push("/login");
     router.refresh();

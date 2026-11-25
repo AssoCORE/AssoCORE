@@ -1,6 +1,12 @@
 "use client";
 
-import { Calendar, ChevronLeft, ClipboardCheck, Ticket, Users } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ClipboardCheck,
+  Ticket,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -15,9 +21,17 @@ import { initialsOf } from "@/lib/roles";
 import type { EventOut, PeopleById } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function EventDetail({ event, people }: { event: EventOut; people?: PeopleById }) {
+export function EventDetail({
+  event,
+  people,
+}: {
+  event: EventOut;
+  people?: PeopleById;
+}) {
   const router = useRouter();
-  const actions = useEventActions(event, { onDeleted: () => router.push("/event") });
+  const actions = useEventActions(event, {
+    onDeleted: () => router.push("/event"),
+  });
   const { registered, past, pending, error, privileged } = actions;
   const status = eventStatus(event, registered);
 
@@ -36,7 +50,7 @@ export function EventDetail({ event, people }: { event: EventOut; people?: Peopl
             "h-32 w-full",
             registered
               ? "bg-gradient-to-r from-emerald-200 to-emerald-400"
-              : "bg-gradient-to-r from-sky-200 to-sky-400",
+              : "bg-gradient-to-r from-sky-200 to-sky-400"
           )}
           aria-hidden
         />
@@ -48,8 +62,14 @@ export function EventDetail({ event, people }: { event: EventOut; people?: Peopl
             <header className="flex items-start justify-between gap-3">
               <h1 className="text-xl font-semibold">{event.title}</h1>
               <div className="flex shrink-0 items-center gap-1">
-                <Badge className={cn("whitespace-nowrap", status.className)}>{status.label}</Badge>
-                <EventManageMenu event={event} people={people} actions={actions} />
+                <Badge className={cn("whitespace-nowrap", status.className)}>
+                  {status.label}
+                </Badge>
+                <EventManageMenu
+                  event={event}
+                  people={people}
+                  actions={actions}
+                />
               </div>
             </header>
 
@@ -84,10 +104,18 @@ export function EventDetail({ event, people }: { event: EventOut; people?: Peopl
                 disabled={pending || (!registered && event.is_full)}
                 onClick={actions.toggleRegistration}
               >
-                {registered ? "Se désinscrire" : event.is_full ? "Complet" : "S'inscrire"}
+                {registered
+                  ? "Se désinscrire"
+                  : event.is_full
+                    ? "Complet"
+                    : "S'inscrire"}
               </Button>
             )}
-            {past && <p className="text-sm text-muted-foreground">Cet évènement est terminé.</p>}
+            {past && (
+              <p className="text-sm text-muted-foreground">
+                Cet évènement est terminé.
+              </p>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
         </Card>
@@ -106,11 +134,15 @@ export function EventDetail({ event, people }: { event: EventOut; people?: Peopl
                   <div key={id} className="flex items-center gap-3 text-sm">
                     <Avatar className="size-8">
                       <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
-                        {person ? initialsOf(person.firstname, person.name) : "#"}
+                        {person
+                          ? initialsOf(person.firstname, person.name)
+                          : "#"}
                       </AvatarFallback>
                     </Avatar>
                     <span className="flex-1 truncate">
-                      {person ? `${person.firstname} ${person.name}` : `Adhérent n°${id}`}
+                      {person
+                        ? `${person.firstname} ${person.name}`
+                        : `Adhérent n°${id}`}
                     </span>
                     {present && (
                       <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">

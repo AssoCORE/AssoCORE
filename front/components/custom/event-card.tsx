@@ -12,7 +12,13 @@ import { formatEventRange } from "@/lib/format";
 import type { EventOut, PeopleById } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function EventCard({ event, people }: { event: EventOut; people?: PeopleById }) {
+export function EventCard({
+  event,
+  people,
+}: {
+  event: EventOut;
+  people?: PeopleById;
+}) {
   const actions = useEventActions(event);
   const { registered, past, pending, error } = actions;
   const status = eventStatus(event, registered);
@@ -25,7 +31,7 @@ export function EventCard({ event, people }: { event: EventOut; people?: PeopleB
             "relative hidden size-24 shrink-0 rounded-md sm:block",
             registered
               ? "bg-gradient-to-br from-emerald-200 to-emerald-400"
-              : "bg-gradient-to-br from-sky-200 to-sky-400",
+              : "bg-gradient-to-br from-sky-200 to-sky-400"
           )}
           aria-hidden
         />
@@ -33,14 +39,22 @@ export function EventCard({ event, people }: { event: EventOut; people?: PeopleB
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate text-base font-semibold">{event.title}</h3>
             <div className="flex shrink-0 items-center gap-1">
-              <Badge className={cn("shrink-0 whitespace-nowrap", status.className)}>
+              <Badge
+                className={cn("shrink-0 whitespace-nowrap", status.className)}
+              >
                 {status.label}
               </Badge>
-              <EventManageMenu event={event} people={people} actions={actions} />
+              <EventManageMenu
+                event={event}
+                people={people}
+                actions={actions}
+              />
             </div>
           </div>
           {event.description && (
-            <p className="line-clamp-2 text-sm text-muted-foreground">{event.description}</p>
+            <p className="line-clamp-2 text-sm text-muted-foreground">
+              {event.description}
+            </p>
           )}
           <div className="grid gap-x-3 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
             <span className="flex items-center gap-1.5">
@@ -64,7 +78,11 @@ export function EventCard({ event, people }: { event: EventOut; people?: PeopleB
                 disabled={pending || (!registered && event.is_full)}
                 onClick={actions.toggleRegistration}
               >
-                {registered ? "Se désinscrire" : event.is_full ? "Complet" : "S'inscrire"}
+                {registered
+                  ? "Se désinscrire"
+                  : event.is_full
+                    ? "Complet"
+                    : "S'inscrire"}
               </Button>
             )}
           </div>

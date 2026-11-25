@@ -1,12 +1,11 @@
-import Link from "next/link"
-import { redirect } from "next/navigation"
-
-import { getCurrentUser } from "@/lib/auth/session"
-import { LoginForm } from "@/components/auth/LoginForm"
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export default async function LoginPage() {
-  const user = await getCurrentUser()
-  if (user) redirect("/")
+  const user = await getCurrentUser();
+  if (user) redirect("/");
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
@@ -20,5 +19,5 @@ export default async function LoginPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }

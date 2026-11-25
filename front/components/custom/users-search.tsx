@@ -24,10 +24,14 @@ export function UsersSearch() {
   // GET /user/?role= filters in SQL; "" means every role.
   const role = useUrlParam("role");
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   function onBroadcast() {
-    const target = role.value ? `les ${roleLabelPlural[role.value] ?? role.value}` : "tous les adhérents";
+    const target = role.value
+      ? `les ${roleLabelPlural[role.value] ?? role.value}`
+      : "tous les adhérents";
     const text = window.prompt(`Message à envoyer à ${target}`)?.trim();
     if (!text) return;
     const invalid = notificationMessageError(text);
@@ -40,8 +44,11 @@ export function UsersSearch() {
       const res = await broadcastNotification(text, role.value || null);
       setMessage(
         res.ok
-          ? { ok: true, text: `Notification envoyée à ${res.data} adhérent(s).` }
-          : { ok: false, text: res.error },
+          ? {
+              ok: true,
+              text: `Notification envoyée à ${res.data} adhérent(s).`,
+            }
+          : { ok: false, text: res.error }
       );
     });
   }
@@ -59,8 +66,13 @@ export function UsersSearch() {
             <>
               <DropdownMenuLabel>Rôle</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup value={role.value} onValueChange={role.setValue}>
-                <DropdownMenuRadioItem value="">Tous les rôles</DropdownMenuRadioItem>
+              <DropdownMenuRadioGroup
+                value={role.value}
+                onValueChange={role.setValue}
+              >
+                <DropdownMenuRadioItem value="">
+                  Tous les rôles
+                </DropdownMenuRadioItem>
                 {roles.map((r) => (
                   <DropdownMenuRadioItem key={r} value={r}>
                     {roleLabel[r]}
@@ -72,11 +84,18 @@ export function UsersSearch() {
         />
         <Button variant="outline" onClick={onBroadcast} disabled={pending}>
           <Megaphone />
-          Notifier {role.value ? `les ${roleLabelPlural[role.value] ?? role.value}` : "tous"}
+          Notifier{" "}
+          {role.value
+            ? `les ${roleLabelPlural[role.value] ?? role.value}`
+            : "tous"}
         </Button>
       </div>
       {message && (
-        <p className={message.ok ? "text-sm text-primary" : "text-sm text-destructive"}>
+        <p
+          className={
+            message.ok ? "text-sm text-primary" : "text-sm text-destructive"
+          }
+        >
           {message.text}
         </p>
       )}

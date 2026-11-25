@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -14,6 +13,7 @@ import {
   subMonths,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -102,7 +102,7 @@ export function MiniCalendar({
                 selected && "bg-primary/10 font-semibold text-primary",
                 marked && "underline decoration-2 underline-offset-4",
                 marked && toneClass[marked.tone],
-                "hover:bg-primary/5",
+                "hover:bg-primary/5"
               )}
             >
               {format(day, "dd")}

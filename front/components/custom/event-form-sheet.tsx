@@ -23,7 +23,12 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { createEvent, type EventInput, updateEvent } from "@/lib/actions";
-import { type EventFormInput, eventSchema, toBackendDatetime, toLocalInput } from "@/lib/schemas";
+import {
+  type EventFormInput,
+  eventSchema,
+  toBackendDatetime,
+  toLocalInput,
+} from "@/lib/schemas";
 import type { EventOut } from "@/lib/types";
 
 function defaultsOf(event?: EventOut): EventFormInput {
@@ -57,7 +62,13 @@ export function EventFormSheet({
   );
 }
 
-function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) {
+function EventForm({
+  event,
+  onDone,
+}: {
+  event?: EventOut;
+  onDone: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const form = useForm<EventFormInput>({
@@ -75,7 +86,9 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
     };
     setError(null);
     startTransition(async () => {
-      const res = event ? await updateEvent(event.id, body) : await createEvent(body);
+      const res = event
+        ? await updateEvent(event.id, body)
+        : await createEvent(body);
       if (res.ok) onDone();
       else setError(res.error);
     });
@@ -84,7 +97,9 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{event ? "Modifier l'évènement" : "Nouvel évènement"}</SheetTitle>
+        <SheetTitle>
+          {event ? "Modifier l'évènement" : "Nouvel évènement"}
+        </SheetTitle>
         <SheetDescription>
           {event
             ? "Les inscrits seront notifiés de la modification."
@@ -92,13 +107,18 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
         </SheetDescription>
       </SheetHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 px-4 pb-4">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-4 px-4 pb-4"
+        >
           <FormField
             control={form.control}
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium text-muted-foreground">Titre</FormLabel>
+                <FormLabel className="text-xs font-medium text-muted-foreground">
+                  Titre
+                </FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -126,7 +146,9 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
             name="start_date"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium text-muted-foreground">Début</FormLabel>
+                <FormLabel className="text-xs font-medium text-muted-foreground">
+                  Début
+                </FormLabel>
                 <FormControl>
                   <Input type="datetime-local" {...field} />
                 </FormControl>
@@ -139,7 +161,9 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
             name="end_date"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-medium text-muted-foreground">Fin</FormLabel>
+                <FormLabel className="text-xs font-medium text-muted-foreground">
+                  Fin
+                </FormLabel>
                 <FormControl>
                   <Input type="datetime-local" {...field} />
                 </FormControl>
@@ -156,7 +180,13 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
                   Nombre de places
                 </FormLabel>
                 <FormControl>
-                  <Input type="number" min={1} step={1} inputMode="numeric" {...field} />
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -164,7 +194,11 @@ function EventForm({ event, onDone }: { event?: EventOut; onDone: () => void }) 
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" disabled={pending}>
-            {pending ? "Enregistrement…" : event ? "Enregistrer" : "Créer l'évènement"}
+            {pending
+              ? "Enregistrement…"
+              : event
+                ? "Enregistrer"
+                : "Créer l'évènement"}
           </Button>
         </form>
       </Form>

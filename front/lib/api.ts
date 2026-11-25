@@ -10,7 +10,10 @@ import { BackendError, backendFetch } from "@/lib/backend";
  * Usable from Server Components, Route Handlers and Server Actions. Token refresh
  * is not handled here: `proxy.ts` already refreshed it before this request reached us.
  */
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
   const store = await cookies();
   const token = store.get(ACCESS_COOKIE)?.value;
   return backendFetch(path, {
@@ -39,7 +42,7 @@ export async function readDetail(res: Response): Promise<string> {
     if (Array.isArray(detail)) {
       return detail
         .map((d: { loc?: unknown[]; msg?: string }) =>
-          [d.loc?.slice(1).join("."), d.msg].filter(Boolean).join(" : "),
+          [d.loc?.slice(1).join("."), d.msg].filter(Boolean).join(" : ")
         )
         .join(" ; ");
     }
@@ -49,10 +52,18 @@ export async function readDetail(res: Response): Promise<string> {
   return res.statusText || `Erreur ${res.status}`;
 }
 
-export function query(params: Record<string, string | number | boolean | undefined | null>) {
+export function query(
+  params: Record<string, string | number | boolean | undefined | null>
+) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === "" || value === false) continue;
+    if (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === false
+    )
+      continue;
     search.set(key, String(value));
   }
   const s = search.toString();
@@ -60,7 +71,9 @@ export function query(params: Record<string, string | number | boolean | undefin
 }
 
 export type ActionResult<T = undefined> =
-  | (T extends undefined ? { ok: true; data?: undefined } : { ok: true; data: T })
+  | (T extends undefined
+      ? { ok: true; data?: undefined }
+      : { ok: true; data: T })
   | { ok: false; error: string };
 
 // The backend's `detail` strings are English; translate the ones a user can hit.
@@ -73,15 +86,19 @@ const knownDetails: Record<string, string> = {
   "File already exists": "Un fichier porte déjà ce nom.",
   "end_date must be after start_date": "La fin doit être après le début.",
   "Unknown or expired handle": "La demande de liaison a expiré, recommencez.",
-  "Could not start the Nextcloud login flow": "Impossible de joindre Nextcloud.",
+  "Could not start the Nextcloud login flow":
+    "Impossible de joindre Nextcloud.",
 };
 
 /** Turns a thrown error into a result a Client Component can display. */
 export function toActionError(err: unknown): { ok: false; error: string } {
   if (err instanceof BackendError) {
-    if (err.status === 401) return { ok: false, error: "Session expirée, reconnectez-vous." };
-    if (err.status === 403) return { ok: false, error: "Action non autorisée." };
-    if (err.status === 503) return { ok: false, error: "Service indisponible, réessayez plus tard." };
+    if (err.status === 401)
+      return { ok: false, error: "Session expirée, reconnectez-vous." };
+    if (err.status === 403)
+      return { ok: false, error: "Action non autorisée." };
+    if (err.status === 503)
+      return { ok: false, error: "Service indisponible, réessayez plus tard." };
     return { ok: false, error: knownDetails[err.detail] ?? err.detail };
   }
   return { ok: false, error: "Service indisponible, réessayez plus tard." };

@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { DataTable, type DataTableColumn } from "@/components/custom/data-table";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/custom/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +45,11 @@ export function UsersTable({ users }: { users: UserOut[] }) {
   }
 
   function onDelete(user: UserOut) {
-    if (!window.confirm(`Supprimer définitivement ${fullName(user)} (et son compte Nextcloud) ?`)) {
+    if (
+      !window.confirm(
+        `Supprimer définitivement ${fullName(user)} (et son compte Nextcloud) ?`
+      )
+    ) {
       return;
     }
     setError(null);
@@ -65,7 +72,10 @@ export function UsersTable({ users }: { users: UserOut[] }) {
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <Link href={`/adminUser/${u.id}`} className="font-medium hover:underline">
+            <Link
+              href={`/adminUser/${u.id}`}
+              className="font-medium hover:underline"
+            >
               {fullName(u)}
             </Link>
             <span className="text-xs text-muted-foreground">@{u.username}</span>
@@ -81,20 +91,26 @@ export function UsersTable({ users }: { users: UserOut[] }) {
     {
       key: "phone",
       header: "Téléphone",
-      render: (u) => <span className="tabular-nums text-muted-foreground">{u.phone ?? "—"}</span>,
+      render: (u) => (
+        <span className="tabular-nums text-muted-foreground">
+          {u.phone ?? "—"}
+        </span>
+      ),
     },
     {
       key: "role",
       header: "Rôles",
       render: (u) => (
         <div className="flex flex-wrap gap-2">
-          {u.roles.length === 0 && <span className="text-muted-foreground">—</span>}
+          {u.roles.length === 0 && (
+            <span className="text-muted-foreground">—</span>
+          )}
           {u.roles.map((r) => (
             <span
               key={r.id}
               className={cn(
                 "font-medium underline decoration-2 underline-offset-4",
-                roleToneClass[r.name],
+                roleToneClass[r.name]
               )}
             >
               {labelOf(r)}
@@ -110,7 +126,12 @@ export function UsersTable({ users }: { users: UserOut[] }) {
         u.id === me.id ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Actions" disabled={pending}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Actions"
+                disabled={pending}
+              >
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>

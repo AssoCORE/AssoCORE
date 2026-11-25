@@ -63,7 +63,7 @@
   --brand-red: oklch(0.637 0.237 25.331);
 
   /* Role accent colors used in tables (Utilisateur, Admin, Trésorier, Président) */
-  --role-user: oklch(0.55 0.20 260);
+  --role-user: oklch(0.55 0.2 260);
   --role-admin: oklch(0.637 0.237 25.331);
   --role-tresorier: oklch(0.55 0.15 60);
   --role-president: oklch(0.55 0.22 300);
@@ -92,7 +92,7 @@
 
   --chart-1: var(--brand-green);
   --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.55 0.20 260);
+  --chart-3: oklch(0.55 0.2 260);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.637 0.237 25.331);
 
@@ -101,7 +101,7 @@
   --sidebar-foreground: oklch(0.92 0.005 200);
   --sidebar-primary: var(--brand-green);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.30 0.03 240);
+  --sidebar-accent: oklch(0.3 0.03 240);
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: var(--brand-green);
@@ -122,7 +122,7 @@
   --secondary-foreground: oklch(0.96 0 0);
   --muted: oklch(0.28 0.02 240);
   --muted-foreground: oklch(0.72 0.01 240);
-  --accent: oklch(0.30 0.03 240);
+  --accent: oklch(0.3 0.03 240);
   --accent-foreground: oklch(0.96 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);

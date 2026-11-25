@@ -84,4 +84,7 @@ export type BudgetRequest = {
 };
 
 /** Display names by user id, for lists of participants. Only admins can build it. */
-export type PeopleById = Record<number, { firstname: string; name: string; username: string }>;
+export type PeopleById = Record<
+  number,
+  { firstname: string; name: string; username: string }
+>;
