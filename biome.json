@@ -32,7 +32,9 @@
   },
   "linter": {
     "enabled": true,
-    "rules": { "recommended": true }
+    "rules": {
+      "recommended": true
+    }
   },
   "javascript": {
     "formatter": {
@@ -49,7 +51,11 @@
   },
   "assist": {
     "enabled": true,
-    "actions": { "source": { "organizeImports": "on" } }
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "css": {
     "parser": {
@@ -60,5 +66,13 @@
     "formatter": {
       "enabled": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["front/components/ui/**"],
+      "linter": {
+        "enabled": false
+      }
+    }
+  ]
 }

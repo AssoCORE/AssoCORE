@@ -16,6 +16,7 @@ export function useUrlSearch(param = "q", delayMs = 300) {
   const [pending, startTransition] = useTransition();
   const first = useRef(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-running on searchParams would loop on our own replace(); only `value` drives this effect.
   useEffect(() => {
     if (first.current) {
       first.current = false;
@@ -26,7 +27,9 @@ export function useUrlSearch(param = "q", delayMs = 300) {
       if (value.trim()) next.set(param, value.trim());
       else next.delete(param);
       const qs = next.toString();
-      startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname));
+      startTransition(() =>
+        router.replace(qs ? `${pathname}?${qs}` : pathname)
+      );
     }, delayMs);
     return () => clearTimeout(id);
     // searchParams is intentionally omitted: re-running on our own replace() would loop.

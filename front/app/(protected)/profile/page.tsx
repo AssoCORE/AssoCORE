@@ -17,8 +17,12 @@ export default async function ProfilePage() {
   // Counts come from `total` with limit=1 — no dedicated stats endpoint exists.
   const [registered, upcoming, reminders, ncLink] = await Promise.all([
     apiJson<Page<EventOut>>("/event/?my_events=true&limit=1").catch(() => null),
-    apiJson<Page<EventOut>>("/event/?my_events=true&upcoming=true&limit=1").catch(() => null),
-    apiJson<Page<ReminderOut>>("/user/reminder/?upcoming=true&limit=1").catch(() => null),
+    apiJson<Page<EventOut>>(
+      "/event/?my_events=true&upcoming=true&limit=1"
+    ).catch(() => null),
+    apiJson<Page<ReminderOut>>("/user/reminder/?upcoming=true&limit=1").catch(
+      () => null
+    ),
     apiJson<NcLinkStatus>("/nextcloud/link").catch(() => null),
   ]);
 
@@ -54,8 +58,14 @@ export default async function ProfilePage() {
         <Card className="h-full">
           <CardContent className="flex h-full flex-col gap-4 overflow-y-auto p-6">
             <h2 className="text-lg font-semibold">Statistiques :</h2>
-            <StatRow label="Inscriptions à des évènements" value={registered?.total ?? "—"} />
-            <StatRow label="Évènements à venir" value={upcoming?.total ?? "—"} />
+            <StatRow
+              label="Inscriptions à des évènements"
+              value={registered?.total ?? "—"}
+            />
+            <StatRow
+              label="Évènements à venir"
+              value={upcoming?.total ?? "—"}
+            />
             <StatRow
               label="Rappels à venir"
               value={
@@ -69,9 +79,11 @@ export default async function ProfilePage() {
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-4 text-sm">
+        {/* biome-ignore lint/a11y/useValidAnchor: placeholder until the privacy policy page (#202) exists */}
         <a href="#" className="font-medium text-primary hover:underline">
           Mentions légales
         </a>
+        {/* biome-ignore lint/a11y/useValidAnchor: placeholder until the association charter page exists */}
         <a href="#" className="font-medium text-primary hover:underline">
           Charte de l&apos;association
         </a>
