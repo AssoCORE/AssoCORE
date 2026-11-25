@@ -65,8 +65,6 @@ router = APIRouter(prefix="/user", tags=["user"])
 def _user_q():
     return select(User).options(
         selectinload(User.roles),
-        selectinload(User.notifications),
-        selectinload(User.reminders),
     )
 
 
