@@ -67,17 +67,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20 # matches docker/frontend.Dockerfile
-          cache: pnpm
-          cache-dependency-path: front/pnpm-lock.yaml
+
+      # The same pnpm the Dockerfile installs: the one pinned by package.json's
+      # "packageManager" field, so CI, the images and local installs agree.
+      # Not pnpm/action-setup: it only reads the repo-root package.json, and its
+      # `version` input would be a second place the version is set.
+      # The pnpm@10 fallback only covers branches from before the field existed.
+      - name: Install pnpm
+        run: |
+          PNPM=$(node -p 'require("./package.json").packageManager || "pnpm@10"')
+          echo "Installing $PNPM"
+          npm install -g "$PNPM"
+          echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache the pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('front/pnpm-lock.yaml', 'front/package.json') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
