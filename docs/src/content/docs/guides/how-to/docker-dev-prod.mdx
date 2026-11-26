@@ -723,7 +723,7 @@ docker scan $(docker compose --profile prod images -q backend_prod)
 3. **Push to Registry**
 
    Images are built and pushed by CI (`.github/workflows/docker-build.yml`) on push
-   to `main`/`develop` and on tags — tag a release rather than pushing by hand.
+   to `main`/`dev` and on tags — tag a release rather than pushing by hand.
 
 4. **Deploy to Kubernetes**
    ```bash

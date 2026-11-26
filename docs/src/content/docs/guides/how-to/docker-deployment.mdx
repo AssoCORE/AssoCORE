@@ -46,7 +46,7 @@ The workflow automatically creates the following tags:
 <Tabs>
   <TabItem label="Branch Tags">
     - `main` - Latest commit from main branch (also tagged as `latest`)
-    - `develop` - Latest commit from develop branch
+    - `dev` - Latest commit from the dev branch
     - `CI-abc123` - Commit SHA on specific branch
   </TabItem>
 
@@ -67,7 +67,7 @@ The workflow automatically creates the following tags:
 
 <Steps>
 
-1. **Push to main or develop branches**
+1. **Push to main or dev branches**
 
    ```bash
    git push origin main
@@ -138,7 +138,7 @@ The workflow automatically creates the following tags:
 <Aside type="tip">
   You normally do not need to push by hand: `.github/workflows/docker-build.yml`
   builds and pushes the backend, frontend and mobile images to GHCR on every push to
-  `main`/`develop` and on tags. Push a tag to cut a release.
+  `main`/`dev` and on tags. Push a tag to cut a release.
 </Aside>
 
 For the times you do need to push manually, `scripts/build-and-push.sh` wraps the
@@ -210,7 +210,7 @@ docker push ghcr.io/assocore/assocore/frontend:v1.0.0
 docker pull ghcr.io/assocore/assocore/backend:v1.2.3
 
 # Pull from a specific branch
-docker pull ghcr.io/assocore/assocore/backend:develop
+docker pull ghcr.io/assocore/assocore/backend:dev
 
 # Pull latest (main branch)
 docker pull ghcr.io/assocore/assocore/backend:latest
