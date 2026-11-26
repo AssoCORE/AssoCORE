@@ -124,7 +124,7 @@ All production images are automatically built and published to GHCR:
 
 GitHub Actions automatically builds and tags images:
 
-- **Branch pushes**: `main`, `develop`, `feature-xyz`
+- **Branch pushes**: `main`, `dev`
 - **Version tags**: `v1.2.3`, `v1.2`, `v1`, `latest`
 - **Pull requests**: Validation builds (not pushed)
 
@@ -258,7 +258,7 @@ docker compose -f docker-compose.prod.yml up -d
 
     on:
       pull_request:
-        branches: [ main, develop ]
+        branches: [ main, dev ]
 
     jobs:
       test:
@@ -362,7 +362,7 @@ docker compose -f docker-compose.prod.yml up -d
   <Card title="Development" icon="rocket">
     <Badge text="Auto-deploy" variant="note" />
     
-    - Auto-deployed from `develop` branch
+    - Auto-deployed from `dev` branch
     - Testing and validation environment
     - Lower resource limits
     - Isolated test data
