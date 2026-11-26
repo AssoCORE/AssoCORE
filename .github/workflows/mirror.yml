@@ -78,31 +78,47 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
 
-          push_without_lfs() {
-            # The pointer files are ordinary git blobs, so the commits are complete;
-            # only the binaries behind them stay on AssoCORE.
-            GIT_LFS_SKIP_PUSH=1 git push mirror HEAD:"refs/heads/$BRANCH" --force
+          # Runs `git push` and keeps its output in push.log; returns git's status.
+          push() {
+            set +e
+            "$@" git push mirror HEAD:"refs/heads/$BRANCH" --force 2>&1 | tee push.log
+            local status=${PIPESTATUS[0]}
+            set -e
+            return "$status"
+          }
+
+          skip() {
+            echo "::warning title=Mirror skipped (LFS budget exhausted)::$1"
             {
-              echo "### ⚠️ Mirrored without LFS files"
-              echo "The EPITECH mirror's Git LFS budget is exhausted, so \`$BRANCH\` was pushed without its LFS objects."
+              echo "### ⚠️ \`$BRANCH\` was not mirrored"
+              echo "$1"
+              echo
+              echo "The EPITECH mirror's Git LFS budget is exhausted. Once it is raised, the next push of this branch mirrors it again."
             } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          # Without LFS budget: push the commits alone. GitHub accepts that only
+          # if every LFS object they point to is already on the mirror; when one
+          # isn't, it refuses the push with GH008, and the branch is skipped
+          # rather than failing every run until the budget is raised.
+          push_without_lfs() {
+            if push env GIT_LFS_SKIP_PUSH=1; then
+              echo "Mirrored without uploading LFS objects (all of them were already on the mirror)."
+            elif grep -q 'GH008\|unknown Git LFS objects' push.log; then
+              skip "It references LFS files that are not on the mirror yet, and they can't be uploaded."
+            else
+              exit 1
+            fi
           }
 
           if [ "$LFS_AVAILABLE" != "true" ]; then
             push_without_lfs
-            exit 0
-          fi
-
-          # The budget can also run out during this very upload.
-          set +e
-          git push mirror HEAD:"refs/heads/$BRANCH" --force 2>&1 | tee push.log
-          STATUS=${PIPESTATUS[0]}
-          set -e
-          if [ "$STATUS" -ne 0 ]; then
+          elif ! push; then
+            # The budget can also run out during this very upload.
             if grep -q 'exceeded its LFS budget' push.log; then
-              echo "::warning title=Mirror LFS budget exhausted::Budget ran out during the push; retrying without LFS files."
               push_without_lfs
             else
-              exit "$STATUS"
+              exit 1
             fi
           fi
