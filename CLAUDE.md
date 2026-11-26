@@ -1,272 +1,96 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+AssoCORE is a self-hosted platform for running an association: members, events, files, payments.
+It processes members' personal data, so GDPR applies to every change (see the last section).
 
-## Project
+| Directory | What it is |
+|-----------|------------|
+| `back/` | FastAPI API: async SQLAlchemy on MariaDB, redis for auth state, Nextcloud for files |
+| `front/` | Next.js 16 app and BFF: the browser talks only to it, never to the API |
+| `mobile/` | Flutter app |
+| `docs/` | Astro documentation site, home of the GDPR register |
+| `docker/`, `docker-compose.yml`, `k8s/` | Images, the dev/prod stack, the production manifests |
 
-AssoCORE is a self-hosted association management platform (Epitech EIP). It is multi-layer: a FastAPI backend, a Next.js frontend, a Flutter mobile app, and an Astro documentation site, all orchestrated via Docker Compose (dev) or Kubernetes (prod).
+`back/` and `front/` have their own `CLAUDE.md` with what their code doesn't say by itself.
 
-## Development Commands
+## Running
 
-### Full stack (Docker)
+- Run `docker compose` from the repo root. The one `.env` there (copied from `.env.example`) feeds both the
+  compose substitutions and the containers.
+- `.env` sets `COMPOSE_PROFILES=dev`, so `docker compose up --wait` runs the hot-reload app.
+  `--profile prod` builds the production images; `--profile mobile` / `mobile-prod` builds the APK into `build/mobile/`.
+- Compose stops and names any missing required variable (`${VAR:?}`). Fill it in `.env`.
+- API on :8000 (Swagger at `/docs`), front on :3000, Nextcloud on :8081.
 
-One compose stack and one env file, both at the repo root. Run compose from the repo
-root — it resolves `.env` relative to the directory you invoke it from.
+## Done means green
 
-```bash
-# First time only
-cp .env.example .env
+Before calling a change done, run the checks for what it touches and report the result. Name any check you
+skipped and why.
 
-# Run the app (hot-reload). --wait blocks until every service is healthy.
-docker compose up --wait
+| Touches | Check |
+|---------|-------|
+| `back/` | `cd back && uv run pytest` (offline: SQLite + fakeredis, no services needed) |
+| any JS/TS | `npx @biomejs/biome@2.3.15 ci .` (`check --write .` fixes most of it; the version matches `biome.json`'s `$schema`) |
+| `front/` | `cd front && pnpm lint && pnpm exec tsc --noEmit` |
+| compose, Dockerfiles, env | `docker compose up --wait` |
 
-# Production builds
-docker compose --profile prod up --build
+The first three are the CI jobs that branch protection requires (`.github/workflows/ci.yml`).
 
-# Flutter APK — a one-shot build tool, deliberately outside dev/prod
-docker compose --profile mobile up --build        # debug → ./build/mobile/
-docker compose --profile mobile-prod up --build   # release
-```
+## Testing what needs a person
 
-`.env` sets `COMPOSE_PROFILES=dev`, which is why a bare `docker compose up` runs the
-app; an explicit `--profile` on the command line overrides it.
+When checking something that needs someone clicking or typing (a form, navigation, an auth redirect, a Flutter
+screen), give the user a short numbered list of steps to try and what each should show, then wait for their
+feedback. Run everything that needs no input yourself first: tests, lint, build, `curl` against the API.
 
-Required variables use `${VAR:?message}`, so a missing or incomplete `.env` makes
-Compose refuse to start and name the variable, rather than starting containers with
-blank credentials.
+## How we work
 
-### Backend (FastAPI — `back/`)
+How this team works with Claude. When the user states a new working habit, authorization or preference,
+or a check proves worth adding to *Done means green*, update this file directly, remove what no longer
+applies, and say so in your reply. Knowledge about the code goes to `back/CLAUDE.md` or `front/CLAUDE.md`
+instead: one line with its reason, added after it caused a real surprise.
 
-```bash
-# Run API directly (requires MariaDB running)
-uv run dev   # uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+### Workflow
 
-# Install dependencies
-uv sync
-```
+0. When the user is thinking through a new feature and no issue exists yet, suggest `/grilling` once.
+   The decisions it settles go into the issue body.
+1. Work starts from an issue. When there is none, create it with the `new-issue` skill.
+2. Branch `<kind>/issue-<N>/<slug>` (e.g. `task/issue-336/rework-claude-md`) off an up-to-date `origin/dev`.
+3. Commit at each green checkpoint.
+4. When asked to push, also open the PR if the branch has none: base `dev`, body from
+   `.github/PULL_REQUEST_TEMPLATE.md`, `Closes #<N>`.
 
-- API: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
-- Nextcloud: http://localhost:8081
+Problems found along the way that are outside the task (tech debt, unrelated bugs) go in your reply with an
+offer to file them; file them once the user agrees.
 
-### Frontend (Next.js — `front/`)
+### Git
 
-```bash
-pnpm dev      # dev server on :3000
-pnpm build    # production build
-pnpm lint     # ESLint
-```
+- Commit often: a commit saves progress. Each commit is green, so history stays bisectable.
+- Fold a fix into the commit it fixes while that commit is unmerged: `--amend` for the last one,
+  `git commit --fixup <sha>` then `git rebase --autosquash origin/dev` for an older one.
+- Separate features get separate commits, and so does any change the user asks to keep apart.
+- Messages are `type(scope): lowercase imperative`, e.g. `fix(front/auth): close an open redirect`.
+- Push only when asked. Push rewritten history with `--force-with-lease`, after `git diff <old-tip> <new-tip>`
+  confirms that a rewrite meant to change only history changed no content. Check `origin` before saying what
+  was or wasn't pushed.
+- PRs are rebase-merged into `dev`, so history stays linear. Bring a stale or stacked branch up to date by
+  rebasing onto `origin/dev` (`git rebase --onto origin/dev <old-base>` drops commits that already landed
+  under new SHAs).
+- The `mirror` job reports a branch "was not mirrored" when the Epitech mirror's LFS budget is exhausted.
+  That quota is shared with the whole school and not caused by the branch.
 
-### Mobile (Flutter — `mobile/`)
+### Choosing a solution
 
-```bash
-flutter run
-flutter build apk
-```
+- Prefer configuration over code: no new script or dependency when a setting or an existing tool does the job.
+- Say so when there is a better idea than the one proposed, and give an opinion when asked for one.
+- Ideas that come up during the work are usually good: suggest them, and keep `ROADMAP.md` and the docs site
+  in step with what gets built.
+- Once a plan is agreed, continue until it is done or blocked.
 
-### Documentation site (`docs/`)
+## GDPR
 
-```bash
-pnpm dev    # Astro dev server
-pnpm build  # static build
-```
+Personal data is anything about an identifiable person: names, usernames, emails, phone numbers, messages,
+payments, IPs, free text that mentions someone. Two rules hold everywhere in the repo:
 
-### CI (`.github/workflows/ci.yml`)
-
-Runs on every PR into `dev` or `main` and on every push to them. All three jobs must pass:
-
-| Job | Runs | Reproduce locally |
-|-----|------|-------------------|
-| Backend tests (pytest) | `uv run pytest` on Python 3.11 — aiosqlite + fakeredis, no services needed | `cd back && uv run pytest` |
-| Biome (format + lint) | `biome ci .` over the whole repo, Biome 2.3.15 | `npx @biomejs/biome@2.3.15 check --write .` fixes most of it |
-| Frontend (ESLint + tsc) | `pnpm lint` and `pnpm exec tsc --noEmit` on Node 20 | same commands in `front/` |
-
-Biome warnings are reported but don't fail the run; errors (including unformatted files and unsorted imports) do.
-
-CI installs the pnpm pinned by `front/package.json`'s `packageManager` field, the same one the frontend
-Dockerfile installs (#334). To upgrade pnpm, change that field only. Existing dev containers keep their old
-global pnpm until `docker compose up --build`; pnpm switches itself to the pinned version anyway.
-
-## Architecture
-
-### Backend (`back/app/`)
-
-| Path | Role |
-|------|------|
-| `main.py` | FastAPI app init — async lifespan runs `init_db()` → `seed_all()` → redis ping, mounts `api_router`, adds CORS for localhost:3000, exposes `GET /health` |
-| `db/database.py` | SQLAlchemy async engine + session factory; `init_db()` creates the DB and runs `metadata.create_all` on startup — no migration tool |
-| `db/models.py` | ORM models: `User`, `Role`, `Event`, `Notification`, `Reminder`, `NextcloudAccount` + M2M tables `user_roles`, `event_registrations`, `event_staff` |
-| `db/seed.py` | Startup seeding — default roles, a bootstrap admin from `ADMIN_*` env vars, and a `member` backfill for role-less users. Idempotent and safe to run on several replicas at once |
-| `schemas/classes.py` | Pydantic schemas: `UserCreate`, `UserUpdate`, `UserOut`, `LoginRequest`, `Token`, `RefreshRequest`, `LogoutRequest`, `RoleOut` (`UserOut` deliberately carries no notifications or reminders: use their paginated routes), `NotificationOut`, `ReminderCreate`, `ReminderOut`, `NcLink*`, `EventCreate`, `EventOut`. Validation lives here too — `PasswordStr` (8-50 chars, upper + lower + digit + one of `#?!@$%^&*-`), `EmailStr`, E.164 phone, event date ordering. A client that validates input itself must mirror these exactly or users get confusing 422s. |
-| `core/security.py` | `hash_password`, `verify_password` (bcrypt), `create_access_token` / `create_refresh_token` / `create_token_pair`, `decode_token` (PyJWT / HS256; every token carries `typ` + `jti`) |
-| `core/tokens.py` | `TokenStore` — redis-backed access-token blacklist and refresh-token rotation with reuse detection |
-| `core/redis_client.py` | Process-wide async redis client (auth state on DB 1, separate from Nextcloud's DB 0) |
-| `core/crypto.py` | Fernet `encrypt_secret` / `decrypt_secret` for Nextcloud app passwords stored in the DB |
-| `core/roles.py` | Role name constants — `admin`, `staff`, `member` |
-| `core/notifications.py` | `notify()` / `notify_many()` / `notify_role()` — the only writers of the `notifications` table |
-| `core/rate_limit.py` | The slowapi `limiter`. It keys on the real client IP: the BFF forwards it in `X-Client-IP`, proven by `BFF_SHARED_SECRET` in `X-BFF-Secret`, and the header is ignored without the right secret (falls back to the socket address). Without this, every browser request shares the Next.js server's IP, so one limit for everyone |
-| `core/pagination.py` | `paginate()` plus the shared `limit`/`offset` query params for list endpoints |
-| `core/dependencies.py` | `get_current_user` (validates the bearer token, checks the blacklist, eager-loads relations) and the `require_roles(*names)` / `require_admin` gates |
-| `routes/__init__.py` | **Auto-discovery**: scans the `routes` package with `pkgutil` and registers every module that exports `router: APIRouter`. Adding a new file is enough — no manual wiring. Routers mount at the app root (`/user/...`, `/storage/...`) — there is **no** `/api` prefix. |
-| `routes/user.py` | Full user system: login, refresh, logout, register, me, CRUD, notifications, reminders — all wired to DB |
-| `routes/events.py` | Event CRUD stubs — models exist, handlers not yet wired |
-| `routes/apps.py` | Nextcloud proxy stubs (cloud, file viewer, calendar, contacts, notes) |
-| `routes/nextcloud.py` | Nextcloud admin routes via `nc-py-api` — **admin-gated at the router level** |
-| `routes/nc_link.py` | Link a real Nextcloud account via Login Flow v2, storing an encrypted per-user app password |
-
-**Adding a protected route:** inject `current_user: User = Depends(get_current_user)` from `app.core.dependencies`. The dependency handles token validation, revocation and the 401 response automatically. For admin-only routes use `Depends(require_admin)` (or `require_roles("staff", "admin")`); prefer putting it in the `APIRouter(dependencies=[...])` so new routes in that file cannot forget it.
-
-**DB session injection:** use `session: AsyncSession = Depends(get_session)` from `app.db.database`.
-
-**Eager loading:** async SQLAlchemy does not support lazy loading. Always use `selectinload` or `joinedload` when a route needs relationships. `_user_q()` in `routes/user.py` is the established pattern; `_deletable_user_q()` loads everything a cascading delete touches. Relationships read on every request (`User.nc_account`) instead declare `lazy="selectin"` on the model.
-
-**Migrations:** there is no migration tool, and `metadata.create_all` only creates missing **tables** — it never adds a column to an existing one. Adding a field to a live model is a silent no-op against an existing database. Model new data as a new table (see `NextcloudAccount`), or introduce Alembic.
-
-#### Auth flow
-
-- `POST /user/login` → `{access_token, refresh_token, expires_in}`. The access token lasts 15 min; the refresh token 30 days.
-- `POST /user/refresh` takes the refresh token (no `Authorization` header — the access token is expected to be expired) and rotates it. A rotated token inherits its predecessor's expiry, so refreshing never extends the absolute session lifetime.
-- Replaying an already-used refresh token within `REFRESH_GRACE_SECONDS` (10 s) returns the same replacement pair, so concurrent browser tabs converge instead of fighting. Replaying it later is treated as theft: the whole token family is revoked and the user must log in again.
-- `POST /user/logout` blacklists the current access token and, when given a refresh token, kills its family.
-- Revocation state lives in redis. If redis is down, revocation checks are skipped (`AUTH_REDIS_STRICT=false`) but refresh and logout return 503 — they cannot be honoured without it.
-
-#### Notifications
-
-Nothing writes to `notifications` except `core/notifications.py`. Send one with
-`notify(session, user_id, message, from_id=...)`, or `notify_role(...)` to reach everyone
-holding a role. `from_id` records who caused it and is null for system-generated ones.
-
-Call these **after** committing whatever triggered them: they manage their own
-commit/rollback and swallow every `Exception`, so a notification that fails to insert
-rolls back only itself and returns 0 rather than turning a successful action into a 500.
-That only holds if the triggering work is already committed — notify last.
-
-`POST /user/notification/` is the exception: creating one is the caller's whole intent
-there, so it raises normally.
-
-#### Nextcloud accounts
-
-Every AssoCORE user has a matching Nextcloud account. By default its password is derived from `SECRET_KEY` + username, so a `SECRET_KEY` leak exposes every account. Users can instead link their real Nextcloud account through `POST /nextcloud/link/init` → browser approval → `GET /nextcloud/link/poll/{handle}`, which stores an encrypted per-user app password that `storage.py` prefers. Login re-checks the account at most once every `NC_PROBE_INTERVAL_HOURS` and re-provisions it if missing — but never resets the password of a linked account.
-
-### Frontend (`front/`)
-
-Next.js 16 App Router, React 19, TypeScript.
-- **shadcn/ui** (new-york style, Radix primitives, Lucide icons) — scaffold with `pnpm dlx shadcn@latest add <component>`. If it fails with `Command failed with exit code 1: pnpm add -- cn`, that's pnpm's build-approval gate (`ERR_PNPM_IGNORED_BUILDS`) making the CLI's internal `pnpm add` exit non-zero even though the dependency install actually succeeded — run `pnpm approve-builds` once (already recorded in `front/pnpm-workspace.yaml`'s `allowBuilds`) and retry. Every component in `front/components/ui/` imports the local `cn()` from `@/lib/utils`; if the CLI ever emits an import from the standalone [`cn`](https://github.com/shadcn-ui/cn) package, rewrite it to match rather than adding the dependency.
-- **Tailwind CSS v4** with OKLch CSS custom properties for theming (`.dark` class toggles dark mode)
-- Path alias `@/` maps to `front/` root (`tsconfig.json` + `components.json`)
-- `cn()` utility in `front/lib/utils.ts` for conditional Tailwind classes
-- **Two linters, on purpose**: Biome (root `biome.json`) formats and lints; ESLint (`front/eslint.config.mjs`, run by `pnpm lint`) exists only for the Next-specific `core-web-vitals` rules Biome has no equivalent for. Don't add Prettier. Neither linter checks `front/components/ui/` (shadcn output, regenerated by `shadcn add`); Biome still formats it.
-- `BACKEND_URL` is server-only (no `NEXT_PUBLIC_` prefix) and defaults to `http://localhost:8000` in `front/lib/backend.ts`; Compose overrides it per profile. There is deliberately no `front/.env.example` — the only value it could document is already the code default.
-- `lucide-react` currently has no imports but is the configured `iconLibrary` in `components.json`, so `shadcn add` will emit Lucide imports. Don't remove it as "unused".
-
-#### Auth (frontend)
-
-The browser never calls FastAPI directly or holds a raw JWT — only same-origin Next.js
-routes do, and the Next.js server calls the backend server-to-server (`front/lib/backend.ts`),
-which sidesteps browser CORS entirely.
-
-- `front/app/api/auth/{login,register,logout,refresh}/route.ts` are the only code that talks
-  to the backend on the browser's behalf. `login`/`refresh` set httpOnly `access_token` /
-  `refresh_token` cookies (both `path: "/"` — a narrower path would stop the browser attaching
-  `refresh_token` to a plain page navigation, breaking the refresh design below).
-- `front/proxy.ts` (Next.js 16 renamed `middleware.ts` → a file exporting `proxy`) runs before
-  every protected-page request, decodes the access token's payload (no signature check — the
-  backend re-validates that on every real call), and if it's expired calls `POST /user/refresh`
-  itself, rewriting both the in-flight request's cookies and the response's before the Server
-  Component renders — Server Components themselves cannot call `cookies().set()`. `/api/auth/refresh`
-  is the reactive fallback for a client-side fetch that 401s mid-session, after the proxy already
-  ran for that page load.
-- `front/lib/auth/session.ts`'s `getCurrentUser()` (React `cache()`-wrapped) is the server-only
-  `GET /user/me` getter used by pages/layouts; `front/lib/auth/roles.ts` mirrors the backend's
-  `admin`/`staff`/`member` constants and `hasRole()`/`isAdmin()` checks.
-- Route guards: `front/app/(protected)/layout.tsx` redirects to `/login` if unauthenticated;
-  `(protected)/admin/layout.tsx` additionally requires the admin role, redirecting to
-  `/unauthorized` otherwise — this is a UX gate only, the backend's own `require_admin` enforces
-  it independently regardless of what the frontend does.
-- Every backend call (`backendFetch`, and `proxy.ts`'s refresh) forwards the browser's IP in `X-Client-IP`
-  with `BFF_SHARED_SECRET` in `X-BFF-Secret`, so the backend's rate limits apply per person rather than to this
-  server's single IP. The IP is the **last** `X-Forwarded-For` entry (written by Traefik, or by Next.js itself
-  in dev); earlier entries are client-controlled. Without the secret nothing is forwarded.
-- `front/lib/auth/schemas.ts` mirrors the backend's password/phone/email regexes exactly so
-  client-side zod errors match the server's 422s.
-
-This pass is functional plumbing only (plain shadcn primitives, no design work) — the visual
-design is tracked separately under issues #79/#80, which rebase onto this work.
-
-### Infrastructure
-
-Docker Compose uses **profiles**: `dev` (source-mounted, hot-reload, the default via
-`COMPOSE_PROFILES` in `.env`), `prod` (production builds), and `mobile`/`mobile-prod`
-for the Flutter APK builders. Infrastructure (`db`, `redis`, `nextcloud`) declares no
-profile, so it runs in all of them. The APK builders are deliberately outside
-`dev`/`prod`: they are one-shot build tools with no ready state, and in the dev profile
-they ran a slow Flutter build on every `up` and broke `--wait`.
-
-**There is one `.env`, at the repo root** (`.env.example` is the template). Compose reads
-it twice over — to resolve the `${VAR}` substitutions inside `docker-compose.yml`, and as
-the `env_file` injected into the `db`, `nextcloud` and `backend` containers. It has to sit
-next to the compose file for the first of those, which is why compose must be run from the
-repo root. This used to be split across a root `.env` and a `back/.env` that had to be kept
-in sync by hand; they were merged because the drift silently produced blank credentials.
-
-Required substitutions use `${VAR:?message}`, so a missing or incomplete `.env` aborts the
-run naming the variable instead of starting MariaDB and Nextcloud with empty passwords.
-
-Setting `DATABASE_URL` overrides the individual `MYSQL_*` vars that `db/database.py` otherwise composes the connection string from — worth knowing before adding one, since wiring it to the wrong credentials silently bypasses everything the `MYSQL_*` vars say. `SECRET_KEY` must be set to a strong random value before any deployment — the default is a placeholder. So must `BFF_SHARED_SECRET`, identical on the backend and the frontend; the backend logs a warning at startup when `ENVIRONMENT=production` and it is missing. In production also set `NC_APP_PASSWORD_KEY` to an independent Fernet key (it otherwise derives from `SECRET_KEY`, which means one leak decrypts every stored Nextcloud app password) and `ADMIN_PASSWORD` (without it no admin account is seeded).
-
-Redis backs auth revocation on DB 1. In Kubernetes the backend reads secrets from an optional `backend-secret`; see the comment in `k8s/09-backend/backend-deployment.yaml` for the `kubectl create secret` command. `BFF_SHARED_SECRET` is the exception: it lives in its own `bff-secret`, read by **both** the backend and frontend Deployments so the two copies cannot drift, and `k8s/01-secrets/create-app-secrets.sh` generates it (and keeps it on re-runs). `ENVIRONMENT=production` is set in `backend-config`, as in compose's prod profile.
-
-The frontend's `BACKEND_URL` points at the backend service reachable from wherever Next.js itself runs — `http://backend:8000` / `http://backend_prod:8000` in the two `docker-compose.yml` profiles, `http://backend.assocore.svc.cluster.local:8000` in `k8s/10-frontend/frontend-config.yaml`. It's a plain server-only env var, not `NEXT_PUBLIC_*`.
-
-## Key Conventions
-
-- **New route files** need only to export `router = APIRouter()` — auto-discovered.
-- **List endpoints return `Page[T]`** (`{items, total, limit, offset}`), never a bare array — `total` is the count before `limit`/`offset` so a client can render page counts. Use `paginate()` with the `limit_param()` / `offset_param()` helpers from `app.core.pagination`, and filter in SQL rather than post-filtering the result list: paging over a set you then discard rows from returns short pages and a `total` that disagrees with them.
-- **Schemas** in `back/app/schemas/classes.py`; **ORM models** in `back/app/db/models.py` — keep them separate.
-- **Frontend components** go in `front/components/`.
-- **Biome** (`biome.json` at root) is the formatter/linter for JS/TS — use it rather than Prettier.
-- **GDPR is followed to the letter**: see the next section. A change that cannot meet it is not merged.
-
-## GDPR (non-negotiable)
-
-AssoCORE processes members' personal data, so the association running it is a data controller under the GDPR
-and the French *Loi Informatique et Libertés* (CNIL guidance applies). Personal data is anything about an identifiable
-person: names, usernames, emails, phone numbers, birth dates, messages, attachments, payments, donations, IPs, and
-free-text that mentions someone.
-
-**Every PR that adds or changes personal data** (a table, column, file, log line or call to an external service) must:
-
-1. **Purpose and lawful basis** (art. 5, 6, 30): state them in the PR, and add or update the processing's entry in the
-   register `docs/src/content/docs/reference/gdpr-register.mdx` (purpose, basis, data, recipients, retention).
-2. **Minimise** (art. 5(1)(c)): collect only what that purpose needs. No "might be useful later" fields. Optional stays optional.
-3. **Retention** (art. 5(1)(e)): define how long the data lives and **implement the purge in the same PR**, as a poller in the
-   background worker (`core/worker.py`). Nothing is kept "forever". The only longer periods are legal obligations, such as
-   accounting documents and payments (10 years, Code de commerce L123-22), and they are cited in the register.
-4. **Access and portability** (art. 15, 20): include the data in the user's export (`GET /user/me/export`, JSON).
-5. **Erasure** (art. 17): `DELETE /user/me` and `DELETE /user/{id}` must delete it or anonymise it irreversibly.
-   Data kept under a legal obligation is detached from the account (foreign key → NULL, keeping only the fields the law requires)
-   and still purged when that period ends. Deleting an account must never delete *other* people's data.
-6. **Rectification** (art. 16): the user can correct it, or it is derived from data they can correct.
-7. **Privacy by default** (art. 25): every visibility setting defaults to the most private option, and members see only the
-   minimum about each other (for example the member directory exposes no email or phone).
-8. **Processors** (art. 28): personal data leaves AssoCORE only to services listed in the register under a data-processing agreement
-   (Stripe, the SMTP relay, …), and only the fields that service needs. Never to analytics, tracking CDNs, error
-   trackers or AI APIs.
-9. **Security** (art. 32): access is checked on the server on every route, admins get least privilege (an admin never
-   reads DMs they are not in), and secrets are encrypted at rest as `core/crypto.py` does.
-
-**Code rules**
-- **Logs carry IDs, never personal data.** Write `user %d`, never a username, email, name, message body, search term or token.
-  Request logs stay path-only (no query string). Log retention is bounded at the infra level (CNIL recommends 6–12 months).
-- **MariaDB `log_bin` and `general_log` stay off** (compose and k8s). They would record every write, including the rows that
-  anonymous polls (F8) keep deliberately unlinked, so enabling either breaks that guarantee and has to be in the register.
-- **No cookies beyond the strictly necessary ones.** Today these are only the httpOnly auth cookies, which need no consent. Adding any
-  analytics or tracking requires a consent mechanism first.
-- **Emails**: every non-transactional email (newsletters) carries an unsubscribe link and a `List-Unsubscribe` header.
-  Transactional mail (password reset, receipts) must contain nothing promotional.
-- **Tests**: every feature that stores personal data has tests proving it appears in the export, disappears on account deletion,
-  and is purged at the end of its retention period.
-
-**Known gaps**: no export endpoint yet, no background worker (`core/worker.py`) and so no retention purges, usernames logged in
-`core/nextcloud.py` / `db/seed.py` / `routes/user.py`, no register and no privacy-policy page. In addition, `User.created_events` cascades
-`delete-orphan`, so deleting an account deletes the events that user created along with everyone's registrations.
+- Logs carry IDs, never personal data: write `user %d`, never a username, email, message body, search term or token.
+- A change that adds or changes personal data (a table, column, file, log line, form field or call to an external
+  service) follows `.claude/rules/gdpr.md` in full. Read it before starting such a change, wherever it is.
