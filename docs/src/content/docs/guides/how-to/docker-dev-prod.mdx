@@ -265,16 +265,17 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
 ```dockerfile
 # Development stage - HMR enabled
 FROM node:20-alpine AS development
-RUN npm install -g pnpm
+COPY front/package.json ./
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')"
 ENV NODE_ENV=development
 CMD ["sh", "-c", "pnpm install && pnpm dev"]
 
 # Build dependencies
-FROM nixos/nix:latest AS deps
-# ... Nix + pnpm setup
+FROM node:20-alpine AS deps
+# ... same pnpm install, then pnpm install --frozen-lockfile
 
 # Build stage
-FROM nixos/nix:latest AS builder
+FROM node:20-alpine AS builder
 # ... build Next.js
 
 # Production runtime
@@ -283,6 +284,15 @@ COPY --from=builder /app/.next/standalone ./
 USER nextjs
 CMD ["node", "server.js"]
 ```
+
+<Aside type="caution">
+  The pnpm version is set in one place: the `packageManager` field of
+  `front/package.json`. Every stage installs exactly that version, and your local
+  pnpm switches to it as well. Change that field to upgrade pnpm. Don't go back
+  to a bare `npm install -g pnpm`: Docker caches that layer with whatever version
+  was latest on the first build, which is how a crashing pnpm 12.21.0 broke the
+  prod build (#172).
+</Aside>
 
 ## Common Workflows
 

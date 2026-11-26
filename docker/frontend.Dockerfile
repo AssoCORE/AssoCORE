@@ -4,8 +4,14 @@
 FROM node:20-alpine AS development
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install the pnpm version pinned by package.json's "packageManager" field — the
+# one place it is set, so dev, prod and local installs all run the same pnpm.
+# Don't go back to an unpinned `npm install -g pnpm`: the layer cache freezes
+# whatever was latest on first build (pnpm 12.21.0 segfaulted on node:20-alpine,
+# #172), and changing package.json is what invalidates this layer.
+# The field must stay a plain `pnpm@x.y.z`: npm can't install a `+sha512…` suffix.
+COPY front/package.json ./
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')"
 
 # Set environment
 ENV NODE_ENV=development
@@ -28,10 +34,9 @@ CMD ["sh", "-c", "pnpm install && pnpm dev"]
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-RUN npm install -g pnpm
-
-# Copy package files
+# Copy package files; pnpm comes from "packageManager", see the development stage.
 COPY front/package.json front/pnpm-lock.yaml front/pnpm-workspace.yaml* ./
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')"
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -40,12 +45,11 @@ RUN pnpm install --frozen-lockfile
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g pnpm
-
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')"
 
 # Copy frontend source code
 COPY front/ ./
