@@ -22,16 +22,87 @@ jobs:
           fetch-depth: 0   # Full history
           ref: ${{ github.ref }}
 
-      - name: Install Git LFS
-        run: git lfs install
+      # The mirror lives in the EPITECH organisation, whose Git LFS budget we
+      # can't raise. Once it is exhausted GitHub refuses every LFS upload, and
+      # git's pre-push hook then aborts the whole push: no commit reaches the
+      # mirror at all. Ask the LFS batch API first, with a dummy upload request
+      # that sends no data: an exhausted budget answers 403 "exceeded its LFS
+      # budget" (checked against the mirror on 2026-11-26).
+      - name: Check the mirror's LFS budget
+        id: lfs
+        env:
+          TARGET: ${{ secrets.GH_TARGET_REPO }}
+        run: |
+          # git@github.com:Org/Repo.git or ssh://git@github.com/Org/Repo.git -> Org/Repo.git
+          REPO_PATH=$(printf '%s' "$TARGET" | sed -E 's#^(ssh://)?([^@/]+@)?github\.com[:/]##')
 
+          if ! AUTH_JSON=$(ssh git@github.com git-lfs-authenticate "$REPO_PATH" upload); then
+            # Can't tell: keep the old behaviour, which surfaces the real error.
+            echo "::warning::Could not authenticate to the mirror's LFS endpoint; pushing with LFS as before"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HREF=$(jq -r '.href' <<<"$AUTH_JSON")
+          AUTHORIZATION=$(jq -r '.header.Authorization' <<<"$AUTH_JSON")
+
+          STATUS=$(curl -sS -o lfs-probe.json -w '%{http_code}' -X POST "$HREF/objects/batch" \
+            -H "Authorization: $AUTHORIZATION" \
+            -H 'Accept: application/vnd.git-lfs+json' \
+            -H 'Content-Type: application/vnd.git-lfs+json' \
+            -d '{"operation":"upload","transfers":["basic"],"objects":[{"oid":"0000000000000000000000000000000000000000000000000000000000000001","size":1}]}' \
+            || echo "000")
+
+          if [ "$STATUS" = "403" ] && grep -q 'exceeded its LFS budget' lfs-probe.json; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Mirror LFS budget exhausted::Mirroring commits without their LFS files (images, icons, videos). They will be missing on the EPITECH mirror until its budget is raised."
+          else
+            # 200 = budget left. Anything else is unexpected: try the normal push.
+            echo "LFS probe answered HTTP $STATUS"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only fetch LFS objects when they can be uploaded: pulling them spends
+      # AssoCORE's own LFS bandwidth.
       - name: Pull LFS objects
-        run: git lfs pull
+        if: steps.lfs.outputs.available == 'true'
+        run: |
+          git lfs install
+          git lfs pull
 
       - name: Add mirror remote
         run: git remote add mirror "${{ secrets.GH_TARGET_REPO }}"
 
       - name: Push current branch to mirror
+        env:
+          LFS_AVAILABLE: ${{ steps.lfs.outputs.available }}
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          git push mirror HEAD:"refs/heads/$BRANCH" --force
+
+          push_without_lfs() {
+            # The pointer files are ordinary git blobs, so the commits are complete;
+            # only the binaries behind them stay on AssoCORE.
+            GIT_LFS_SKIP_PUSH=1 git push mirror HEAD:"refs/heads/$BRANCH" --force
+            {
+              echo "### ⚠️ Mirrored without LFS files"
+              echo "The EPITECH mirror's Git LFS budget is exhausted, so \`$BRANCH\` was pushed without its LFS objects."
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          if [ "$LFS_AVAILABLE" != "true" ]; then
+            push_without_lfs
+            exit 0
+          fi
+
+          # The budget can also run out during this very upload.
+          set +e
+          git push mirror HEAD:"refs/heads/$BRANCH" --force 2>&1 | tee push.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            if grep -q 'exceeded its LFS budget' push.log; then
+              echo "::warning title=Mirror LFS budget exhausted::Budget ran out during the push; retrying without LFS files."
+              push_without_lfs
+            else
+              exit "$STATUS"
+            fi
+          fi
