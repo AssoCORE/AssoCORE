@@ -83,6 +83,10 @@ Runs on every PR into `dev` or `main` and on every push to them. All three jobs 
 
 Biome warnings are reported but don't fail the run; errors (including unformatted files and unsorted imports) do.
 
+CI installs the pnpm pinned by `front/package.json`'s `packageManager` field, the same one the frontend
+Dockerfile installs (#334). To upgrade pnpm, change that field only. Existing dev containers keep their old
+global pnpm until `docker compose up --build`; pnpm switches itself to the pinned version anyway.
+
 ## Architecture
 
 ### Backend (`back/app/`)
