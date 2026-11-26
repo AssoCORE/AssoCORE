@@ -54,7 +54,7 @@ jobs:
 
           if [ "$STATUS" = "403" ] && grep -q 'exceeded its LFS budget' lfs-probe.json; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Mirror LFS budget exhausted::Mirroring commits without their LFS files (images, icons, videos). They will be missing on the EPITECH mirror until its budget is raised."
+            echo "::warning title=Mirror LFS budget exhausted::LFS files (images, icons, videos) can't be uploaded to the EPITECH mirror. The branch is mirrored only if all of its LFS files are already there."
           else
             # 200 = budget left. Anything else is unexpected: try the normal push.
             echo "LFS probe answered HTTP $STATUS"
