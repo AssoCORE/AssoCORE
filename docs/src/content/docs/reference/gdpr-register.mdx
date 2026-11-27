@@ -1,0 +1,44 @@
+---
+title: GDPR processing register
+description: Every processing of personal data in AssoCORE, with its purpose, lawful basis, data, recipients and retention (GDPR art. 30)
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The association running AssoCORE is the **data controller** for its members' personal data, under the GDPR and
+the French *Loi Informatique et Libertés*. This register lists each processing that AssoCORE carries out, as
+article 30 requires. An association deploying AssoCORE completes it with its own details (name, contact,
+data protection contact) and keeps it up to date.
+
+Every change that adds or changes personal data updates this page in the same pull request
+(`.claude/rules/gdpr.md`).
+
+<Aside type="caution">
+  The register is being filled in. It was created with the role audit log (R1). The processings that existed
+  before it (accounts, notifications, reminders, events, Nextcloud storage) are added by the GDPR baseline
+  (#200).
+</Aside>
+
+## Rights of the people concerned
+
+| Right | How AssoCORE provides it |
+|---|---|
+| Access and portability (art. 15, 20) | `GET /user/me/export` returns everything listed here about the user, as JSON |
+| Erasure (art. 17) | `DELETE /user/me`, or an admin's `DELETE /user/{id}` |
+| Rectification (art. 16) | The profile page (`PUT /user/me`) |
+
+## Accounts
+
+### Role-change audit log
+
+| | |
+|---|---|
+| **Purpose** | Security traceability: knowing who gave whom which role, admin rights in particular |
+| **Lawful basis** | Legitimate interest of the association in securing access to its members' data (art. 6(1)(f), art. 32) |
+| **People concerned** | Members whose roles changed, and the admins who changed them |
+| **Data** | Member ID, role, grant or revoke, admin ID, date and time |
+| **Recipients** | The association's admins (`GET /user/{id}/role-history`). The member, in their export, without the admin's ID |
+| **Processors** | None |
+| **Retention** | 24 months after the change, then deleted daily by the `purge_role_history` worker job. Configurable once the settings page exists (#199) |
+| **Erasure** | Deleting the account deletes the member's own history. Rows the account wrote about other members are kept, with the admin ID removed |
+| **Where** | `role_changes` table, `back/app/core/roles.py` |
