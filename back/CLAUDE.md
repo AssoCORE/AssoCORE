@@ -27,6 +27,8 @@ FastAPI with async SQLAlchemy (MariaDB in the stack, SQLite in tests), redis, an
   one, so a new field on a live model silently does nothing. Model new data as a new table (as
   `NextcloudAccount` is), or introduce Alembic.
 - `DATABASE_URL`, when set, replaces the `MYSQL_*` variables entirely.
+- SQL logging is off. `SQL_ECHO=1` turns it on for local debugging, always with `hide_parameters=True`: bound values
+  are personal data and stay out of logs (#341).
 
 ## Notifications
 
