@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core import redis_client
 from .core.rate_limit import limiter, warn_if_unconfigured
+from .core.worker import worker
 from .db import init_db
 from .db.database import get_session
 from .db.seed import seed_all
@@ -26,7 +27,10 @@ async def lifespan(_: FastAPI):
     await init_db()
     await seed_all()
     await redis_client.ping()
+    # After seeding: pollers may read the seeded roles and accounts.
+    worker.start()
     yield
+    await worker.stop()
     await redis_client.close()
 
 
@@ -66,8 +70,10 @@ def health():
     """Deliberately static — the Kubernetes liveness probe points here.
 
     Checking the database would restart otherwise-healthy pods during a DB blip.
+    The worker's heartbeat is reported, not judged: a stalled loop shows up as
+    a growing `seconds_since_tick` without failing the probe.
     """
-    return {"status": "ok"}
+    return {"status": "ok", "worker": worker.heartbeat()}
 
 
 @app.get("/ready", tags=["health"], summary="Readiness probe — checks DB and redis")
