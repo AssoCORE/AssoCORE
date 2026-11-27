@@ -9,6 +9,7 @@ It processes members' personal data, so GDPR applies to every change (see the la
 | `front/` | Next.js 16 app and BFF: the browser talks only to it, never to the API |
 | `mobile/` | Flutter app |
 | `docs/` | Astro documentation site, home of the GDPR register |
+| `bruno/` | Bruno collection that walks through the API with tests: the backend demo without a frontend |
 | `docker/`, `docker-compose.yml`, `k8s/` | Images, the dev/prod stack, the production manifests |
 
 `back/` and `front/` have their own `CLAUDE.md` with what their code doesn't say by itself.

@@ -1,0 +1,41 @@
+meta {
+  name: Create an event (admin)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/event/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "General assembly",
+    "description": "Annual general assembly",
+    "start_date": "{{eventStart}}",
+    "end_date": "{{eventEnd}}",
+    "registrations_limits": 50
+  }
+}
+
+script:pre-request {
+  const start = Date.now() + 3 * 86400000;
+  bru.setVar("eventStart", new Date(start).toISOString());
+  bru.setVar("eventEnd", new Date(start + 2 * 3600000).toISOString());
+}
+
+script:post-response {
+  bru.setVar("eventId", res.body.id);
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Staff and admins create events.
+}

@@ -1,0 +1,20 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  # AssoCORE API
+
+  Run the folders in order: each one uses what the previous ones created.
+
+  - **02 Auth** logs in as the seeded admin (`accessToken`, used by every request by default) and
+    registers a throwaway demo member (`memberToken`, used where a member's view matters).
+  - **99 Cleanup** logs the member out and deletes them, so a run leaves no data behind.
+  - **07 Storage** needs Nextcloud running (it is in `docker compose up`).
+
+  Setup and the CLI command: `bruno/README.md`.
+}

@@ -1,0 +1,27 @@
+meta {
+  name: The member sees it
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/user/notification/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("contains the welcome message, unread", function () {
+    const n = res.body.items.find((i) => i.id === bru.getVar("notificationId"));
+    expect(n.message).to.equal("Welcome to the association!");
+    expect(n.read).to.equal(false);
+  });
+}

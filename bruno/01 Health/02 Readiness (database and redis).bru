@@ -1,0 +1,21 @@
+meta {
+  name: Readiness (database and redis)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("database and redis are reachable", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Answers 503 with the failing dependency when MariaDB or redis is down.
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Members can't list users
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/user/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 403", function () {
+    expect(res.status).to.equal(403);
+  });
+}
+
+docs {
+  Access is checked on the server: the frontend's admin pages are only a convenience.
+}

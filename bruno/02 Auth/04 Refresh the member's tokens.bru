@@ -1,0 +1,37 @@
+meta {
+  name: Refresh the member's tokens
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/user/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{memberRefresh}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("previousRefresh", bru.getVar("memberRefresh"));
+  bru.setVar("memberToken", res.body.access_token);
+  bru.setVar("memberRefresh", res.body.refresh_token);
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("rotates the refresh token", function () {
+    expect(res.body.refresh_token).to.not.equal(bru.getVar("previousRefresh"));
+  });
+}
+
+docs {
+  No Authorization header: the access token is expected to be expired. The refresh token rotates on every use, and replaying an old one more than 10 s later revokes the whole session family.
+}

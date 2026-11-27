@@ -1,0 +1,30 @@
+meta {
+  name: List the folder
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/storage/?path=bruno-demo
+  body: none
+  auth: bearer
+}
+
+params:query {
+  path: bruno-demo
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("contains the uploaded file", function () {
+    const names = JSON.stringify(res.body);
+    expect(names).to.contain("hello.txt");
+  });
+}

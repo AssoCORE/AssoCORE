@@ -1,0 +1,28 @@
+meta {
+  name: Broadcast to the staff (admin)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/user/notification/broadcast
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "message": "Staff meeting on Friday",
+    "role": "staff"
+  }
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Without `role`, it reaches every user.
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Delete the event (admin)
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/event/{{eventId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}
+
+docs {
+  Everyone registered is notified of the cancellation.
+}

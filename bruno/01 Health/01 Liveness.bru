@@ -1,0 +1,25 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("reports ok", function () {
+    expect(res.body.status).to.equal("ok");
+  });
+}
+
+docs {
+  The Kubernetes liveness probe. Deliberately static: it never checks the database.
+}

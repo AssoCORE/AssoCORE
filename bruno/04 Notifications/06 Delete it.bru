@@ -1,0 +1,21 @@
+meta {
+  name: Delete it
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/user/notification/{{notificationId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}

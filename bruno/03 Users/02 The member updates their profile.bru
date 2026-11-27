@@ -1,0 +1,35 @@
+meta {
+  name: The member updates their profile
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/user/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:json {
+  {
+    "phone": "+33612345678"
+  }
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("saves the new phone number", function () {
+    expect(res.body.phone).to.equal("+33612345678");
+  });
+}
+
+docs {
+  Rectification (GDPR art. 16): a member corrects their own data.
+}

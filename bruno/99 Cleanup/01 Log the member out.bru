@@ -1,0 +1,31 @@
+meta {
+  name: Log the member out
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/user/logout
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:json {
+  {
+    "refresh_token": "{{memberRefresh}}"
+  }
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}
+
+docs {
+  Blacklists the access token and kills the refresh-token family.
+}

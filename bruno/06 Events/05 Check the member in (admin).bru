@@ -1,0 +1,21 @@
+meta {
+  name: Check the member in (admin)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/event/{{eventId}}/checkin/{{memberId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}
+
+docs {
+  Attendance (F4).
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Members can't create events
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/event/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:json {
+  {
+    "title": "Not allowed",
+    "start_date": "{{eventStart}}",
+    "end_date": "{{eventEnd}}",
+    "registrations_limits": 1
+  }
+}
+
+tests {
+  test("answers 403", function () {
+    expect(res.status).to.equal(403);
+  });
+}

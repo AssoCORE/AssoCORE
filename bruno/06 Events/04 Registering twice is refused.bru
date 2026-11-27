@@ -1,0 +1,21 @@
+meta {
+  name: Registering twice is refused
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/event/{{eventId}}/register
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 409", function () {
+    expect(res.status).to.equal(409);
+  });
+}

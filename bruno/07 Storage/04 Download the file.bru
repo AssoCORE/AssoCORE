@@ -1,0 +1,29 @@
+meta {
+  name: Download the file
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/storage/download?path=bruno-demo/hello.txt
+  body: none
+  auth: bearer
+}
+
+params:query {
+  path: bruno-demo/hello.txt
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("returns the uploaded content", function () {
+    expect(String(res.body)).to.contain("Hello from the AssoCORE Bruno collection.");
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: List my reminders
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/user/reminder/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("contains the new reminder", function () {
+    expect(res.body.items.map((r) => r.id)).to.include(bru.getVar("reminderId"));
+  });
+}
