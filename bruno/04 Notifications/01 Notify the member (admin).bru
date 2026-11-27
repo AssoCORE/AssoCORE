@@ -1,0 +1,28 @@
+meta {
+  name: Notify the member (admin)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/user/notification/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "user_id": {{memberId}},
+    "message": "Welcome to the association!"
+  }
+}
+
+script:post-response {
+  bru.setVar("notificationId", res.body.id);
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

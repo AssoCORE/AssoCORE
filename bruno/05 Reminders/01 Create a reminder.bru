@@ -1,0 +1,36 @@
+meta {
+  name: Create a reminder
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/user/reminder/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:json {
+  {
+    "title": "Bring the projector",
+    "date": "{{reminderDate}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("reminderDate", new Date(Date.now() + 86400000).toISOString());
+}
+
+script:post-response {
+  bru.setVar("reminderId", res.body.id);
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Delete the demo member (admin)
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/user/{{memberId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}
+
+docs {
+  Erasure (GDPR art. 17): the account, its data and its Nextcloud account go.
+}

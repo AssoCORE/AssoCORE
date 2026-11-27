@@ -1,0 +1,23 @@
+meta {
+  name: Who am I (admin)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/user/me
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("is the admin, with no notifications or reminders embedded", function () {
+    expect(res.body.roles.map((r) => r.name)).to.include("admin");
+    expect(res.body).to.not.have.property("notifications");
+    expect(res.body).to.not.have.property("reminders");
+  });
+}

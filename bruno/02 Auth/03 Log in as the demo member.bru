@@ -1,0 +1,29 @@
+meta {
+  name: Log in as the demo member
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/user/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{memberUsername}}",
+    "password": "{{memberPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("memberToken", res.body.access_token);
+  bru.setVar("memberRefresh", res.body.refresh_token);
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

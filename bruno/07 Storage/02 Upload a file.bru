@@ -1,0 +1,29 @@
+meta {
+  name: Upload a file
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/storage/upload?path=bruno-demo/hello.txt
+  body: multipartForm
+  auth: bearer
+}
+
+params:query {
+  path: bruno-demo/hello.txt
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:multipart-form {
+  file: @file(fixtures/hello.txt)
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

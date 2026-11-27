@@ -1,0 +1,25 @@
+meta {
+  name: The member registers
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/event/{{eventId}}/register
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 204", function () {
+    expect(res.status).to.equal(204);
+  });
+}
+
+docs {
+  The member also gets a confirmation notification.
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Members can't notify others
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/user/notification/
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+body:json {
+  {
+    "user_id": {{memberId}},
+    "message": "spam"
+  }
+}
+
+tests {
+  test("answers 403", function () {
+    expect(res.status).to.equal(403);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Their token no longer works
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/user/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 401", function () {
+    expect(res.status).to.equal(401);
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: It is gone
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/user/{{memberId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("answers 404", function () {
+    expect(res.status).to.equal(404);
+  });
+}

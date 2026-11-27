@@ -1,0 +1,25 @@
+meta {
+  name: Mark it read
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/user/notification/read/{{notificationId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("is now read", function () {
+    expect(res.body.read).to.equal(true);
+  });
+}

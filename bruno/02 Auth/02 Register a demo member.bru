@@ -1,0 +1,47 @@
+meta {
+  name: Register a demo member
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/user/
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{memberUsername}}",
+    "password": "{{memberPassword}}",
+    "firstname": "Demo",
+    "name": "Member",
+    "mail": "{{memberMail}}"
+  }
+}
+
+script:pre-request {
+  const n = Date.now();
+  bru.setVar("memberUsername", `demo_${n}`);
+  bru.setVar("memberMail", `demo_${n}@example.com`);
+  bru.setVar("memberPassword", "Demo@1234!");
+}
+
+script:post-response {
+  bru.setVar("memberId", res.body.id);
+}
+
+tests {
+  test("answers 201", function () {
+    expect(res.status).to.equal(201);
+  });
+
+  test("is a member and never returns the password", function () {
+    expect(res.body.roles.map((r) => r.name)).to.include("member");
+    expect(res.body).to.not.have.property("password");
+  });
+}
+
+docs {
+  Public registration (A2 replaces it with invitations). A unique username per run, so runs never collide.
+}

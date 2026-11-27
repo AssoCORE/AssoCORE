@@ -1,0 +1,30 @@
+meta {
+  name: Search users (admin)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/user/?q={{memberUsername}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  q: {{memberUsername}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("finds exactly the demo member, as a page", function () {
+    expect(res.body.total).to.equal(1);
+    expect(res.body.items[0].id).to.equal(bru.getVar("memberId"));
+  });
+}
+
+docs {
+  Every list endpoint returns `{items, total, limit, offset}`, filtered in SQL.
+}

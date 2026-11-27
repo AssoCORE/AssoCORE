@@ -1,0 +1,21 @@
+meta {
+  name: Get it
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/user/reminder/{{reminderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: List events
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/event/
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{memberToken}}
+}
+
+tests {
+  test("answers 200", function () {
+    expect(res.status).to.equal(200);
+  });
+
+  test("includes the new event", function () {
+    expect(res.body.items.map((e) => e.id)).to.include(bru.getVar("eventId"));
+  });
+}

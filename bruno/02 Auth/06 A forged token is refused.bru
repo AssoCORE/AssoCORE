@@ -1,0 +1,21 @@
+meta {
+  name: A forged token is refused
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/user/me
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  req.setHeader("Authorization", "Bearer not.a.real.token");
+}
+
+tests {
+  test("answers 401", function () {
+    expect(res.status).to.equal(401);
+  });
+}
