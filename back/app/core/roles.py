@@ -9,11 +9,14 @@ imported by the routes.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Awaitable, Callable, Iterable
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.export import export_section
+from app.core.worker import poller, utcnow
 
 ROLE_ADMIN = "admin"
 ROLE_STAFF = "staff"
@@ -249,14 +252,41 @@ async def purge_role_history(
 ) -> int:
     """Delete audit rows older than `months` (30-day months). Returns how many.
 
-    The retention purge for `role_changes`. The background worker (#217) runs
-    it once the settings table (#199) supplies `role_audit_retention_months`.
+    The retention purge for `role_changes`, run daily by the worker below.
+    #199 will read `months` from the `role_audit_retention_months` setting.
     """
     from app.db.models import RoleChangeLog
 
-    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=30 * months)
+    cutoff = (now or utcnow()) - timedelta(days=30 * months)
     result = await session.execute(
         delete(RoleChangeLog).where(RoleChangeLog.created_at < cutoff)
     )
     await session.commit()
     return result.rowcount or 0
+
+
+@poller("purge_role_history", every=timedelta(days=1))
+async def _purge_role_history_daily(session: AsyncSession) -> int:
+    return await purge_role_history(session)
+
+
+@export_section("role_history")
+async def _export_role_history(session: AsyncSession, user) -> list[dict]:
+    """The user's own grants and revocations. `changed_by` is left out: it is
+    another person's identifier (the admin), visible to admins only."""
+    from sqlalchemy.orm import selectinload
+
+    from app.db.models import RoleChangeLog
+
+    rows = (
+        await session.execute(
+            select(RoleChangeLog)
+            .options(selectinload(RoleChangeLog.role))
+            .where(RoleChangeLog.user_id == user.id)
+            .order_by(RoleChangeLog.created_at, RoleChangeLog.id)
+        )
+    ).scalars()
+    return [
+        {"role": r.role.name, "action": r.action, "at": r.created_at.isoformat()}
+        for r in rows
+    ]

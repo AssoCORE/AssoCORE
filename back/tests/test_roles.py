@@ -383,3 +383,67 @@ async def test_purge_drops_rows_past_retention(db_session):
         .all()
     )
     assert remaining == ["revoke"]
+
+
+# --- export and the daily purge job ---
+
+
+async def test_export_contains_own_role_history_without_the_admin(
+    client, db_session
+):
+    _, admin_tokens = await _admin(client, db_session)
+    member, member_tokens = await _register_and_login(client, "exported")
+    other, _ = await _register_and_login(client, "notme")
+    await _put_roles(client, admin_tokens, member["id"], ["staff"])
+    await _put_roles(client, admin_tokens, other["id"], ["staff"])
+
+    resp = await client.get("/user/me/export", headers=_auth(member_tokens))
+
+    assert resp.status_code == 200, resp.text
+    assert "attachment" in resp.headers["content-disposition"]
+    body = resp.json()
+    assert body["user_id"] == member["id"]
+    assert body["profile"]["username"] == member["username"]
+    assert "password" not in body["profile"]
+    assert sorted(body["profile"]["roles"]) == ["member", "staff"]
+    history = body["role_history"]
+    assert [(h["role"], h["action"]) for h in history] == [("staff", "grant")]
+    assert "changed_by" not in history[0]
+
+
+async def test_export_requires_login(client):
+    assert (await client.get("/user/me/export")).status_code in (401, 403)
+
+
+async def test_the_worker_runs_the_purge_daily(db_session):
+    from contextlib import asynccontextmanager
+
+    from app.core import worker as worker_mod
+    from app.core.worker import Worker
+
+    job = worker_mod._pollers["purge_role_history"]
+    assert job.every == timedelta(days=1)
+
+    user = User(
+        name="P", firstname="P", username="purge_job", password="x",
+        mail="purge_job@example.com",
+    )
+    db_session.add(user)
+    await db_session.flush()
+    role_id = (
+        await db_session.execute(select(Role.id).where(Role.name == "staff"))
+    ).scalar_one()
+    db_session.add(
+        RoleChangeLog(
+            user_id=user.id, role_id=role_id, action="grant",
+            created_at=datetime.now(timezone.utc) - timedelta(days=30 * 24 + 1),
+        )
+    )
+    await db_session.commit()
+
+    @asynccontextmanager
+    async def factory():
+        yield db_session
+
+    assert await Worker(factory, pollers={job.name: job}).run_once() >= 1
+    assert await _history_count(db_session, user.id) == 0
