@@ -35,6 +35,21 @@ Only `core/notifications.py` writes the `notifications` table. Call `notify()` /
 swallow every exception, so a failed notification costs only itself, provided the triggering work is already
 committed. `POST /user/notification/` raises normally, since creating one is its whole purpose.
 
+## Background worker
+
+`core/worker.py` runs one in-process loop, started in `lifespan`, on every backend replica. There is no broker:
+redis isn't persistent in our deployments, so domain rows are the queue.
+- Register work with `@poller("name", every=timedelta(days=1))` on `async def tick(session) -> int`, in a module
+  the app imports at startup. Return how many rows were processed: the loop runs again at once while any
+  poller finds work, and otherwise sleeps `WORKER_INTERVAL_SECONDS`. A poller with `every` waits its period only
+  after a run that found nothing, so a batched purge drains its backlog.
+- Rows claimed across replicas use `QueueRowMixin` + `claim()` / `complete()` / `fail()` (SKIP LOCKED with a
+  lease, retries with exponential backoff). Delivery is at-least-once: a row in flight during a crash is
+  claimed again, so its work must be safe to repeat.
+- GDPR retention purges are pollers (`.claude/rules/gdpr.md`).
+- `GET /health` reports the loop's last tick without failing on it: a growing `seconds_since_tick` means a
+  stalled worker.
+
 ## Auth
 
 - Access tokens last 15 min, refresh tokens 30 days. `POST /user/refresh` takes the refresh token in the body
